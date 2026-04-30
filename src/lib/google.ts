@@ -2,6 +2,7 @@ import { Restaurant, DishPhoto } from "./types";
 import { extractPopularDishes } from "./reviewParser";
 
 const API_KEY = process.env.GOOGLE_MAPS_API_KEY!;
+const VISION_KEY = process.env.VISION_API_KEY || API_KEY;
 
 interface GooglePhoto {
   photo_reference: string;
@@ -75,7 +76,7 @@ async function analyzePhotosWithVision(photoUrls: string[]): Promise<VisionResul
     }));
 
     const res = await fetch(
-      `https://vision.googleapis.com/v1/images:annotate?key=${API_KEY}`,
+      `https://vision.googleapis.com/v1/images:annotate?key=${VISION_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
