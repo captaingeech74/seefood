@@ -45,11 +45,28 @@ export default function DishCard({ dish }: { dish: DishPhoto }) {
         </div>
       )}
 
-      {/* Official badge — only for owner-attributed photos */}
-      {loaded && dish.attribution === "owner" && (
-        <div className="absolute top-2 right-2 bg-amber-400/90 text-black text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full">
-          Official
-        </div>
+      {/* Attribution badge — top-right corner */}
+      {loaded && (
+        dish.attribution === "owner" ? (
+          <div
+            className="absolute top-2 right-2 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+            style={{ background: "rgba(251,191,36,0.92)", color: "#000" }}
+          >
+            Official
+          </div>
+        ) : (
+          <div
+            className="absolute top-2 right-2 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+            style={{
+              background: "rgba(0,0,0,0.45)",
+              backdropFilter: "blur(6px)",
+              WebkitBackdropFilter: "blur(6px)",
+              color: "rgba(255,255,255,0.55)",
+            }}
+          >
+            User
+          </div>
+        )
       )}
     </div>
   );

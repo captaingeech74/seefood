@@ -184,8 +184,13 @@ export async function getGooglePhotosAndReviews(placeId: string): Promise<{
   // Extract dish names from reviews
   const popularDishes = extractPopularDishes(reviews as GoogleReview[]);
 
-  // Build initial photo list (up to 20 candidates)
-  const candidates = (photos as GooglePhoto[]).slice(0, 20);
+  // Build candidate list (up to 20): non-portrait first, portrait appended at end.
+  // Portrait = height > width. This ordering lets us assess portrait photo value
+  // over time and tighten the filter later without changing the cap.
+  const allPhotos = photos as GooglePhoto[];
+  const nonPortrait = allPhotos.filter((p) => p.height <= p.width);
+  const portrait    = allPhotos.filter((p) => p.height >  p.width);
+  const candidates  = [...nonPortrait, ...portrait].slice(0, 20);
 
   const photoUrls = candidates.map(
     (p) =>
