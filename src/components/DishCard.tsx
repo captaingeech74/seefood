@@ -52,7 +52,7 @@ export default function DishCard({ dish }: { dish: DishPhoto }) {
             className="absolute top-2 right-2 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full"
             style={{ background: "rgba(251,191,36,0.92)", color: "#000" }}
           >
-            Official
+            Management
           </div>
         ) : (
           <div
