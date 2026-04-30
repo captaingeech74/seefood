@@ -35,6 +35,7 @@ export default function MapPicker({
   const [ready, setReady] = useState(false);
   const [showSearchHere, setShowSearchHere] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [searchText, setSearchText] = useState("");
 
   const clearMarkers = useCallback(() => {
     markersRef.current.forEach((m) => m.setMap(null));
@@ -267,74 +268,108 @@ export default function MapPicker({
   }, [initMap]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex flex-col">
-      {/* Header */}
+    <div className="fixed inset-0 z-50 bg-[#111] flex flex-col">
+      {/* Header — search bar inspired by Google Maps */}
       <div
-        className="flex items-center gap-3 px-4 py-3 bg-[#0a0a0a] border-b border-white/10"
-        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+        className="px-3 pb-3 bg-[#111]"
+        style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}
       >
-        <button
-          onClick={onClose}
-          className="text-white/60 hover:text-white text-2xl leading-none p-1 shrink-0"
-          aria-label="Go back"
-        >
-          &#8592;
-        </button>
-        <input
-          ref={searchRef}
-          type="text"
-          placeholder="Search any city or restaurant..."
-          className="flex-1 bg-[#1a1a1a] text-white rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#ff6b35]/50 placeholder:text-white/30"
-        />
+        <div className="flex items-center gap-2">
+          {/* Back button */}
+          <button
+            onClick={onClose}
+            className="w-10 h-10 flex items-center justify-center rounded-full text-white/60 hover:text-white hover:bg-white/10 active:bg-white/15 transition-colors shrink-0"
+            aria-label="Go back"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 5l-7 7 7 7"/>
+            </svg>
+          </button>
+
+          {/* Search input */}
+          <div className="relative flex-1">
+            {/* Search icon */}
+            <svg
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/35 pointer-events-none"
+              width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+
+            <input
+              ref={searchRef}
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="Search city, neighborhood, restaurant…"
+              className="w-full bg-[#242424] text-white rounded-2xl pl-10 pr-9 py-3.5 text-[15px] outline-none focus:ring-2 focus:ring-[#ff6b35]/40 placeholder:text-white/30 leading-none"
+            />
+
+            {/* Clear button */}
+            {searchText.length > 0 && (
+              <button
+                onClick={() => {
+                  setSearchText("");
+                  if (searchRef.current) {
+                    searchRef.current.value = "";
+                    searchRef.current.focus();
+                  }
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 active:text-white transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Map */}
       <div className="relative flex-1">
         <div ref={mapRef} className="w-full h-full" />
 
-        {/* Search this area button — appears after panning */}
+        {/* Search this area — floats over map after panning */}
         {ready && showSearchHere && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
             <button
               onClick={() =>
-                mapInstanceRef.current &&
-                searchCurrentArea(mapInstanceRef.current)
+                mapInstanceRef.current && searchCurrentArea(mapInstanceRef.current)
               }
-              className="bg-white text-gray-900 text-[13px] font-bold px-5 py-2.5 rounded-full shadow-xl active:scale-95 transition-transform flex items-center gap-2"
+              className="pointer-events-auto bg-white text-gray-900 text-[13px] font-bold px-5 py-2.5 rounded-full shadow-2xl active:scale-95 transition-transform flex items-center gap-2"
             >
-              <span>🔍</span> Search this area
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              Search this area
             </button>
           </div>
         )}
 
-        {/* Searching spinner */}
+        {/* Searching indicator */}
         {searching && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
-            <div className="bg-[#1a1a1a]/90 text-white/70 text-[12px] font-medium px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+            <div className="bg-[#1c1c1c]/95 backdrop-blur text-white/70 text-[12px] font-medium px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2.5">
+              <div className="w-3.5 h-3.5 rounded-full border-2 border-white/20 border-t-white/80 animate-spin" />
               Finding restaurants…
             </div>
           </div>
         )}
       </div>
 
-      {/* Hint */}
-      {ready && !showSearchHere && !searching && (
-        <div
-          className="bg-[#0a0a0a] border-t border-white/10 px-4 py-3 text-center"
-          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-        >
-          <p className="text-white/35 text-xs">
-            Tap a pin to select · Pan to a new city then tap Search
-          </p>
-        </div>
-      )}
-      {(showSearchHere || searching) && (
-        <div
-          className="bg-[#0a0a0a] border-t border-white/10 px-4 py-3"
-          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-        />
-      )}
+      {/* Bottom hint bar */}
+      <div
+        className="bg-[#111] border-t border-white/[0.06] px-4 py-2.5 text-center"
+        style={{ paddingBottom: "max(10px, env(safe-area-inset-bottom))" }}
+      >
+        <p className="text-white/25 text-[11px]">
+          {showSearchHere
+            ? "Pan complete — tap Search this area to load pins"
+            : "Tap a pin to view dishes · Pan to any city and search"}
+        </p>
+      </div>
     </div>
   );
 }

@@ -30,6 +30,91 @@ interface GooglePlace {
   opening_hours?: { open_now?: boolean };
 }
 
+// ── Vision API food detection ────────────────────────────────────────────────
+// Requires Cloud Vision API to be enabled in the same Google Cloud project.
+// To enable: https://console.cloud.google.com/apis/library/vision.googleapis.com
+// If not enabled, all photos pass through unfiltered (fail-open behaviour).
+
+// Labels whose presence strongly indicates a food/dish photo
+const FOOD_SIGNAL_LABELS = new Set([
+  "Food", "Cuisine", "Dish", "Baked goods", "Seafood", "Meat",
+  "Vegetable", "Fruit", "Snack", "Dessert", "Drink", "Beverage",
+  "Fast food", "Ingredient", "Recipe", "Meal", "Produce",
+  "Comfort food", "Street food", "Finger food", "Breakfast",
+  "Lunch", "Dinner", "Appetizer", "Entrée",
+]);
+
+// Labels too generic to surface as a meaningful dish name
+const SKIP_AS_DISH_NAME = new Set([
+  "Food", "Cuisine", "Dish", "Ingredient", "Recipe", "Meal",
+  "Tableware", "Plate", "Bowl", "Table", "Restaurant", "Menu",
+  "Cooking", "Kitchen utensil", "Drinkware", "Glassware",
+  "Serveware", "Cutlery", "Chopsticks", "Fork", "Spoon",
+  "Still life photography", "Photography", "Macro photography",
+  "Close-up", "Product", "Finger food", "Produce", "Vegetable",
+  "Fruit", "Meat", "Seafood", "Snack", "Ingredient", "Beverage",
+  "Drink", "Breakfast", "Lunch", "Dinner", "Appetizer", "Entrée",
+  "Fast food", "Comfort food", "Street food", "Baked goods",
+]);
+
+interface VisionResult {
+  isFood: boolean;
+  dishName: string | null;
+}
+
+async function analyzePhotosWithVision(photoUrls: string[]): Promise<VisionResult[]> {
+  if (photoUrls.length === 0) return [];
+
+  const fallback = (): VisionResult[] =>
+    photoUrls.map(() => ({ isFood: true, dishName: null }));
+
+  try {
+    const requests = photoUrls.map((url) => ({
+      image: { source: { imageUri: url } },
+      features: [{ type: "LABEL_DETECTION", maxResults: 15 }],
+    }));
+
+    const res = await fetch(
+      `https://vision.googleapis.com/v1/images:annotate?key=${API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requests }),
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.warn("[Vision API] Error", res.status, err.slice(0, 200));
+      return fallback();
+    }
+
+    const data = await res.json();
+
+    return (data.responses as Array<{ labelAnnotations?: Array<{ description: string; score: number }> }>).map(
+      (r) => {
+        const labels = r.labelAnnotations ?? [];
+
+        const isFood = labels.some(
+          (l) => l.score > 0.65 && FOOD_SIGNAL_LABELS.has(l.description)
+        );
+
+        // Best dish name: highest-scoring label that isn't too generic
+        const dishLabel = labels.find(
+          (l) => l.score > 0.72 && isFood && !SKIP_AS_DISH_NAME.has(l.description)
+        );
+
+        return { isFood, dishName: dishLabel?.description ?? null };
+      }
+    );
+  } catch (e) {
+    console.warn("[Vision API] Failed, falling back to unfiltered:", e);
+    return fallback();
+  }
+}
+
+// ── Places API helpers ────────────────────────────────────────────────────────
 
 export async function findNearbyRestaurant(
   lat: number,
@@ -98,29 +183,41 @@ export async function getGooglePhotosAndReviews(placeId: string): Promise<{
   // Extract dish names from reviews
   const popularDishes = extractPopularDishes(reviews as GoogleReview[]);
 
-  // Build photo list
-  const dishPhotos: DishPhoto[] = photos
-    .slice(0, 10)
-    .map((photo: GooglePhoto, i: number) => {
-      // Google attributions often look like:
-      // <a href="https://maps.google.com/maps/contrib/...">Name</a>
-      // Owner photos sometimes have "Google" or the business name in attribution
-      const attrText = photo.html_attributions.join(" ").toLowerCase();
-      const isOwner =
-        attrText.includes("owner") ||
-        attrText.includes("the official") ||
-        (!attrText.includes("maps.google.com/maps/contrib") && attrText.length > 0);
+  // Build initial photo list (up to 20 candidates)
+  const candidates = (photos as GooglePhoto[]).slice(0, 20);
 
-      return {
-        id: `google-${placeId}-${i}`,
-        url: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${photo.photo_reference}&key=${API_KEY}`,
-        dishName: null,
-        source: "google" as const,
-        attribution: isOwner ? "owner" : "user",
-        width: photo.width,
-        height: photo.height,
-      } satisfies DishPhoto;
+  const photoUrls = candidates.map(
+    (p) =>
+      `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photo_reference}&key=${API_KEY}`
+  );
+
+  // Run Vision API batch analysis
+  const visionResults = await analyzePhotosWithVision(photoUrls);
+
+  // Filter to food-only photos and merge dish names
+  const dishPhotos: DishPhoto[] = [];
+  for (let i = 0; i < candidates.length; i++) {
+    const photo = candidates[i];
+    const vision = visionResults[i] ?? { isFood: true, dishName: null };
+
+    if (!vision.isFood) continue; // skip non-food photos
+
+    const attrText = photo.html_attributions.join(" ").toLowerCase();
+    const isOwner =
+      attrText.includes("owner") ||
+      attrText.includes("the official") ||
+      (!attrText.includes("maps.google.com/maps/contrib") && attrText.length > 0);
+
+    dishPhotos.push({
+      id: `google-${placeId}-${i}`,
+      url: photoUrls[i],
+      dishName: vision.dishName,
+      source: "google",
+      attribution: isOwner ? "owner" : "user",
+      width: photo.width,
+      height: photo.height,
     });
+  }
 
   return { photos: dishPhotos, popularDishes };
 }
