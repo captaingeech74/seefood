@@ -139,22 +139,42 @@ row → address + "Not here?" orange link. The "Not here?" link replaced an earl
 Full-screen map overlay. Google Maps JS API loaded dynamically via script tag (not npm
 package, because the maps npm package doesn't work well with Next.js App Router).
 - First `idle` event → auto-search current area
-- Subsequent `idle` events → show "Search this area" floating button
+- Subsequent `idle` events → show "Search this area" floating button (350ms debounce)
 - Search box (Google Places SearchBox) navigates map and triggers restaurant search
-- Restaurant pins are orange circles (#ff6b35), drop animation
-- Info window has a "See Dishes →" button that calls `onSelectRestaurant`
+- Restaurant pins: orange filled circles (selected: white fill + orange ring + larger)
+- **Modern bottom sheet pattern** replaces info windows. Tapping a pin sets `selected`
+  state which renders a glass-effect card at the bottom of the map with name, rating,
+  price level, address, and a "See the dishes" CTA button.
+- Tap-empty-map dismisses the sheet; selected pin resets to base style.
+- Recenter FAB (floating action button) bottom-right; auto-hides while sheet is open.
+- Map style: flatter dark theme (#16161c surfaces) with POI labels suppressed for clarity.
+- `gestureHandling: "greedy"` so single-finger pan works on mobile.
 
 ### `src/components/DishGallery.tsx`
-Renders two sections: "Identified Dishes" (photos with `dishName`) then "More Photos"
-(photos without). Each section is a responsive grid (2 cols mobile / 3 tablet / 4 desktop).
-Shows a 10-cell skeleton grid while loading.
+Single unified responsive grid (2 cols mobile / 3 tablet / 4 desktop).
+Photos are sorted: named dishes first, unnamed after — but rendered in one continuous
+grid (no awkward two-section split as in earlier versions). The section header reads
+"The Menu — N identified · M total". Shows a 12-cell shimmer skeleton while loading.
+Owns the `lightboxIndex` state and renders `<Lightbox>` when a card is tapped.
 
 ### `src/components/DishCard.tsx`
-Square card with:
-- Lazy-loaded image with fade-in
-- Frosted glass dish name pill at bottom edge (only if `dishName` is set)
-- Attribution badge top-right: amber "Management" for owner photos, frosted dark "User"
+Square card rendered as a `<button>` for accessibility.
+- Lazy-loaded image with fade-in + subtle hover scale (1.03)
+- Shimmer skeleton (gradient sweep) while loading
+- Bottom vignette gradient + bold dish name overlay (line-clamp-2)
+- Attribution badge top-LEFT: amber "Management" for owner photos, frosted dark "User"
   for user-contributed photos
+- Tap → opens `<Lightbox>` via `onOpen` callback
+
+### `src/components/Lightbox.tsx`
+Full-screen modal photo viewer. The centerpiece UX of the gallery.
+- Swipe horizontally between photos, swipe down to dismiss
+- Keyboard navigation (Esc, arrow keys) for desktop
+- Side arrow buttons on `sm+` screens
+- Dish name + "Management/User" attribution overlay at bottom
+- Index counter at top ("3 / 17")
+- Locks body scroll while open
+- z-index 100 so it covers the sticky header
 
 ### `src/components/PopularDishes.tsx`
 Horizontal chip row of dish names extracted from reviews. Orange-tinted pills.
@@ -280,6 +300,50 @@ The `@googlemaps/js-api-loader` or direct import approach doesn't work cleanly w
 Next.js App Router. The MapPicker loads the Maps JS API via a `<script>` tag appended
 to `document.head` with a `callback=initMapPicker` parameter. `initMapPicker` is set
 on `window` before the script fires.
+
+---
+
+## Design System
+
+All design tokens live in `src/app/globals.css` as CSS custom properties on `:root`.
+Components reference them via `var(--token-name)` to keep visual consistency.
+
+### Surface scale
+- `--surface-0: #0a0a0a` — page background
+- `--surface-1: #131313` — slightly raised (rare; modal backdrops)
+- `--surface-2: #1a1a1a` — cards, inputs
+- `--surface-3: #242424` — pressed/hovered card states
+
+### Text scale
+- `--text-primary` (#fafafa) — headings, primary content
+- `--text-secondary` (rgba 0.65) — body text
+- `--text-tertiary` (rgba 0.40) — secondary metadata
+- `--text-quaternary` (rgba 0.22) — footnotes, dividers, count labels
+
+### Brand
+- `--accent: #ff6b35` — primary orange
+- `--accent-hover: #ff8555`
+- `--accent-soft: rgba(255,107,53,0.12)` — chip backgrounds
+- `--accent-ring: rgba(255,107,53,0.35)` — focus rings
+
+### Motion
+- `--ease-out-expo` — content reveal, fade-up
+- `--ease-spring` — card entrances, position transitions (Apple-like)
+- `--ease-standard` — micro-interactions, tap-scale
+
+### Reusable utilities
+- `.shimmer` — animated gradient sweep for skeletons
+- `.glass` — `backdrop-filter: saturate(180%) blur(20px)` + 72% black
+- `.fade-up`, `.fade-in`, `.slide-up`, `.scale-in`, `.dot-pulse` — keyframes
+- `.tap-scale` — 97% active scale with standard easing
+- `.text-shadow-soft` — for text overlaid on photography
+- `.no-scrollbar` — hides scrollbars on horizontal scroll containers
+
+### Typography
+- System font stack with `font-feature-settings: "ss01", "cv11", "kern"` for
+  proper kerning and stylistic alternates on supported fonts (Inter, SF)
+- `tabular-nums` applied on counts/ratings to prevent number jitter
+- Letter-spacing scale: `tracking-[-0.015em]` on headings, `tracking-[0.18em]` on eyebrows
 
 ---
 
