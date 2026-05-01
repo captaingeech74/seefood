@@ -1,34 +1,159 @@
 @import "tailwindcss";
 
+/* ─── Design System Tokens ──────────────────────────────────────────── */
 :root {
-  --bg-primary: #0a0a0a;
-  --bg-card: #1a1a1a;
-  --text-primary: #fafafa;
-  --text-secondary: #a0a0a0;
-  --accent: #ff6b35;
+  /* Surface scale — darker → lighter as you go up */
+  --surface-0: #0a0a0a;
+  --surface-1: #131313;
+  --surface-2: #1a1a1a;
+  --surface-3: #242424;
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-soft:   rgba(255, 255, 255, 0.10);
+
+  /* Text */
+  --text-primary:   #fafafa;
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-tertiary:  rgba(255, 255, 255, 0.40);
+  --text-quaternary: rgba(255, 255, 255, 0.22);
+
+  /* Brand */
+  --accent:       #ff6b35;
   --accent-hover: #ff8555;
+  --accent-soft:  rgba(255, 107, 53, 0.12);
+  --accent-ring:  rgba(255, 107, 53, 0.35);
+
+  /* Semantic */
+  --success: #34d399;
+  --danger:  #f87171;
+  --gold:    #fbbf24;
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:   cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ─── Reset ─────────────────────────────────────────────────────────── */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
-  background: var(--bg-primary);
+  background: var(--surface-0);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  font-feature-settings: "ss01", "cv11", "kern";
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   min-height: 100dvh;
-  background: var(--bg-primary);
+  background: var(--surface-0);
   overscroll-behavior-y: contain;
 }
 
 ::-webkit-scrollbar {
   width: 0;
   background: transparent;
+}
+
+button {
+  font-family: inherit;
+  font-feature-settings: inherit;
+}
+
+img {
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ─── Animations ────────────────────────────────────────────────────── */
+
+/* Shimmer skeleton — modern alternative to pulse */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--surface-3) 50%,
+    var(--surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.2s ease-in-out infinite;
+}
+
+/* Soft fade-in for content reveals */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fadeUp 420ms var(--ease-out-expo) both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fade-in {
+  animation: fadeIn 250ms var(--ease-out-expo) both;
+}
+
+/* Bottom sheet entrance */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.slide-up {
+  animation: slideUp 380ms var(--ease-spring) both;
+}
+
+/* Lightbox entrance */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.scale-in {
+  animation: scaleIn 280ms var(--ease-out-expo) both;
+}
+
+/* Subtle dot pulse for "open" indicator */
+@keyframes dotPulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.6; transform: scale(0.85); }
+}
+.dot-pulse {
+  animation: dotPulse 2.4s ease-in-out infinite;
+}
+
+/* ─── Utilities ─────────────────────────────────────────────────────── */
+.glass {
+  background: rgba(10, 10, 10, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+.tap-scale {
+  transition: transform 120ms var(--ease-standard);
+}
+.tap-scale:active {
+  transform: scale(0.97);
+}
+
+/* For hard-to-read text overlaid on images */
+.text-shadow-soft {
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.8);
 }

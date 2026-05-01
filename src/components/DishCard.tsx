@@ -3,71 +3,85 @@
 import { DishPhoto } from "@/lib/types";
 import { useState } from "react";
 
-export default function DishCard({ dish }: { dish: DishPhoto }) {
+export default function DishCard({
+  dish,
+  onOpen,
+}: {
+  dish: DishPhoto;
+  onOpen: () => void;
+}) {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
 
   if (errored) return null;
 
   return (
-    <div className="relative rounded-xl overflow-hidden bg-[#1a1a1a] aspect-square">
-      {/* Skeleton while loading */}
-      {!loaded && (
-        <div className="absolute inset-0 bg-[#1a1a1a] animate-pulse" />
-      )}
+    <button
+      onClick={onOpen}
+      className="group relative rounded-2xl overflow-hidden bg-[var(--surface-2)] aspect-square w-full text-left tap-scale focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+      aria-label={dish.dishName ? `View ${dish.dishName}` : "View photo"}
+    >
+      {/* Shimmer skeleton */}
+      {!loaded && <div className="absolute inset-0 shimmer" />}
 
+      {/* Image */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={dish.url}
         alt={dish.dishName || "Restaurant photo"}
-        className={`w-full h-full object-cover transition-opacity duration-500 ${
+        className={`absolute inset-0 w-full h-full object-cover transition-[opacity,transform] duration-500 ${
           loaded ? "opacity-100" : "opacity-0"
-        }`}
+        } group-hover:scale-[1.03]`}
+        style={{ transitionTimingFunction: "var(--ease-out-expo)" }}
         loading="lazy"
         onLoad={() => setLoaded(true)}
         onError={() => setErrored(true)}
       />
 
-      {/* Dish name — frosted pill floating just above the bottom edge */}
+      {/* Bottom vignette — only when there's a dish name to display */}
       {loaded && dish.dishName && (
-        <div className="absolute bottom-0 inset-x-0 flex justify-center pb-2 px-2 pointer-events-none">
-          <span
-            className="text-white font-semibold text-[10px] leading-tight text-center px-2 py-1 rounded-lg max-w-full truncate"
-            style={{
-              background: "rgba(0,0,0,0.55)",
-              backdropFilter: "blur(8px)",
-              WebkitBackdropFilter: "blur(8px)",
-              textShadow: "0 1px 3px rgba(0,0,0,0.8)",
-              boxShadow: "0 1px 6px rgba(0,0,0,0.3)",
-            }}
-          >
+        <div className="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black/75 via-black/25 to-transparent pointer-events-none" />
+      )}
+
+      {/* Dish name — bold, bottom-aligned, generous tap area */}
+      {loaded && dish.dishName && (
+        <div className="absolute inset-x-0 bottom-0 px-2.5 pb-2 pointer-events-none">
+          <p className="text-white text-[12px] font-bold leading-tight tracking-tight line-clamp-2 text-shadow-soft">
             {dish.dishName}
-          </span>
+          </p>
         </div>
       )}
 
-      {/* Attribution badge — top-right corner */}
+      {/* Attribution badge — top-left, "Management" persists throughout */}
       {loaded && (
-        dish.attribution === "owner" ? (
-          <div
-            className="absolute top-2 right-2 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full"
-            style={{ background: "rgba(251,191,36,0.92)", color: "#000" }}
-          >
-            Management
-          </div>
-        ) : (
-          <div
-            className="absolute top-2 right-2 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
-            style={{
-              background: "rgba(0,0,0,0.45)",
-              backdropFilter: "blur(6px)",
-              WebkitBackdropFilter: "blur(6px)",
-              color: "rgba(255,255,255,0.55)",
-            }}
-          >
-            User
-          </div>
-        )
+        <div className="absolute top-2 left-2 pointer-events-none">
+          {dish.attribution === "owner" ? (
+            <div
+              className="text-[8px] font-extrabold uppercase px-1.5 py-[3px] rounded-md leading-none"
+              style={{
+                background: "rgba(251,191,36,0.96)",
+                color: "#0a0a0a",
+                letterSpacing: "0.06em",
+              }}
+            >
+              Management
+            </div>
+          ) : (
+            <div
+              className="text-[8px] font-bold uppercase px-1.5 py-[3px] rounded-md leading-none"
+              style={{
+                background: "rgba(0,0,0,0.45)",
+                backdropFilter: "blur(6px)",
+                WebkitBackdropFilter: "blur(6px)",
+                color: "rgba(255,255,255,0.7)",
+                letterSpacing: "0.06em",
+              }}
+            >
+              User
+            </div>
+          )}
+        </div>
       )}
-    </div>
+    </button>
   );
 }

@@ -125,18 +125,26 @@ export default function Home() {
   if (state === "error") {
     const isLocationDenied = error.toLowerCase().includes("denied");
     return (
-      <div className="fixed inset-0 bg-[#0a0a0a] flex flex-col items-center justify-center px-6 text-center">
-        <div className="text-5xl mb-4">{isLocationDenied ? "📍" : "😕"}</div>
-        <p className="text-white/70 text-base mb-2 max-w-xs">{error}</p>
-        {isLocationDenied && (
-          <p className="text-white/35 text-sm mb-6 max-w-xs">
-            You can still search manually below.
+      <div className="fixed inset-0 bg-[var(--surface-0)] flex flex-col items-center justify-center px-6 text-center fade-in">
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5 text-3xl"
+          style={{ background: "var(--surface-2)" }}
+        >
+          {isLocationDenied ? "📍" : "🔍"}
+        </div>
+        <p className="text-white/85 text-[16px] font-semibold mb-1.5 max-w-xs">{error}</p>
+        {isLocationDenied ? (
+          <p className="text-white/40 text-[13px] mb-7 max-w-xs leading-relaxed">
+            No worries — search manually below to find any restaurant.
+          </p>
+        ) : (
+          <p className="text-white/40 text-[13px] mb-7 max-w-xs leading-relaxed">
+            Try searching for a restaurant manually.
           </p>
         )}
-        {!isLocationDenied && <div className="mb-6" />}
         <button
           onClick={() => setState("map_open")}
-          className="bg-[#ff6b35] text-white px-8 py-3.5 rounded-2xl font-bold text-sm active:scale-95 transition-transform"
+          className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-8 py-3.5 rounded-2xl font-bold text-[14px] active:scale-95 transition-all shadow-lg shadow-orange-500/20"
         >
           Search for a Restaurant
         </button>
