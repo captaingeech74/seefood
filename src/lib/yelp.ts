@@ -124,6 +124,7 @@ export async function getYelpPhotos(
         id: `yelp-${businessId}-${i}`,
         url,
         dishName: reviewDishNames[i] || null,
+        isMenuMatch: false, // Yelp photos bypass Gemini — no menu matching
         source: "yelp",
         attribution: i === 0 ? "owner" : "user", // first photo is usually the business photo
         width: 600,

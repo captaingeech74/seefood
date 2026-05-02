@@ -32,7 +32,10 @@ export default function Home() {
     setPopularDishes([]);
     window.scrollTo({ top: 0, behavior: "instant" });
     try {
-      const params = new URLSearchParams({ placeId: r.placeId || r.id });
+      const params = new URLSearchParams({
+        placeId: r.placeId || r.id,
+        name: r.name,
+      });
       const res = await fetch(`/api/dishes?${params}`);
       const data = await res.json();
       setDishes(data.dishes || []);

@@ -2,6 +2,8 @@ export interface DishPhoto {
   id: string;
   url: string;
   dishName: string | null;
+  /** true = verbatim match against the restaurant's menu or known popular dishes */
+  isMenuMatch: boolean;
   source: "google" | "yelp";
   attribution: "user" | "owner";
   width: number;

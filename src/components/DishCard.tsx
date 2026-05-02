@@ -15,6 +15,8 @@ export default function DishCard({
 
   if (errored) return null;
 
+  const hasLabel = loaded && !!dish.dishName;
+
   return (
     <button
       onClick={onOpen}
@@ -38,21 +40,40 @@ export default function DishCard({
         onError={() => setErrored(true)}
       />
 
-      {/* Bottom vignette — only when there's a dish name to display */}
-      {loaded && dish.dishName && (
-        <div className="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black/75 via-black/25 to-transparent pointer-events-none" />
+      {/* Bottom vignette — only when we have a label */}
+      {hasLabel && (
+        <div className="absolute inset-x-0 bottom-0 h-[60%] bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
       )}
 
-      {/* Dish name — padded to clear the rounded-2xl (16px) corner arc */}
-      {loaded && dish.dishName && (
+      {/* Dish name + menu match badge */}
+      {hasLabel && (
         <div className="absolute inset-x-0 bottom-0 pl-3.5 pr-2.5 pb-3 pointer-events-none">
+          {/* "Menu Match" chip — only when we have a confirmed match */}
+          {dish.isMenuMatch && (
+            <div className="flex items-center gap-1 mb-1">
+              <svg
+                width="8" height="8" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" strokeWidth="3"
+                strokeLinecap="round" strokeLinejoin="round"
+                style={{ color: "var(--success)" }}
+              >
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              <span
+                className="text-[8.5px] font-bold uppercase"
+                style={{ color: "var(--success)", letterSpacing: "0.08em" }}
+              >
+                Menu Match
+              </span>
+            </div>
+          )}
           <p className="text-white text-[12px] font-bold leading-tight tracking-tight line-clamp-2 text-shadow-soft">
             {dish.dishName}
           </p>
         </div>
       )}
 
-      {/* Attribution badge — top-left, "Management" persists throughout */}
+      {/* Attribution badge — top-left */}
       {loaded && (
         <div className="absolute top-2 left-2 pointer-events-none">
           {dish.attribution === "owner" ? (

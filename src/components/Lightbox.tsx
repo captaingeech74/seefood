@@ -153,9 +153,25 @@ export default function Lightbox({ photos, startIndex, onClose }: LightboxProps)
           <div className="min-w-0 flex-1">
             {photo.dishName ? (
               <>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-white/40 font-semibold mb-1">
-                  Identified
-                </p>
+                <div className="flex items-center gap-1.5 mb-1">
+                  {photo.isMenuMatch ? (
+                    <>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="3" strokeLinecap="round"
+                        strokeLinejoin="round" style={{ color: "var(--success)" }}>
+                        <path d="M20 6 9 17l-5-5"/>
+                      </svg>
+                      <p className="text-[10px] uppercase font-bold"
+                        style={{ color: "var(--success)", letterSpacing: "0.18em" }}>
+                        Menu Match
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/40 font-semibold">
+                      Identified
+                    </p>
+                  )}
+                </div>
                 <h2 className="text-white text-[20px] font-bold leading-tight tracking-tight">
                   {photo.dishName}
                 </h2>
