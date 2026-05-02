@@ -35,22 +35,50 @@ export default function RestaurantHeader({
       className="sticky top-0 z-20 glass border-b border-[var(--border-subtle)] px-4 pb-3"
       style={{ paddingTop: "max(14px, env(safe-area-inset-top))" }}
     >
-      {/* Eyebrow with location dot */}
-      <div className="flex items-center gap-1.5 mb-1">
-        <div className="relative w-1.5 h-1.5">
-          <span className="absolute inset-0 rounded-full bg-emerald-400 dot-pulse" />
+      {/* Top row: "YOU'RE AT" eyebrow left + "Change Restaurant" button right */}
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-1.5">
+          <div className="relative w-1.5 h-1.5 shrink-0">
+            <span className="absolute inset-0 rounded-full bg-emerald-400 dot-pulse" />
+          </div>
+          <span className="text-[9.5px] text-white/35 uppercase tracking-[0.22em] font-bold">
+            You&apos;re at
+          </span>
         </div>
-        <span className="text-[9.5px] text-white/35 uppercase tracking-[0.22em] font-bold">
-          You&apos;re at
-        </span>
+
+        <button
+          onClick={onChangeRestaurant}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition-all"
+          style={{
+            background: "rgba(255,107,53,0.15)",
+            border: "1px solid rgba(255,107,53,0.35)",
+          }}
+        >
+          <svg
+            width="11" height="11" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ color: "var(--accent)" }}
+          >
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M16 21h5v-5"/>
+          </svg>
+          <span
+            className="text-[11px] font-bold whitespace-nowrap"
+            style={{ color: "var(--accent)" }}
+          >
+            Change Restaurant
+          </span>
+        </button>
       </div>
 
-      {/* Restaurant name — large, confident */}
+      {/* Restaurant name */}
       <h1 className="text-[23px] font-bold text-white leading-[1.15] tracking-[-0.015em] truncate">
         {restaurant.name}
       </h1>
 
-      {/* Stats row — rating · price · open status */}
+      {/* Stats row */}
       {(hasRating || hasPrice || typeof isOpen === "boolean") && (
         <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
           {hasRating && (
@@ -68,18 +96,12 @@ export default function RestaurantHeader({
               ) : null}
             </div>
           )}
-
-          {hasPrice && hasRating && (
-            <span className="text-white/15 text-[10px]">·</span>
-          )}
+          {hasPrice && hasRating && <span className="text-white/15 text-[10px]">·</span>}
           {hasPrice && <PriceLevel level={restaurant.priceLevel!} />}
-
           {typeof isOpen === "boolean" && (
             <span
-              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                isOpen
-                  ? "bg-emerald-500/15 text-emerald-400"
-                  : "bg-rose-500/15 text-rose-400"
+              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                isOpen ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"
               }`}
               style={{ letterSpacing: "0.08em" }}
             >
@@ -89,21 +111,10 @@ export default function RestaurantHeader({
         </div>
       )}
 
-      {/* Address + change CTA */}
-      <div className="flex items-center gap-2 mt-1.5 min-w-0">
-        <p className="text-[12px] text-white/35 truncate flex-1 min-w-0 font-medium">
-          {restaurant.address}
-        </p>
-        <button
-          onClick={onChangeRestaurant}
-          className="shrink-0 text-[var(--accent)] text-[12px] font-bold active:opacity-60 hover:text-[var(--accent-hover)] whitespace-nowrap transition-colors flex items-center gap-1"
-        >
-          Not here?
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m9 18 6-6-6-6"/>
-          </svg>
-        </button>
-      </div>
+      {/* Address — full width now that button is in the top row */}
+      <p className="text-[12px] text-white/35 truncate font-medium mt-1.5">
+        {restaurant.address}
+      </p>
     </header>
   );
 }

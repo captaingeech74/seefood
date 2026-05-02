@@ -43,9 +43,9 @@ export default function DishCard({
         <div className="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black/75 via-black/25 to-transparent pointer-events-none" />
       )}
 
-      {/* Dish name — bold, bottom-aligned, generous tap area */}
+      {/* Dish name — padded to clear the rounded-2xl (16px) corner arc */}
       {loaded && dish.dishName && (
-        <div className="absolute inset-x-0 bottom-0 px-2.5 pb-2 pointer-events-none">
+        <div className="absolute inset-x-0 bottom-0 pl-3.5 pr-2.5 pb-3 pointer-events-none">
           <p className="text-white text-[12px] font-bold leading-tight tracking-tight line-clamp-2 text-shadow-soft">
             {dish.dishName}
           </p>
