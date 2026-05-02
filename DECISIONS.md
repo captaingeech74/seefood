@@ -407,7 +407,73 @@ stored on the `Restaurant` object, ready to use if Yelp paid access is obtained.
 The Places API returns at most ~10 photos on the free tier; up to 20 on paid. We
 request 20 and get whatever Google returns.
 
-### Vision API cost
+### Photo Analysis: Gemini 1.5 Flash (replaced Vision API)
+
+**As of this build**, Google Vision `LABEL_DETECTION` has been fully retired and replaced
+with Gemini 1.5 Flash multimodal vision. The old Vision approach returned generic object
+labels (Dishware, Foil, Produce) because LABEL_DETECTION is an object classifier, not a
+dish identifier. Gemini reasons about food in natural language and can match against a
+reference list.
+
+### New pipeline (in order):
+
+1. **Places API v1 menu fetch** (`fetchMenuFromPlacesV1`): Hits
+   `https://places.googleapis.com/v1/places/{placeId}?fields=menuItems` in parallel with
+   the Place Details call. Returns verbatim menu item names when available (~30-40%
+   coverage). Falls back to `[]` gracefully.
+2. **Image fetch** (`fetchImageAsBase64`): Fetches each photo at `maxwidth=400` (smaller
+   than the 800px display URL) as base64 for Gemini inline data. Follows Google's redirect.
+3. **Gemini analysis** (`analyzePhotoWithGemini`): All 20 photos analyzed in parallel via
+   `Promise.all`. Each call sends image + reference list (formal menu or popularDishes) with
+   a matching prompt. Response: `{dishName, isMenuMatch, isFood}`.
+4. **Priority scoring** (`computePriorityScore`): Scores each photo 100+/50/30+/10/5/-1.
+5. **Sort + filter**: Stable sort descending by score. Non-food (-1) filtered out.
+   Ties preserve the non-portrait-first ordering from Step 3 of the candidate sort.
+
+### Gemini prompt strategy
+- *With menu items*: "Here is their menu. Which exact item is this photo? Return verbatim."
+- *With only popular dishes*: Same prompt, uses popular dish names as reference.
+- *No reference*: "Describe this dish in 2-5 words like a menu item name."
+- Temperature 0, maxOutputTokens 40 — forces concise, deterministic output.
+- Response validation: take first line only, cap at 80 chars, treat "null" as no-food.
+
+### Priority scoring tiers
+| Score | Meaning |
+|---|---|
+| 100+ | Menu match + in `popularDishes` (the most-valuable photos) |
+| 50   | Menu match only |
+| 30+  | AI-identified + in `popularDishes` |
+| 10   | AI-identified food |
+| 5    | Food visible, no label |
+| -1   | Non-food → filtered out |
+
+### Tunable variables
+| Variable | Value | Where |
+|---|---|---|
+| Gemini model | `gemini-1.5-flash` | `analyzePhotoWithGemini` fetch URL |
+| Temperature | 0 | `generationConfig` |
+| maxOutputTokens | 40 | `generationConfig` |
+| Gemini timeout | 20s | `AbortSignal.timeout(20000)` |
+| Image analysis size | maxwidth=400 | `analysisUrls` builder |
+| Image display size | maxwidth=800 | `displayUrls` builder |
+| Menu items cap | 60 | `referenceItems.slice(0, 60)` |
+| popularDishes cap | 20 | `popularDishes.slice(0, 20)` |
+| Function timeout | 60s | `export const maxDuration = 60` in route.ts |
+
+### isMenuMatch semantics
+`isMenuMatch: true` means the Gemini response was a case-insensitive verbatim match
+against the reference list (either formal menu items from Places API v1 OR popular dishes
+from review NLP). From the user's perspective, both mean "we're confident this is a
+named dish from this restaurant."
+
+### ~~Vision API~~ (retired)
+The old `FOOD_SIGNAL_LABELS`, `SKIP_AS_DISH_NAME` sets and `analyzePhotosWithVision` batch
+function have been removed. The `VISION_API_KEY` env var is still used — it now powers
+Gemini (same Google Cloud project).
+
+---
+
+## Vision API cost
 Each restaurant load = 1 batch Vision call for up to 20 images.
 At Google's pricing (~$1.50/1000 images), 1000 restaurant views ≈ $30.
 Portrait-first sorting reduces wasted Vision calls as portrait photos are more
