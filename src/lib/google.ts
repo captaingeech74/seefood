@@ -78,13 +78,16 @@ async function fetchImageAsBase64(
   }
 }
 
-// ── Gemini 1.5 Flash vision analysis ─────────────────────────────────────
+// ── Gemini vision analysis ────────────────────────────────────────────────
 // Replaces Google Vision LABEL_DETECTION entirely.
 // Strategy:
 //   - With menu items: ask Gemini to pick the closest menu item (verbatim match)
 //   - With only popular dishes: use them as a reference list
 //   - Without any reference: ask for a free-form 2-5 word dish description
 // Returns: dishName (verbatim from list or free-form), isMenuMatch, isFood
+//
+// Model cascade: try gemini-2.0-flash first (latest), fall back to 1.5-flash.
+// Endpoint: v1 (stable). v1beta is deprecated.
 
 interface GeminiResult {
   dishName: string | null;
@@ -129,68 +132,69 @@ No explanation. Just the dish name or null.`
 
 No explanation. Just the name or null.`;
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${VISION_KEY}`,
+  // Model cascade: gemini-2.0-flash (stable v1) → gemini-1.5-flash (fallback)
+  const MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"];
+  const requestBody = JSON.stringify({
+    contents: [
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    mimeType: imageData.mimeType,
-                    data: imageData.data,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0,
-            maxOutputTokens: 40,
-          },
-        }),
-        signal: AbortSignal.timeout(20000),
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType: imageData.mimeType, data: imageData.data } },
+        ],
+      },
+    ],
+    generationConfig: { temperature: 0, maxOutputTokens: 40 },
+  });
+
+  for (const model of MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${VISION_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+          signal: AbortSignal.timeout(20000),
+        }
+      );
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        console.error(`[Gemini] ${model} HTTP ${res.status}:`, errText.slice(0, 300));
+        // 429 = rate limit → worth retrying with next model; 403 = blocked → skip all
+        if (res.status === 403) return fallback;
+        continue; // try next model
       }
-    );
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      console.warn("[Gemini] HTTP error", res.status, errText.slice(0, 200));
-      return fallback;
+      const json = await res.json();
+      const rawText: string =
+        json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+
+      // First line only, capped at 80 chars
+      const text = rawText.split("\n")[0].substring(0, 80).trim();
+
+      if (!text || text.toLowerCase() === "null") {
+        return { dishName: null, isMenuMatch: false, isFood: false };
+      }
+
+      // Check for verbatim match against reference list (case-insensitive)
+      const lowerText = text.toLowerCase();
+      const matchedItem = referenceItems.find(
+        (item) => item.toLowerCase().trim() === lowerText
+      );
+
+      return {
+        dishName: matchedItem ?? text,
+        isMenuMatch: !!matchedItem,
+        isFood: true,
+      };
+    } catch (e) {
+      console.error(`[Gemini] ${model} request failed:`, e);
+      // Network error — try next model
     }
-
-    const json = await res.json();
-    const rawText: string =
-      json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-
-    // First line only, capped at 80 chars
-    const text = rawText.split("\n")[0].substring(0, 80).trim();
-
-    if (!text || text.toLowerCase() === "null") {
-      // Model said no food visible
-      return { dishName: null, isMenuMatch: false, isFood: false };
-    }
-
-    // Check for verbatim match against reference list (case-insensitive)
-    const lowerText = text.toLowerCase();
-    const matchedItem = referenceItems.find(
-      (item) => item.toLowerCase().trim() === lowerText
-    );
-
-    return {
-      dishName: matchedItem ?? text, // use list casing when matched
-      isMenuMatch: !!matchedItem,
-      isFood: true,
-    };
-  } catch (e) {
-    console.warn("[Gemini] Request failed:", e);
-    return fallback;
   }
+
+  return fallback;
 }
 
 // ── Priority scoring ──────────────────────────────────────────────────────
