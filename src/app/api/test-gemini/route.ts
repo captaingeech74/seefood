@@ -29,8 +29,8 @@ export async function GET() {
     results.models_fetch_error = String(e);
   }
 
-  // Test 2: Try a simple text-only prompt on gemini-2.0-flash
-  const models = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"];
+  // Test 2: Try a simple text-only prompt — current models for this account tier
+  const models = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash-lite"];
   for (const model of models) {
     try {
       const res = await fetch(
