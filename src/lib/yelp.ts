@@ -1,4 +1,5 @@
 import { DishPhoto } from "./types";
+import { fetchMenuFromUrl } from "./menuSources";
 
 const API_KEY = process.env.YELP_API_KEY!;
 const YELP_BASE = "https://api.yelp.com/v3";
@@ -75,30 +76,63 @@ function titleCase(str: string): string {
     .join(" ");
 }
 
-// Returns Yelp reviews for a restaurant, compatible with extractPopularDishes.
-// Used to supplement Google's 5-review limit with up to 20 Yelp reviews.
-export async function fetchYelpReviews(
+export interface YelpBusinessData {
+  /** Menu item names scraped from attributes.menu_url — empty if unavailable */
+  menuItems: string[];
+  /** Up to 20 reviews, compatible with extractPopularDishes */
+  reviews: { text: string; rating?: number }[];
+}
+
+/**
+ * Single Yelp lookup that returns both review text AND menu items.
+ * Replaces the old fetchYelpReviews — does one business search, then two
+ * parallel calls (business details + reviews), then parses menu_url if present.
+ *
+ * Used by getGooglePhotosAndReviews to:
+ *   - Supplement Google's 5-review limit with up to 20 Yelp reviews
+ *   - Provide an additional menu source via Yelp's attributes.menu_url
+ */
+export async function fetchYelpBusinessData(
   name: string,
   lat: number,
   lng: number
-): Promise<{ text: string; rating?: number }[]> {
+): Promise<YelpBusinessData> {
+  const empty: YelpBusinessData = { menuItems: [], reviews: [] };
   try {
     const businessId = await findYelpBusiness(name, lat, lng);
-    if (!businessId) return [];
+    if (!businessId) return empty;
 
-    const res = await fetch(
-      `${YELP_BASE}/businesses/${businessId}/reviews?limit=20&sort_by=yelp_sort`,
-      { headers: { Authorization: `Bearer ${API_KEY}` } }
-    );
-    if (!res.ok) return [];
+    // Fetch business details + reviews in parallel
+    const [bizRes, reviewRes] = await Promise.all([
+      fetch(`${YELP_BASE}/businesses/${businessId}`, {
+        headers: { Authorization: `Bearer ${API_KEY}` },
+      }),
+      fetch(
+        `${YELP_BASE}/businesses/${businessId}/reviews?limit=20&sort_by=yelp_sort`,
+        { headers: { Authorization: `Bearer ${API_KEY}` } }
+      ),
+    ]);
 
-    const data = await res.json();
-    return (data.reviews as YelpReview[]).map((r) => ({
+    const [bizData, reviewData] = await Promise.all([
+      bizRes.json(),
+      reviewRes.json(),
+    ]);
+
+    const reviews = ((reviewData.reviews as YelpReview[]) ?? []).map((r) => ({
       text: r.text,
       rating: r.rating,
     }));
+
+    // Check for a menu URL in business attributes (present on a subset of listings)
+    const menuUrl: string | undefined =
+      bizData.attributes?.menu_url ?? undefined;
+
+    // Fetch menu URL in parallel with returning reviews — zero latency overhead
+    const menuItems = menuUrl ? await fetchMenuFromUrl(menuUrl) : [];
+
+    return { menuItems, reviews };
   } catch {
-    return [];
+    return empty;
   }
 }
 

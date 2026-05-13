@@ -407,40 +407,37 @@ stored on the `Restaurant` object, ready to use if Yelp paid access is obtained.
 The Places API returns at most ~10 photos on the free tier; up to 20 on paid. We
 request 20 and get whatever Google returns.
 
-### Photo Analysis: Gemini 1.5 Flash (replaced Vision API)
+### Photo Analysis: Gemini 2.5 Flash (Vision API fully retired)
 
-**As of this build**, Google Vision `LABEL_DETECTION` has been fully retired and replaced
-with Gemini 1.5 Flash multimodal vision. The old Vision approach returned generic object
-labels (Dishware, Foil, Produce) because LABEL_DETECTION is an object classifier, not a
-dish identifier. Gemini reasons about food in natural language and can match against a
-reference list.
+Google Vision `LABEL_DETECTION` is retired. Gemini 2.5 Flash multimodal vision replaced
+it — it reasons about food in natural language and matches against actual menu item names.
+The `VISION_API_KEY` env var is retained but now points to the Gemini project.
 
-### New pipeline (in order):
+### Pipeline (in order)
 
-1. **Places API v1 menu fetch** (`fetchMenuFromPlacesV1`): Hits
-   `https://places.googleapis.com/v1/places/{placeId}?fields=menuItems` in parallel with
-   the Place Details call. Returns verbatim menu item names when available (~30-40%
-   coverage). Falls back to `[]` gracefully.
-2. **Image fetch** (`fetchImageAsBase64`): Fetches each photo at `maxwidth=400` (smaller
-   than the 800px display URL) as base64 for Gemini inline data. Follows Google's redirect.
-3. **Gemini analysis** (`analyzePhotoWithGemini`): All 20 photos analyzed in parallel via
-   `Promise.all`. Each call sends image + reference list (formal menu or popularDishes) with
-   a matching prompt. Response: `{dishName, isMenuMatch, isFood}`.
+1. **Menu data assembly** (Phase 1+2, see "Menu Data Sources" below): All three menu
+   sources run before photo analysis. The merged item list is the reference Gemini works from.
+2. **Image fetch** (`fetchImageAsBase64`): Each photo fetched at `maxwidth=400` as base64
+   for Gemini inline data. Display URL uses `maxwidth=800`.
+3. **Gemini analysis** (`analyzePhotoWithGemini`): All 20 photos analyzed in parallel.
+   Each call sends image + full merged menu list. Response: `{dishName, isMenuMatch, isFood}`.
 4. **Priority scoring** (`computePriorityScore`): Scores each photo 100+/50/30+/10/5/-1.
-5. **Sort + filter**: Stable sort descending by score. Non-food (-1) filtered out.
-   Ties preserve the non-portrait-first ordering from Step 3 of the candidate sort.
+5. **Sort + filter**: Stable sort descending by score. Non-food (−1) filtered out.
 
 ### Gemini prompt strategy
-- *With menu items*: "Here is their menu. Which exact item is this photo? Return verbatim."
-- *With only popular dishes*: Same prompt, uses popular dish names as reference.
-- *No reference*: "Describe this dish in 2-5 words like a menu item name."
-- Temperature 0, maxOutputTokens 40 — forces concise, deterministic output.
-- Response validation: take first line only, cap at 80 chars, treat "null" as no-food.
+- *With reference list*: "Here is their menu / dishes commonly ordered here. Return the
+  exact item name from the list, OR the full specific dish name if not on the list, OR null."
+- *No reference*: "Return the full, specific dish name — include cooking method, key
+  ingredients, and modifiers. Or null if no food visible."
+- Temperature 0, maxOutputTokens 200, thinkingBudget 0 (thinking disabled — saves
+  tokens/cost; CoT not needed for food identification).
+- Match logic: exact OR fuzzy (one string contains the other) → `isMenuMatch: true`.
+  Handles "Truffle Burger" ↔ "House Truffle Wagyu Burger" correctly.
 
 ### Priority scoring tiers
 | Score | Meaning |
 |---|---|
-| 100+ | Menu match + in `popularDishes` (the most-valuable photos) |
+| 100+ | Menu match + in `popularDishes` — the money shots |
 | 50   | Menu match only |
 | 30+  | AI-identified + in `popularDishes` |
 | 10   | AI-identified food |
@@ -450,9 +447,11 @@ reference list.
 ### Tunable variables
 | Variable | Value | Where |
 |---|---|---|
-| Gemini model | `gemini-1.5-flash` | `analyzePhotoWithGemini` fetch URL |
+| Gemini model (primary) | `gemini-2.5-flash` | `MODELS[0]` in `analyzePhotoWithGemini` |
+| Gemini model (fallback) | `gemini-2.5-flash-lite` | `MODELS[1]` |
 | Temperature | 0 | `generationConfig` |
-| maxOutputTokens | 40 | `generationConfig` |
+| maxOutputTokens | 200 | `generationConfig` |
+| thinkingBudget | 0 | `generationConfig.thinkingConfig` |
 | Gemini timeout | 20s | `AbortSignal.timeout(20000)` |
 | Image analysis size | maxwidth=400 | `analysisUrls` builder |
 | Image display size | maxwidth=800 | `displayUrls` builder |
@@ -461,15 +460,49 @@ reference list.
 | Function timeout | 60s | `export const maxDuration = 60` in route.ts |
 
 ### isMenuMatch semantics
-`isMenuMatch: true` means the Gemini response was a case-insensitive verbatim match
-against the reference list (either formal menu items from Places API v1 OR popular dishes
-from review NLP). From the user's perspective, both mean "we're confident this is a
-named dish from this restaurant."
+`isMenuMatch: true` means the Gemini response matched the reference list — either exact
+or fuzzy (containment in either direction). Both formal menu items and popular dishes from
+reviews qualify. From the user's perspective this means "we're confident this is a named
+dish from this restaurant."
 
-### ~~Vision API~~ (retired)
-The old `FOOD_SIGNAL_LABELS`, `SKIP_AS_DISH_NAME` sets and `analyzePhotosWithVision` batch
-function have been removed. The `VISION_API_KEY` env var is still used — it now powers
-Gemini (same Google Cloud project).
+---
+
+## Menu Data Sources
+
+Three sources are queried in parallel on every restaurant load and merged before Gemini
+sees a single image. `menuSources.ts` provides the shared URL-to-items parser.
+
+### Source 1 — Google Places API v1 `menuItems` (existing)
+`fetchMenuFromPlacesV1(placeId)` — structured API, ~15–25% coverage.
+Returns verbatim menu item names when the restaurant has uploaded their menu to Google.
+Falls back to `[]` gracefully.
+
+### Source 2 — Restaurant website schema.org LD+JSON
+`fetchMenuFromUrl(websiteUrl)` — the restaurant's own website, ~35–50% of restaurants
+with a website embed schema.org `MenuItem` data for SEO (auto-generated by Toast, Square,
+Squarespace, Wix, Olo). The `website` field is fetched from the existing Place Details
+call (one extra field, zero extra API calls). `menuSources.ts` recursively walks the
+LD+JSON tree collecting all `@type: MenuItem` names.
+
+### Source 3 — Yelp `attributes.menu_url`
+`fetchYelpBusinessData()` now returns both review text AND menu items. If the Yelp
+business listing includes a `menu_url` in its attributes, that URL is fetched and parsed
+with the same `fetchMenuFromUrl` schema.org parser. This runs inside the Yelp call itself
+— no extra latency phase.
+
+### Source 4 — Delivery platform menus (NOT YET IMPLEMENTED — considered, ready)
+DoorDash, Uber Eats, and Grubhub have the broadest menu coverage (virtually every
+restaurant that delivers). DoorDash in particular embeds the full menu as a
+`__NEXT_DATA__` JSON block in their web pages — parse-able without scraping.
+
+**Proposed approach**: Google Custom Search API (`site:doordash.com "{name}" "{city}"`)
+→ first result URL → fetch page → parse `window.__NEXT_DATA__.props.pageProps.menu`.
+Cost: $0.005/query after the 100/day free tier.
+
+**Why not implemented yet**: Sources 1–3 cover enough restaurants to validate the
+pipeline. Source 4 is the upgrade path if coverage proves insufficient.
+**To implement**: add `fetchMenuFromDoorDash(name, address)` in `menuSources.ts` and
+add it to the Phase 2 `Promise.all` in `getGooglePhotosAndReviews`.
 
 ---
 
@@ -480,10 +513,11 @@ Portrait-first sorting reduces wasted Vision calls as portrait photos are more
 likely to fail the food filter.
 
 ### Review NLP quality
-The review parser works on the 5 reviews returned by Place Details API.
-Google returns reviews by "relevance" (their algorithm), so highly rated/helpful
-reviews surface first. We don't control which reviews we get. False positives
-still occasionally slip through for restaurants with non-standard dish names.
+The review parser now works on Google reviews (≤5) **plus** Yelp reviews (≤20),
+merged before NLP runs. This gives up to 25 reviews vs the original 5.
+Google returns reviews by "relevance"; Yelp by `yelp_sort`. Both are biased toward
+high-confidence reviews. False positives still occasionally slip through for
+restaurants with non-standard dish names.
 
 ### No caching
 Every restaurant load makes fresh API calls. There's no Redis, no CDN cache, no

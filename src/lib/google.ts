@@ -1,6 +1,7 @@
 import { Restaurant, DishPhoto } from "./types";
 import { extractPopularDishes } from "./reviewParser";
-import { fetchYelpReviews } from "./yelp";
+import { fetchYelpBusinessData } from "./yelp";
+import { fetchMenuFromUrl } from "./menuSources";
 
 const API_KEY   = process.env.GOOGLE_MAPS_API_KEY!;
 const VISION_KEY = process.env.VISION_API_KEY || API_KEY; // Gemini uses same project
@@ -297,13 +298,14 @@ export async function getGooglePhotosAndReviews(
   photos: DishPhoto[];
   popularDishes: string[];
 }> {
-  // ① Fetch Place Details (photos + reviews + geometry) AND Places API v1 menu in parallel.
-  //    geometry is needed to look up the Yelp business by coordinates.
-  const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=photos,reviews,geometry&key=${API_KEY}`;
+  // ── Phase 1: Place Details + Places v1 menu in parallel ──────────────────
+  // `website` added to fields — needed for schema.org menu scraping (Source 2).
+  // `geometry` added — needed to find the Yelp business by coordinates.
+  const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=photos,reviews,geometry,website&key=${API_KEY}`;
 
-  const [detailsRes, menuItems] = await Promise.all([
+  const [detailsRes, placesMenuItems] = await Promise.all([
     fetch(detailsUrl),
-    fetchMenuFromPlacesV1(placeId),
+    fetchMenuFromPlacesV1(placeId), // Source 1: Google Places v1 menuItems field
   ]);
 
   const data = await detailsRes.json();
@@ -312,16 +314,29 @@ export async function getGooglePhotosAndReviews(
   const { photos = [], reviews = [] } = data.result;
   const lat: number | undefined = data.result.geometry?.location?.lat;
   const lng: number | undefined = data.result.geometry?.location?.lng;
+  const websiteUrl: string | undefined = data.result.website;
 
-  // ② Fetch Yelp reviews in parallel now that we have coordinates.
-  //    Yelp gives up to 20 reviews vs Google's 5 — more material for dish extraction.
-  const yelpReviews = lat && lng
-    ? await fetchYelpReviews(restaurantName, lat, lng)
-    : [];
+  // ── Phase 2: Restaurant website schema.org + Yelp data in parallel ────────
+  // Source 2: fetch restaurant's own website and parse schema.org LD+JSON menu data.
+  //   Coverage ~35–50% of restaurants with a website (Toast, Square, Wix, Olo auto-emit this).
+  // Source 3: Yelp business lookup returns both reviews (×4 vs Google) and menu_url
+  //   if the restaurant has one listed — that URL is also parsed for menu items.
+  const [websiteMenuItems, yelpData] = await Promise.all([
+    websiteUrl ? fetchMenuFromUrl(websiteUrl) : Promise.resolve([]),
+    lat && lng
+      ? fetchYelpBusinessData(restaurantName, lat, lng)
+      : Promise.resolve({ menuItems: [], reviews: [] }),
+  ]);
 
+  // Merge all menu sources — deduplicate across all three
+  const menuItems = [
+    ...new Set([...placesMenuItems, ...websiteMenuItems, ...yelpData.menuItems]),
+  ];
+
+  // Merge Google (≤5) + Yelp (≤20) reviews for richer popular-dish extraction
   const allReviews = [
     ...(reviews as GoogleReview[]),
-    ...yelpReviews,
+    ...yelpData.reviews,
   ];
   const popularDishes = extractPopularDishes(allReviews);
 
