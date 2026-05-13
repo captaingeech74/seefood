@@ -1,5 +1,6 @@
 import { Restaurant, DishPhoto } from "./types";
 import { extractPopularDishes } from "./reviewParser";
+import { fetchYelpReviews } from "./yelp";
 
 const API_KEY   = process.env.GOOGLE_MAPS_API_KEY!;
 const VISION_KEY = process.env.VISION_API_KEY || API_KEY; // Gemini uses same project
@@ -115,22 +116,23 @@ async function analyzePhotoWithGemini(
 
   const prompt =
     referenceItems.length > 0
-      ? `You are analyzing a food photo from "${restaurantName}".
+      ? `You are identifying a dish in a food photo from "${restaurantName}".
 
 ${hasMenu ? "Their menu includes:" : "Dishes commonly ordered here:"}
 ${referenceItems.map((item, i) => `${i + 1}. ${item}`).join("\n")}
 
-Look at this photo. Respond with ONE of these exact options:
-- If this photo shows a dish or drink from the list above, respond with the EXACT text from the list (verbatim, same capitalization).
-- If food or drink is visible but it's not in the list, respond with a 2–5 word dish name.
-- If NO food or drink is visible (decor, exterior, people, signage, menus, packaging only), respond with the word: null
+Look at this photo and respond with ONE of:
+- The EXACT text from the list above if the photo shows that dish (verbatim, same capitalization).
+- The full, specific dish name if food is visible but not in the list — include cooking method, key ingredients, and modifiers (e.g. "Smoked Brisket Sandwich with Pickled Jalapeños").
+- The word: null — if NO food or drink is visible (decor, exterior, signage, packaging only).
 
 No explanation. Just the dish name or null.`
-      : `Look at this food photo from "${restaurantName}".
-- If a specific dish or drink is visible, respond with the item name in 2–5 words (e.g. "Carne Asada Plate", "Iced Matcha Latte").
-- If no food or drink is visible, respond with the word: null
+      : `You are identifying a dish in a food photo from "${restaurantName}".
 
-No explanation. Just the name or null.`;
+If food or drink is visible, respond with the full, specific dish name — include cooking method, key ingredients, and any distinctive modifiers (e.g. "Spicy Salmon Avocado Roll", "Truffle Parmesan Fries", "Smoked Brisket Sandwich").
+If nothing that is food or drink is visible, respond with the word: null
+
+No explanation. Just the dish name or null.`;
 
   // Model cascade: gemini-2.0-flash (stable v1) → gemini-1.5-flash (fallback)
   const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
@@ -143,7 +145,11 @@ No explanation. Just the name or null.`;
         ],
       },
     ],
-    generationConfig: { temperature: 0, maxOutputTokens: 40 },
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 200,
+      thinkingConfig: { thinkingBudget: 0 }, // disable thinking — saves tokens/cost, we don't need CoT here
+    },
   });
 
   for (const model of MODELS) {
@@ -177,11 +183,16 @@ No explanation. Just the name or null.`;
         return { dishName: null, isMenuMatch: false, isFood: false };
       }
 
-      // Check for verbatim match against reference list (case-insensitive)
+      // Match against reference list — exact first, then fuzzy (one contains the other)
       const lowerText = text.toLowerCase();
-      const matchedItem = referenceItems.find(
-        (item) => item.toLowerCase().trim() === lowerText
-      );
+      const matchedItem = referenceItems.find((item) => {
+        const itemL = item.toLowerCase().trim();
+        return (
+          itemL === lowerText ||         // exact match
+          itemL.includes(lowerText) ||   // menu item is longer: "House Truffle Burger" ⊇ "Truffle Burger"
+          lowerText.includes(itemL)      // model was more verbose: "Spicy Chicken Tacos" ⊇ "Chicken Tacos"
+        );
+      });
 
       return {
         dishName: matchedItem ?? text,
@@ -286,8 +297,9 @@ export async function getGooglePhotosAndReviews(
   photos: DishPhoto[];
   popularDishes: string[];
 }> {
-  // ① Fetch Place Details (photos + reviews) AND Places API v1 menu in parallel
-  const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=photos,reviews&key=${API_KEY}`;
+  // ① Fetch Place Details (photos + reviews + geometry) AND Places API v1 menu in parallel.
+  //    geometry is needed to look up the Yelp business by coordinates.
+  const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=photos,reviews,geometry&key=${API_KEY}`;
 
   const [detailsRes, menuItems] = await Promise.all([
     fetch(detailsUrl),
@@ -298,7 +310,20 @@ export async function getGooglePhotosAndReviews(
   if (!data.result) return { photos: [], popularDishes: [] };
 
   const { photos = [], reviews = [] } = data.result;
-  const popularDishes = extractPopularDishes(reviews as GoogleReview[]);
+  const lat: number | undefined = data.result.geometry?.location?.lat;
+  const lng: number | undefined = data.result.geometry?.location?.lng;
+
+  // ② Fetch Yelp reviews in parallel now that we have coordinates.
+  //    Yelp gives up to 20 reviews vs Google's 5 — more material for dish extraction.
+  const yelpReviews = lat && lng
+    ? await fetchYelpReviews(restaurantName, lat, lng)
+    : [];
+
+  const allReviews = [
+    ...(reviews as GoogleReview[]),
+    ...yelpReviews,
+  ];
+  const popularDishes = extractPopularDishes(allReviews);
 
   if ((photos as GooglePhoto[]).length === 0) {
     return { photos: [], popularDishes };

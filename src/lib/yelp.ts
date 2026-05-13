@@ -12,6 +12,7 @@ interface YelpBusiness {
 interface YelpReview {
   id: string;
   text: string;
+  rating?: number;
   user: { name: string };
 }
 
@@ -72,6 +73,33 @@ function titleCase(str: string): string {
     .split(" ")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+// Returns Yelp reviews for a restaurant, compatible with extractPopularDishes.
+// Used to supplement Google's 5-review limit with up to 20 Yelp reviews.
+export async function fetchYelpReviews(
+  name: string,
+  lat: number,
+  lng: number
+): Promise<{ text: string; rating?: number }[]> {
+  try {
+    const businessId = await findYelpBusiness(name, lat, lng);
+    if (!businessId) return [];
+
+    const res = await fetch(
+      `${YELP_BASE}/businesses/${businessId}/reviews?limit=20&sort_by=yelp_sort`,
+      { headers: { Authorization: `Bearer ${API_KEY}` } }
+    );
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    return (data.reviews as YelpReview[]).map((r) => ({
+      text: r.text,
+      rating: r.rating,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function findYelpBusiness(
