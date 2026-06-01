@@ -149,7 +149,6 @@ No explanation. Just the dish name or null.`;
     generationConfig: {
       temperature: 0,
       maxOutputTokens: 200,
-      thinkingConfig: { thinkingBudget: 0 }, // disable thinking — saves tokens/cost, we don't need CoT here
     },
   });
 
