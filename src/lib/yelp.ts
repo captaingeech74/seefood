@@ -1,14 +1,8 @@
-import { DishPhoto } from "./types";
+import { DishPhoto, MenuItemData } from "./types";
 import { fetchMenuFromUrl } from "./menuSources";
 
 const API_KEY = process.env.YELP_API_KEY!;
 const YELP_BASE = "https://api.yelp.com/v3";
-
-interface YelpBusiness {
-  id: string;
-  name: string;
-  alias: string;
-}
 
 interface YelpReview {
   id: string;
@@ -25,84 +19,30 @@ interface YelpPhoto {
   user?: { name: string };
 }
 
-// Common dish keywords to extract dish names from captions/reviews
-const DISH_PATTERNS = [
-  // Look for quoted dish names
-  /"([^"]+)"/,
-  /'([^']+)'/,
-  // "the X was/is/are"
-  /the\s+([a-z\s]{3,30})\s+(?:was|is|are|were)\b/i,
-  // "ordered the X"
-  /ordered\s+(?:the\s+)?([a-z\s]{3,30})(?:\.|,|!|\s+and)/i,
-  // "tried the X"
-  /tried\s+(?:the\s+)?([a-z\s]{3,30})(?:\.|,|!|\s+and)/i,
-  // "had the X"
-  /had\s+(?:the\s+)?([a-z\s]{3,30})(?:\.|,|!|\s+and)/i,
-  // "got the X"
-  /got\s+(?:the\s+)?([a-z\s]{3,30})(?:\.|,|!|\s+and)/i,
-  // "their X"
-  /their\s+([a-z\s]{3,30})(?:\.|,|!|\s+is|\s+was)/i,
-];
-
-function extractDishName(text: string): string | null {
-  if (!text || text.length < 3) return null;
-
-  // If it's short (likely a caption), just use it directly
-  if (text.length < 50 && !text.includes(".")) {
-    // Clean up and title-case
-    const cleaned = text.trim().replace(/^(the|a|an)\s+/i, "");
-    if (cleaned.length > 2 && cleaned.length < 40) {
-      return titleCase(cleaned);
-    }
-  }
-
-  for (const pattern of DISH_PATTERNS) {
-    const match = text.match(pattern);
-    if (match?.[1]) {
-      const name = match[1].trim();
-      if (name.length > 2 && name.length < 40) {
-        return titleCase(name);
-      }
-    }
-  }
-  return null;
-}
-
-function titleCase(str: string): string {
-  return str
-    .toLowerCase()
-    .split(" ")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
 export interface YelpBusinessData {
-  /** Menu item names scraped from attributes.menu_url — empty if unavailable */
-  menuItems: string[];
+  /** Menu item names + descriptions from attributes.menu_url (empty if unavailable) */
+  menuItems: MenuItemData[];
   /** Up to 20 reviews, compatible with extractPopularDishes */
   reviews: { text: string; rating?: number }[];
+  /** Up to 3 Yelp photo URLs for Gemini analysis */
+  photoUrls: string[];
 }
 
 /**
- * Single Yelp lookup that returns both review text AND menu items.
- * Replaces the old fetchYelpReviews — does one business search, then two
- * parallel calls (business details + reviews), then parses menu_url if present.
- *
- * Used by getGooglePhotosAndReviews to:
- *   - Supplement Google's 5-review limit with up to 20 Yelp reviews
- *   - Provide an additional menu source via Yelp's attributes.menu_url
+ * Single Yelp lookup: business details + reviews + menu items.
+ * Returns menu items (with descriptions), reviews, and raw photo URLs.
+ * Used by getGooglePhotosAndReviews to supplement Google data.
  */
 export async function fetchYelpBusinessData(
   name: string,
   lat: number,
   lng: number
 ): Promise<YelpBusinessData> {
-  const empty: YelpBusinessData = { menuItems: [], reviews: [] };
+  const empty: YelpBusinessData = { menuItems: [], reviews: [], photoUrls: [] };
   try {
     const businessId = await findYelpBusiness(name, lat, lng);
     if (!businessId) return empty;
 
-    // Fetch business details + reviews in parallel
     const [bizRes, reviewRes] = await Promise.all([
       fetch(`${YELP_BASE}/businesses/${businessId}`, {
         headers: { Authorization: `Bearer ${API_KEY}` },
@@ -123,14 +63,16 @@ export async function fetchYelpBusinessData(
       rating: r.rating,
     }));
 
-    // Check for a menu URL in business attributes (present on a subset of listings)
-    const menuUrl: string | undefined =
-      bizData.attributes?.menu_url ?? undefined;
+    // Photo URLs (up to 3) — routed through Gemini in the main pipeline
+    const photoUrls: string[] = Array.isArray(bizData.photos)
+      ? (bizData.photos as string[]).slice(0, 3)
+      : [];
 
-    // Fetch menu URL in parallel with returning reviews — zero latency overhead
+    // Menu items from menu_url if available (returns MenuItemData[] with descriptions)
+    const menuUrl: string | undefined = bizData.attributes?.menu_url ?? undefined;
     const menuItems = menuUrl ? await fetchMenuFromUrl(menuUrl) : [];
 
-    return { menuItems, reviews };
+    return { menuItems, reviews, photoUrls };
   } catch {
     return empty;
   }
@@ -142,73 +84,42 @@ export async function findYelpBusiness(
   lng: number
 ): Promise<string | null> {
   const url = `${YELP_BASE}/businesses/search?term=${encodeURIComponent(name)}&latitude=${lat}&longitude=${lng}&limit=1&categories=restaurants,food`;
-
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${API_KEY}` },
   });
   const data = await res.json();
-
   if (!data.businesses?.length) return null;
   return data.businesses[0].id;
 }
 
+// getYelpPhotos is kept for reference but not called in the main pipeline.
+// Yelp photo URLs are now returned via fetchYelpBusinessData.photoUrls
+// and routed through Gemini for analysis.
 export async function getYelpPhotos(
   businessId: string
 ): Promise<DishPhoto[]> {
-  // Get business details (includes up to 3 photos) and reviews
-  const [bizRes, reviewRes] = await Promise.all([
+  const [bizRes] = await Promise.all([
     fetch(`${YELP_BASE}/businesses/${businessId}`, {
       headers: { Authorization: `Bearer ${API_KEY}` },
     }),
-    fetch(`${YELP_BASE}/businesses/${businessId}/reviews?limit=20&sort_by=yelp_sort`, {
-      headers: { Authorization: `Bearer ${API_KEY}` },
-    }),
   ]);
-
   const bizData = await bizRes.json();
-  const reviewData = await reviewRes.json();
-
   const photos: DishPhoto[] = [];
 
-  // Extract dish names from reviews for context
-  const reviewDishNames: string[] = [];
-  if (reviewData.reviews) {
-    for (const review of reviewData.reviews as YelpReview[]) {
-      const name = extractDishName(review.text);
-      if (name) reviewDishNames.push(name);
-    }
-  }
-
-  // Yelp business endpoint returns photos array
   if (bizData.photos) {
-    bizData.photos.forEach((url: string, i: number) => {
+    (bizData.photos as string[]).forEach((url: string, i: number) => {
       photos.push({
         id: `yelp-${businessId}-${i}`,
         url,
-        dishName: reviewDishNames[i] || null,
-        isMenuMatch: false, // Yelp photos bypass Gemini — no menu matching
+        dishName: null,
+        dishDescription: null,
+        isMenuMatch: false,
         source: "yelp",
-        attribution: i === 0 ? "owner" : "user", // first photo is usually the business photo
+        attribution: i === 0 ? "owner" : "user",
         width: 600,
         height: 400,
       });
     });
   }
-
-  // Also try to get photos from the Yelp GraphQL-like endpoint
-  // via the business details categories to infer dish context
-  if (bizData.categories) {
-    const cuisineTypes = bizData.categories.map(
-      (c: { alias: string; title: string }) => c.title
-    );
-    // Use cuisine type as fallback context for unnamed dishes
-    for (const photo of photos) {
-      if (!photo.dishName && cuisineTypes.length > 0) {
-        // Don't assign cuisine as dish name - leave null
-        // This keeps our data honest
-      }
-    }
-  }
-
   return photos;
 }

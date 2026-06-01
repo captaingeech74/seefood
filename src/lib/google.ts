@@ -1,12 +1,12 @@
-import { Restaurant, DishPhoto } from "./types";
+import { Restaurant, DishPhoto, MenuItemData } from "./types";
 import { extractPopularDishes } from "./reviewParser";
 import { fetchYelpBusinessData } from "./yelp";
 import { fetchMenuFromUrl } from "./menuSources";
 
 const API_KEY   = process.env.GOOGLE_MAPS_API_KEY!;
-const VISION_KEY = process.env.VISION_API_KEY || API_KEY; // Gemini uses same project
+const VISION_KEY = process.env.VISION_API_KEY || API_KEY;
 
-// ── Shared interfaces ─────────────────────────────────────────────────────
+// ── Shared interfaces ─────────────────────────────────────────────────────────
 
 interface GooglePhoto {
   photo_reference: string;
@@ -33,12 +33,10 @@ interface GooglePlace {
   opening_hours?: { open_now?: boolean };
 }
 
-// ── Tier 1: Places API v1 menu fetch ─────────────────────────────────────
-// Coverage is ~30-40% of restaurants. Returns [] gracefully when unavailable.
-// Places API (New) must be enabled on the same Google Cloud project as API_KEY.
-// Field mask: menuItems — returns item displayName.text strings.
+// ── Source 1: Google Places API v1 menu ───────────────────────────────────────
+// Returns MenuItemData[] with names and descriptions when available (~15–25% coverage).
 
-async function fetchMenuFromPlacesV1(placeId: string): Promise<string[]> {
+async function fetchMenuFromPlacesV1(placeId: string): Promise<MenuItemData[]> {
   try {
     const res = await fetch(
       `https://places.googleapis.com/v1/places/${placeId}?key=${API_KEY}&languageCode=en`,
@@ -50,19 +48,111 @@ async function fetchMenuFromPlacesV1(placeId: string): Promise<string[]> {
     if (!res.ok) return [];
     const data = await res.json();
     if (!Array.isArray(data.menuItems) || data.menuItems.length === 0) return [];
+
     return (
-      data.menuItems as Array<{ displayName?: { text?: string } }>
+      data.menuItems as Array<{
+        displayName?: { text?: string };
+        description?: { text?: string };
+      }>
     )
-      .map((item) => item.displayName?.text)
-      .filter((t): t is string => typeof t === "string" && t.trim().length > 0);
+      .map((item) => {
+        const name = item.displayName?.text?.trim();
+        if (!name) return null;
+        const result: MenuItemData = { name };
+        const desc = item.description?.text?.trim();
+        if (desc) result.description = desc.substring(0, 300);
+        return result;
+      })
+      .filter((item): item is MenuItemData => item !== null);
   } catch {
     return [];
   }
 }
 
-// ── Image fetch helper ────────────────────────────────────────────────────
-// Follows the Google Places Photo API redirect and returns base64 + mimeType.
-// Used to send images inline to Gemini (inlineData requires base64).
+// ── Source 4: DoorDash via Google Custom Search ───────────────────────────────
+// Requires GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID env vars.
+// Returns [] gracefully when keys are absent — enable by adding those vars.
+//
+// Why DoorDash: every menu item has a photo, name, and description already
+// associated together. Pre-labeled; bypasses Gemini entirely.
+
+async function fetchMenuFromDoorDash(
+  restaurantName: string,
+  address: string
+): Promise<MenuItemData[]> {
+  const searchKey = process.env.GOOGLE_SEARCH_API_KEY;
+  const searchCx  = process.env.GOOGLE_SEARCH_ENGINE_ID;
+  if (!searchKey || !searchCx) return [];
+
+  try {
+    const query = `"${restaurantName}" ${address} site:doordash.com`;
+    const searchRes = await fetch(
+      `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(query)}&key=${searchKey}&cx=${searchCx}&num=1`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!searchRes.ok) return [];
+
+    const searchData = await searchRes.json();
+    const url: string | undefined = searchData.items?.[0]?.link;
+    if (!url || !url.includes("doordash.com")) return [];
+
+    const pageRes = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; SeeFood/1.0)" },
+    });
+    if (!pageRes.ok) return [];
+
+    const html = await pageRes.text();
+    const match = html.match(
+      /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/
+    );
+    if (!match) return [];
+
+    const items: MenuItemData[] = [];
+    extractDoorDashItems(JSON.parse(match[1]), items);
+
+    // Deduplicate
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      const key = item.name.toLowerCase().trim();
+      if (seen.has(key) || item.name.length < 2) return false;
+      seen.add(key);
+      return true;
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Recursively walks DoorDash __NEXT_DATA__ looking for menu item objects. */
+function extractDoorDashItems(obj: unknown, out: MenuItemData[]): void {
+  if (!obj || typeof obj !== "object") return;
+  if (Array.isArray(obj)) { obj.forEach((v) => extractDoorDashItems(v, out)); return; }
+
+  const o = obj as Record<string, unknown>;
+
+  // DoorDash items have name + (description or imageUrl or price)
+  if (
+    typeof o.name === "string" &&
+    o.name.trim().length > 1 &&
+    (typeof o.description === "string" || typeof o.imageUrl === "string")
+  ) {
+    const item: MenuItemData = { name: o.name.trim() };
+    if (typeof o.description === "string" && o.description.trim()) {
+      item.description = o.description.trim().substring(0, 300);
+    }
+    if (typeof o.imageUrl === "string" && o.imageUrl.startsWith("http")) {
+      item.imageUrl = o.imageUrl;
+    }
+    out.push(item);
+  }
+
+  for (const val of Object.values(o)) {
+    if (val && typeof val === "object") extractDoorDashItems(val, out);
+  }
+}
+
+// ── Image fetch helper ────────────────────────────────────────────────────────
 
 async function fetchImageAsBase64(
   url: string
@@ -73,69 +163,63 @@ async function fetchImageAsBase64(
     const buffer = await res.arrayBuffer();
     const contentType = res.headers.get("content-type") ?? "image/jpeg";
     const mimeType = contentType.split(";")[0].trim() || "image/jpeg";
-    const data = Buffer.from(buffer).toString("base64");
-    return { data, mimeType };
+    return { data: Buffer.from(buffer).toString("base64"), mimeType };
   } catch {
     return null;
   }
 }
 
-// ── Gemini vision analysis ────────────────────────────────────────────────
-// Replaces Google Vision LABEL_DETECTION entirely.
-// Strategy:
-//   - With menu items: ask Gemini to pick the closest menu item (verbatim match)
-//   - With only popular dishes: use them as a reference list
-//   - Without any reference: ask for a free-form 2-5 word dish description
-// Returns: dishName (verbatim from list or free-form), isMenuMatch, isFood
-//
-// Model cascade: try gemini-2.0-flash first (latest), fall back to 1.5-flash.
-// Endpoint: v1 (stable). v1beta is deprecated.
+// ── Gemini vision analysis ────────────────────────────────────────────────────
 
 interface GeminiResult {
   dishName: string | null;
+  dishDescription: string | null;
   isMenuMatch: boolean;
   isFood: boolean;
 }
 
 async function analyzePhotoWithGemini(
-  analysisUrl: string, // lower-res URL for bandwidth efficiency
-  menuItems: string[], // from Places API v1; may be empty
-  popularDishes: string[], // from review NLP; used as fallback reference
+  analysisUrl: string,
+  menuItems: MenuItemData[],       // from all merged sources
+  popularDishes: string[],         // fallback when no menu data
   restaurantName: string
 ): Promise<GeminiResult> {
-  // Fail-open: if we can't analyze, treat as food (show photo, no label)
-  const fallback: GeminiResult = { dishName: null, isMenuMatch: false, isFood: true };
+  const fallback: GeminiResult = {
+    dishName: null,
+    dishDescription: null,
+    isMenuMatch: false,
+    isFood: true,
+  };
 
   const imageData = await fetchImageAsBase64(analysisUrl);
   if (!imageData) return fallback;
 
-  // Build reference list: prefer formal menu, supplement with popular dishes
+  // Build reference list: formal menu takes priority over popular dishes
   const hasMenu = menuItems.length > 0;
-  const referenceItems = hasMenu
-    ? menuItems.slice(0, 60)
+  const referenceNames: string[] = hasMenu
+    ? menuItems.slice(0, 60).map((i) => i.name)
     : popularDishes.slice(0, 20);
 
   const prompt =
-    referenceItems.length > 0
+    referenceNames.length > 0
       ? `You are identifying a dish in a food photo from "${restaurantName}".
 
 ${hasMenu ? "Their menu includes:" : "Dishes commonly ordered here:"}
-${referenceItems.map((item, i) => `${i + 1}. ${item}`).join("\n")}
+${referenceNames.map((name, i) => `${i + 1}. ${name}`).join("\n")}
 
 Look at this photo and respond with ONE of:
-- The EXACT text from the list above if the photo shows that dish (verbatim, same capitalization).
-- The full, specific dish name if food is visible but not in the list — include cooking method, key ingredients, and modifiers (e.g. "Smoked Brisket Sandwich with Pickled Jalapeños").
-- The word: null — if NO food or drink is visible (decor, exterior, signage, packaging only).
+- The EXACT text from the list above if this photo shows that dish (verbatim, same capitalization).
+- The full, specific dish name if food is visible but not in the list — include cooking method, key ingredients, and how it's served (e.g. "Smoked Brisket with Fried Eggs and Hash Browns", "Brisket Sliders with BBQ Dipping Sauce").
+- The word: null — if NO food or drink is visible (decor, exterior, signage only).
 
 No explanation. Just the dish name or null.`
       : `You are identifying a dish in a food photo from "${restaurantName}".
 
-If food or drink is visible, respond with the full, specific dish name — include cooking method, key ingredients, and any distinctive modifiers (e.g. "Spicy Salmon Avocado Roll", "Truffle Parmesan Fries", "Smoked Brisket Sandwich").
-If nothing that is food or drink is visible, respond with the word: null
+If food or drink is visible, respond with the full, specific dish name — include cooking method, key ingredients, and how it's served (e.g. "Smoked Brisket with Fried Eggs and Hash Browns", "Spicy Salmon Avocado Roll", "Truffle Parmesan Fries with Aioli").
+If nothing edible is visible, respond with the word: null
 
 No explanation. Just the dish name or null.`;
 
-  // Model cascade: gemini-2.0-flash (stable v1) → gemini-1.5-flash (fallback)
   const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
   const requestBody = JSON.stringify({
     contents: [
@@ -146,10 +230,7 @@ No explanation. Just the dish name or null.`;
         ],
       },
     ],
-    generationConfig: {
-      temperature: 0,
-      maxOutputTokens: 200,
-    },
+    generationConfig: { temperature: 0, maxOutputTokens: 200 },
   });
 
   for (const model of MODELS) {
@@ -167,57 +248,59 @@ No explanation. Just the dish name or null.`;
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
         console.error(`[Gemini] ${model} HTTP ${res.status}:`, errText.slice(0, 300));
-        // 429 = rate limit → worth retrying with next model; 403 = blocked → skip all
         if (res.status === 403) return fallback;
-        continue; // try next model
+        continue;
       }
 
       const json = await res.json();
       const rawText: string =
         json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-
-      // First line only, capped at 80 chars
-      const text = rawText.split("\n")[0].substring(0, 80).trim();
+      const text = rawText.split("\n")[0].substring(0, 120).trim();
 
       if (!text || text.toLowerCase() === "null") {
-        return { dishName: null, isMenuMatch: false, isFood: false };
+        return { dishName: null, dishDescription: null, isMenuMatch: false, isFood: false };
       }
 
-      // Match against reference list — exact first, then fuzzy (one contains the other)
+      // Match against menu reference list — exact first, then one-way fuzzy.
+      // IMPORTANT: only match when the menu item *contains* Gemini's response,
+      // not the reverse. This prevents generic terms ("Brisket") from swallowing
+      // specific dish descriptions ("Smoked Brisket with Eggs and Hash Browns").
       const lowerText = text.toLowerCase();
-      const matchedItem = referenceItems.find((item) => {
-        const itemL = item.toLowerCase().trim();
-        return (
-          itemL === lowerText ||         // exact match
-          itemL.includes(lowerText) ||   // menu item is longer: "House Truffle Burger" ⊇ "Truffle Burger"
-          lowerText.includes(itemL)      // model was more verbose: "Spicy Chicken Tacos" ⊇ "Chicken Tacos"
-        );
-      });
+      const matchedItem = hasMenu
+        ? menuItems.slice(0, 60).find((item) => {
+            const itemL = item.name.toLowerCase().trim();
+            return (
+              itemL === lowerText ||      // exact
+              itemL.includes(lowerText)   // menu item is more verbose: "House Truffle Wagyu Burger" ⊇ "Truffle Burger"
+            );
+          })
+        : undefined;
+
+      // For popular dishes (string[]), same logic
+      const matchedPopular =
+        !hasMenu && !matchedItem
+          ? popularDishes.find((p) => {
+              const pl = p.toLowerCase().trim();
+              return pl === lowerText || pl.includes(lowerText);
+            })
+          : undefined;
 
       return {
-        dishName: matchedItem ?? text,
-        isMenuMatch: !!matchedItem,
+        dishName: matchedItem?.name ?? matchedPopular ?? text,
+        dishDescription: matchedItem?.description ?? null,
+        isMenuMatch: !!(matchedItem || matchedPopular),
         isFood: true,
       };
     } catch (e) {
       console.error(`[Gemini] ${model} request failed:`, e);
-      // Network error — try next model
     }
   }
-
   return fallback;
 }
 
-// ── Priority scoring ──────────────────────────────────────────────────────
-// Controls the sort order of photos in the gallery.
-//
-// Scores:
-//   100+ — menu match AND popular dish   → shown first, these are the money shots
-//    50  — menu match only               → confirmed menu item
-//    30+ — AI-identified AND popular     → strong signal from reviews
-//    10  — AI-identified food            → generic dish description
-//     5  — food detected, no label       → pass-through
-//    -1  — non-food                      → filtered out
+// ── Priority scoring ──────────────────────────────────────────────────────────
+// Pre-labeled photos (DoorDash, website schema.org) bypass Gemini and score 200.
+// Gemini-analyzed photos use this function.
 
 function computePriorityScore(
   dishName: string | null,
@@ -238,7 +321,17 @@ function computePriorityScore(
   return 10;
 }
 
-// ── Places API helpers ────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function deduplicateMenuItems(items: MenuItemData[]): MenuItemData[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.name.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 function placeToRestaurant(place: GooglePlace): Restaurant {
   return {
@@ -254,6 +347,8 @@ function placeToRestaurant(place: GooglePlace): Restaurant {
     isOpen: place.opening_hours?.open_now,
   };
 }
+
+// ── Public place lookup helpers ───────────────────────────────────────────────
 
 export async function findNearbyRestaurant(
   lat: number,
@@ -288,7 +383,7 @@ export async function getRestaurantDetails(
   };
 }
 
-// ── Main photo + review pipeline ──────────────────────────────────────────
+// ── Main photo + review pipeline ──────────────────────────────────────────────
 
 export async function getGooglePhotosAndReviews(
   placeId: string,
@@ -297,14 +392,13 @@ export async function getGooglePhotosAndReviews(
   photos: DishPhoto[];
   popularDishes: string[];
 }> {
-  // ── Phase 1: Place Details + Places v1 menu in parallel ──────────────────
-  // `website` added to fields — needed for schema.org menu scraping (Source 2).
-  // `geometry` added — needed to find the Yelp business by coordinates.
-  const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=photos,reviews,geometry,website&key=${API_KEY}`;
+  // ── Phase 1: Place Details + Places v1 menu in parallel ─────────────────────
+  // `website` and `geometry` added for menu scraping + Yelp lookup.
+  const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=photos,reviews,geometry,website,formatted_address&key=${API_KEY}`;
 
   const [detailsRes, placesMenuItems] = await Promise.all([
     fetch(detailsUrl),
-    fetchMenuFromPlacesV1(placeId), // Source 1: Google Places v1 menuItems field
+    fetchMenuFromPlacesV1(placeId), // Source 1
   ]);
 
   const data = await detailsRes.json();
@@ -314,97 +408,158 @@ export async function getGooglePhotosAndReviews(
   const lat: number | undefined = data.result.geometry?.location?.lat;
   const lng: number | undefined = data.result.geometry?.location?.lng;
   const websiteUrl: string | undefined = data.result.website;
+  const formattedAddress: string = data.result.formatted_address ?? "";
 
-  // ── Phase 2: Restaurant website schema.org + Yelp data in parallel ────────
-  // Source 2: fetch restaurant's own website and parse schema.org LD+JSON menu data.
-  //   Coverage ~35–50% of restaurants with a website (Toast, Square, Wix, Olo auto-emit this).
-  // Source 3: Yelp business lookup returns both reviews (×4 vs Google) and menu_url
-  //   if the restaurant has one listed — that URL is also parsed for menu items.
-  const [websiteMenuItems, yelpData] = await Promise.all([
+  // ── Phase 2: Website + Yelp + DoorDash in parallel ──────────────────────────
+  // Source 2: restaurant website schema.org (also yields pre-labeled photos with imageUrl)
+  // Source 3: Yelp menu_url attribute + reviews + photo URLs
+  // Source 4: DoorDash via Custom Search (requires GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID)
+  const [websiteMenuItems, yelpData, doorDashItems] = await Promise.all([
     websiteUrl ? fetchMenuFromUrl(websiteUrl) : Promise.resolve([]),
     lat && lng
       ? fetchYelpBusinessData(restaurantName, lat, lng)
-      : Promise.resolve({ menuItems: [], reviews: [] }),
+      : Promise.resolve({ menuItems: [], reviews: [], photoUrls: [] }),
+    fetchMenuFromDoorDash(restaurantName, formattedAddress), // Source 4
   ]);
 
-  // Merge all menu sources — deduplicate across all three
-  const menuItems = [
-    ...new Set([...placesMenuItems, ...websiteMenuItems, ...yelpData.menuItems]),
-  ];
+  // Merge all menu sources, deduplicate — this is the reference list Gemini works from
+  const allMenuItems = deduplicateMenuItems([
+    ...placesMenuItems,
+    ...websiteMenuItems,
+    ...yelpData.menuItems,
+    ...doorDashItems,
+  ]);
 
-  // Merge Google (≤5) + Yelp (≤20) reviews for richer popular-dish extraction
+  // Merge reviews for popular dish extraction
   const allReviews = [
     ...(reviews as GoogleReview[]),
     ...yelpData.reviews,
   ];
   const popularDishes = extractPopularDishes(allReviews);
 
-  if ((photos as GooglePhoto[]).length === 0) {
-    return { photos: [], popularDishes };
+  // ── Phase 3: Pre-labeled photos (bypass Gemini) ──────────────────────────────
+  // These come with dish name + description + photo already paired.
+  // Source: schema.org MenuItem.image and DoorDash menu item photos.
+  const preLabeledPhotos: DishPhoto[] = [];
+
+  for (const item of websiteMenuItems) {
+    if (!item.imageUrl) continue;
+    preLabeledPhotos.push({
+      id: `website-${item.imageUrl.slice(-24)}`,
+      url: item.imageUrl,
+      dishName: item.name,
+      dishDescription: item.description ?? null,
+      isMenuMatch: true,
+      source: "website",
+      attribution: "owner",
+      width: 800,
+      height: 600,
+    });
   }
 
-  // ② Non-portrait photos first, portrait appended (for tie-breaking within score tiers)
-  const allPhotos = photos as GooglePhoto[];
-  const nonPortrait = allPhotos.filter((p) => p.height <= p.width);
-  const portrait    = allPhotos.filter((p) => p.height >  p.width);
-  const candidates  = [...nonPortrait, ...portrait].slice(0, 20);
+  for (const item of doorDashItems) {
+    if (!item.imageUrl) continue;
+    preLabeledPhotos.push({
+      id: `doordash-${item.imageUrl.slice(-24)}`,
+      url: item.imageUrl,
+      dishName: item.name,
+      dishDescription: item.description ?? null,
+      isMenuMatch: true,
+      source: "doordash",
+      attribution: "owner",
+      width: 800,
+      height: 600,
+    });
+  }
 
-  // ③ Two URLs per candidate:
-  //    - analysisUrl: maxwidth=400  — sent to Gemini (smaller = faster + cheaper)
-  //    - displayUrl:  maxwidth=800  — delivered to the browser
-  const analysisUrls = candidates.map(
-    (p) =>
-      `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photo_reference}&key=${API_KEY}`
+  // ── Phase 4: Build Gemini candidate pool (Google + Yelp photo URLs) ──────────
+  const allGooglePhotos = photos as GooglePhoto[];
+  const nonPortrait = allGooglePhotos.filter((p) => p.height <= p.width);
+  const portrait    = allGooglePhotos.filter((p) => p.height >  p.width);
+  const googleCandidates = [...nonPortrait, ...portrait].slice(0, 10);
+
+  // Yelp photos appended after Google — up to 3 more
+  const yelpCandidateUrls = yelpData.photoUrls.slice(0, 3);
+
+  // Build analysis + display URLs for Google photos
+  const googleAnalysisUrls = googleCandidates.map(
+    (p) => `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photo_reference}&key=${API_KEY}`
   );
-  const displayUrls = candidates.map(
-    (p) =>
-      `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photo_reference}&key=${API_KEY}`
+  const googleDisplayUrls = googleCandidates.map(
+    (p) => `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photo_reference}&key=${API_KEY}`
   );
 
-  // ④ Analyze all photos in parallel with Gemini 1.5 Flash
-  const geminiResults = await Promise.all(
-    analysisUrls.map((url) =>
-      analyzePhotoWithGemini(url, menuItems, popularDishes, restaurantName)
-    )
-  );
+  // ── Phase 5: Gemini analysis — all candidates in parallel ────────────────────
+  const geminiResults = await Promise.all([
+    ...googleAnalysisUrls.map((url) =>
+      analyzePhotoWithGemini(url, allMenuItems, popularDishes, restaurantName)
+    ),
+    ...yelpCandidateUrls.map((url) =>
+      analyzePhotoWithGemini(url, allMenuItems, popularDishes, restaurantName)
+    ),
+  ]);
 
-  // ⑤ Score each photo, filter non-food, stable-sort descending by score
-  const scored = candidates
-    .map((photo, i) => {
-      const result = geminiResults[i] ?? {
-        dishName: null,
-        isMenuMatch: false,
-        isFood: true,
-      };
-      const score = result.isFood
-        ? computePriorityScore(result.dishName, result.isMenuMatch, popularDishes)
-        : -1;
-      return { photo, displayUrl: displayUrls[i], result, score };
-    })
-    .filter((e) => e.score >= 0); // drop non-food
+  // ── Phase 6: Score, filter, sort ─────────────────────────────────────────────
+  const geminiPhotos: { photo: DishPhoto; score: number }[] = [];
 
-  // JS sort is stable — ties preserve non-portrait-first ordering
-  scored.sort((a, b) => b.score - a.score);
-
-  // ⑥ Build DishPhoto objects
-  const dishPhotos: DishPhoto[] = scored.map(({ photo, displayUrl, result }, i) => {
+  // Google photos
+  googleCandidates.forEach((photo, i) => {
+    const result = geminiResults[i] ?? { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true };
+    if (!result.isFood) return; // drop non-food
     const attrText = photo.html_attributions.join(" ").toLowerCase();
     const isOwner =
       attrText.includes("owner") ||
       attrText.includes("the official") ||
       (!attrText.includes("maps.google.com/maps/contrib") && attrText.length > 0);
-
-    return {
-      id: `google-${placeId}-${i}`,
-      url: displayUrl,
-      dishName: result.dishName,
-      isMenuMatch: result.isMenuMatch,
-      source: "google",
-      attribution: isOwner ? "owner" : "user",
-      width: photo.width,
-      height: photo.height,
-    };
+    const score = computePriorityScore(result.dishName, result.isMenuMatch, popularDishes);
+    geminiPhotos.push({
+      photo: {
+        id: `google-${placeId}-${i}`,
+        url: googleDisplayUrls[i],
+        dishName: result.dishName,
+        dishDescription: result.dishDescription,
+        isMenuMatch: result.isMenuMatch,
+        source: "google",
+        attribution: isOwner ? "owner" : "user",
+        width: photo.width,
+        height: photo.height,
+      },
+      score,
+    });
   });
 
-  return { photos: dishPhotos, popularDishes };
+  // Yelp photos
+  yelpCandidateUrls.forEach((url, i) => {
+    const ri = googleCandidates.length + i;
+    const result = geminiResults[ri] ?? { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true };
+    if (!result.isFood) return;
+    const score = computePriorityScore(result.dishName, result.isMenuMatch, popularDishes);
+    geminiPhotos.push({
+      photo: {
+        id: `yelp-analyzed-${placeId}-${i}`,
+        url,
+        dishName: result.dishName,
+        dishDescription: result.dishDescription,
+        isMenuMatch: result.isMenuMatch,
+        source: "yelp",
+        attribution: i === 0 ? "owner" : "user",
+        width: 600,
+        height: 400,
+      },
+      score,
+    });
+  });
+
+  // Stable sort Gemini photos by score descending
+  geminiPhotos.sort((a, b) => b.score - a.score);
+
+  // Pre-labeled photos scored at 200 (always shown first)
+  const scoredPreLabeled = preLabeledPhotos.map((photo) => ({ photo, score: 200 }));
+
+  // Combine: pre-labeled first, then Gemini-analyzed
+  const all = [...scoredPreLabeled, ...geminiPhotos];
+  return {
+    photos: all.map((e) => e.photo),
+    popularDishes,
+  };
 }

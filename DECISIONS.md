@@ -8,6 +8,28 @@ Update this file whenever a significant decision is made, reversed, or a variabl
 
 ---
 
+## ⚑ The Vision — Version 1 (locked, May 2026)
+
+> **SeeFood is the world's best aggregator of restaurant menu data.**
+>
+> It sources menu item names, descriptions, and photos from every available data
+> source — Google Places, Yelp, DoorDash, the restaurant's own website — and
+> reassembles them into the simplest possible user experience:
+>
+> *Open the app at a restaurant. Instantly see what to order, with real photos
+> and real menu descriptions. No searching. No scrolling through reviews.*
+>
+> The question it answers: **"What should I order here?"**
+>
+> Every feature, every data source, every architectural decision must serve that
+> singular purpose. If it doesn't help a person decide what to eat, it doesn't
+> belong in this app.
+
+This vision was arrived at organically during development and is recorded here
+so no future contributor ever has to re-derive it.
+
+---
+
 ## What This App Does
 
 SeeFood is a mobile-first PWA that answers one question: **"What should I order here?"**
@@ -105,7 +127,17 @@ GET handler. Accepts `?placeId=`. Calls `getGooglePhotosAndReviews`, returns
 Two interfaces that are the contract between server and client:
 
 ```typescript
-DishPhoto { id, url, dishName: string|null, source, attribution, width, height }
+MenuItemData { name, description?, imageUrl? }  // travels through pipeline
+
+DishPhoto {
+  id, url,
+  dishName: string|null,
+  dishDescription: string|null,   // sourced alongside name; shown in lightbox
+  isMenuMatch: boolean,
+  source: "google"|"yelp"|"doordash"|"website",  // shown in lightbox
+  attribution: "user"|"owner",
+  width, height
+}
 Restaurant { id, name, address, lat, lng, placeId?, yelpId?,
              rating?, reviewCount?, priceLevel?, isOpen? }
 ```
@@ -490,19 +522,20 @@ business listing includes a `menu_url` in its attributes, that URL is fetched an
 with the same `fetchMenuFromUrl` schema.org parser. This runs inside the Yelp call itself
 — no extra latency phase.
 
-### Source 4 — Delivery platform menus (NOT YET IMPLEMENTED — considered, ready)
-DoorDash, Uber Eats, and Grubhub have the broadest menu coverage (virtually every
-restaurant that delivers). DoorDash in particular embeds the full menu as a
-`__NEXT_DATA__` JSON block in their web pages — parse-able without scraping.
+### Source 4 — DoorDash via Google Custom Search (IMPLEMENTED — requires 2 env vars)
+DoorDash has the broadest menu coverage. Every menu item has a name, description,
+and photo — already paired together. DoorDash photos **bypass Gemini** (pre-labeled).
 
-**Proposed approach**: Google Custom Search API (`site:doordash.com "{name}" "{city}"`)
-→ first result URL → fetch page → parse `window.__NEXT_DATA__.props.pageProps.menu`.
-Cost: $0.005/query after the 100/day free tier.
+**Implementation**: `fetchMenuFromDoorDash(restaurantName, formattedAddress)` in `google.ts`.
+Uses Google Custom Search API → first `doordash.com` result → fetch page →
+parse `__NEXT_DATA__` JSON recursively for objects with `{name, description, imageUrl}`.
 
-**Why not implemented yet**: Sources 1–3 cover enough restaurants to validate the
-pipeline. Source 4 is the upgrade path if coverage proves insufficient.
-**To implement**: add `fetchMenuFromDoorDash(name, address)` in `menuSources.ts` and
-add it to the Phase 2 `Promise.all` in `getGooglePhotosAndReviews`.
+**To enable**: add two env vars to `.env.local` and Vercel:
+```
+GOOGLE_SEARCH_API_KEY=...   # from Google Cloud Console → Custom Search API
+GOOGLE_SEARCH_ENGINE_ID=... # from programmablesearchengine.google.com
+```
+Cost: $0.005/query after the 100/day free tier. Without these vars, returns `[]` gracefully.
 
 ---
 
