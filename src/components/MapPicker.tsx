@@ -180,7 +180,7 @@ export default function MapPicker({
 
     const mapInstance = new window.google.maps.Map(mapRef.current, {
       center: { lat, lng },
-      zoom: 16,
+      zoom: 15, // 15 = ~1250m radius; shows multiple restaurants vs 16 = ~625m (too tight in suburbs)
       // Refined dark style — flatter, more modern
       styles: [
         { elementType: "geometry", stylers: [{ color: "#16161c" }] },
@@ -282,7 +282,7 @@ export default function MapPicker({
     const map = mapInstanceRef.current;
     if (!map) return;
     map.panTo({ lat, lng });
-    map.setZoom(16);
+    map.setZoom(15);
     setTimeout(() => searchCurrentArea(map), 250);
   }, [lat, lng, searchCurrentArea]);
 

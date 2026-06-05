@@ -69,14 +69,117 @@ async function fetchMenuFromPlacesV1(placeId: string): Promise<MenuItemData[]> {
   }
 }
 
-// ── Source 4: DoorDash via Google Custom Search ───────────────────────────────
-// Requires GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID env vars.
-// Returns [] gracefully when keys are absent — enable by adding those vars.
+// ── Source 4: DoorDash (two parallel strategies) ─────────────────────────────
+// Every DoorDash menu item has name + description + photo already paired together.
+// Pre-labeled photos bypass Gemini entirely and score 200 (always shown first).
 //
-// Why DoorDash: every menu item has a photo, name, and description already
-// associated together. Pre-labeled; bypasses Gemini entirely.
+// Strategy A — Direct scrape (no env vars needed, best-effort):
+//   Search DoorDash's own website for the restaurant, find the store URL from
+//   the HTML, then fetch the store page and parse __NEXT_DATA__.
+//
+// Strategy B — Google Custom Search fallback (requires env vars):
+//   GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID — more reliable when present.
+//
+// Both strategies run in parallel; results are merged and deduplicated.
 
 async function fetchMenuFromDoorDash(
+  restaurantName: string,
+  address: string,
+  lat?: number,
+  lng?: number
+): Promise<MenuItemData[]> {
+  const [directResult, searchResult] = await Promise.allSettled([
+    lat && lng
+      ? fetchDoorDashDirect(restaurantName, lat, lng)
+      : Promise.resolve([] as MenuItemData[]),
+    fetchDoorDashViaGoogleSearch(restaurantName, address),
+  ]);
+
+  const combined = [
+    ...(directResult.status === "fulfilled" ? directResult.value : []),
+    ...(searchResult.status === "fulfilled" ? searchResult.value : []),
+  ];
+
+  const seen = new Set<string>();
+  return combined.filter((item) => {
+    const key = item.name.toLowerCase().trim();
+    if (seen.has(key) || item.name.length < 2) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * Strategy A: Find the store on DoorDash's search page via HTML scraping.
+ * No API key required. Gracefully returns [] on any failure.
+ */
+async function fetchDoorDashDirect(
+  restaurantName: string,
+  lat: number,
+  lng: number
+): Promise<MenuItemData[]> {
+  void lat; void lng; // coordinates reserved for future geo-biased search
+  try {
+    const q = encodeURIComponent(restaurantName);
+    const searchRes = await fetch(
+      `https://www.doordash.com/search/?q=${q}`,
+      {
+        signal: AbortSignal.timeout(8000),
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+          Accept: "text/html,application/xhtml+xml",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+      }
+    );
+    if (!searchRes.ok) return [];
+
+    const html = await searchRes.text();
+
+    // Extract store URL slugs embedded in the search results page
+    const slugSet = new Set(
+      [...html.matchAll(/["'](\/store\/([a-z0-9][a-z0-9-]{3,70})\/)/gi)].map(
+        (m) => m[2]
+      )
+    );
+    const slugs = [...slugSet].filter(
+      (s) => !["pickup", "search", "home", "dasher"].some((x) => s.startsWith(x))
+    );
+
+    if (!slugs.length) {
+      console.log(`[DoorDash direct] no store slugs found for "${restaurantName}"`);
+      return [];
+    }
+
+    // Score slugs by name-part overlap with the restaurant name
+    const nameParts = restaurantName
+      .toLowerCase()
+      .replace(/[^a-z0-9 ]/g, "")
+      .split(" ")
+      .filter((w) => w.length > 2);
+
+    const bestSlug = slugs.sort((a, b) => {
+      const score = (s: string) => nameParts.filter((p) => s.includes(p)).length;
+      return score(b) - score(a);
+    })[0];
+
+    console.log(
+      `[DoorDash direct] "${restaurantName}" → slug: ${bestSlug} (${slugs.length} candidates)`
+    );
+    return fetchDoorDashStorePage(`https://www.doordash.com/store/${bestSlug}/`);
+  } catch (e) {
+    console.error("[DoorDash direct] failed:", e);
+    return [];
+  }
+}
+
+/**
+ * Strategy B: Google Custom Search → DoorDash store URL.
+ * Requires GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID env vars.
+ * Returns [] gracefully when keys are absent.
+ */
+async function fetchDoorDashViaGoogleSearch(
   restaurantName: string,
   address: string
 ): Promise<MenuItemData[]> {
@@ -92,34 +195,57 @@ async function fetchMenuFromDoorDash(
     );
     if (!searchRes.ok) return [];
 
-    const searchData = await searchRes.json();
-    const url: string | undefined = searchData.items?.[0]?.link;
-    if (!url || !url.includes("doordash.com")) return [];
+    const data = await searchRes.json();
+    const url: string | undefined = data.items?.[0]?.link;
+    if (!url || !url.includes("doordash.com/store/")) return [];
 
-    const pageRes = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; SeeFood/1.0)" },
+    return fetchDoorDashStorePage(url);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch a DoorDash store page and extract menu items from __NEXT_DATA__.
+ * Works for any DoorDash store URL; called by both strategies above.
+ */
+async function fetchDoorDashStorePage(url: string): Promise<MenuItemData[]> {
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(10000),
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+        Accept: "text/html",
+      },
     });
-    if (!pageRes.ok) return [];
+    if (!res.ok) return [];
 
-    const html = await pageRes.text();
+    const html = await res.text();
     const match = html.match(
-      /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/
+      /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/
     );
     if (!match) return [];
 
     const items: MenuItemData[] = [];
-    extractDoorDashItems(JSON.parse(match[1]), items);
+    try {
+      extractDoorDashItems(JSON.parse(match[1]), items);
+    } catch {
+      return [];
+    }
 
-    // Deduplicate
     const seen = new Set<string>();
-    return items.filter((item) => {
+    const deduped = items.filter((item) => {
       const key = item.name.toLowerCase().trim();
       if (seen.has(key) || item.name.length < 2) return false;
       seen.add(key);
       return true;
     });
-  } catch {
+
+    console.log(`[DoorDash store] ${url}: ${deduped.length} items`);
+    return deduped;
+  } catch (e) {
+    console.error(`[DoorDash store] failed for ${url}:`, e);
     return [];
   }
 }
@@ -416,14 +542,22 @@ export async function getGooglePhotosAndReviews(
   // ── Phase 2: Website + Yelp + DoorDash in parallel ──────────────────────────
   // Source 2: restaurant website schema.org (also yields pre-labeled photos with imageUrl)
   // Source 3: Yelp menu_url attribute + reviews + photo URLs
-  // Source 4: DoorDash via Custom Search (requires GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID)
+  // Source 4: DoorDash (direct scrape + optional Google Custom Search)
   const [websiteMenuItems, yelpData, doorDashItems] = await Promise.all([
     websiteUrl ? fetchMenuFromUrl(websiteUrl) : Promise.resolve([]),
     lat && lng
       ? fetchYelpBusinessData(restaurantName, lat, lng)
       : Promise.resolve({ menuItems: [], reviews: [], photoUrls: [] }),
-    fetchMenuFromDoorDash(restaurantName, formattedAddress), // Source 4
+    fetchMenuFromDoorDash(restaurantName, formattedAddress, lat, lng), // Source 4
   ]);
+
+  // Debug logging — helps diagnose why sources return empty
+  console.log(
+    `[pipeline] "${restaurantName}" — ` +
+    `places:${placesMenuItems.length} website:${websiteMenuItems.length} ` +
+    `yelp_menu:${yelpData.menuItems.length} yelp_photos:${yelpData.photoUrls.length} ` +
+    `doordash:${doorDashItems.length}`
+  );
 
   // Merge all menu sources, deduplicate — this is the reference list Gemini works from
   const allMenuItems = deduplicateMenuItems([

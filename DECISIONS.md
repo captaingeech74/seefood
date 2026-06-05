@@ -323,6 +323,10 @@ On first map `idle` event → auto-search nearby restaurants (no button needed).
 On subsequent `idle` events (after user pan/zoom) → show floating "Search this area" button.
 This avoids surprise API calls on every pan while staying frictionless on first open.
 
+### Initial map zoom
+Set to **15** (≈1250m radius). Was 16 (≈625m) which showed only 1 restaurant in suburban
+areas. Zoom 15 shows a full neighborhood's worth of options on first open.
+
 ### Restaurant pin detection radius
 Derived from zoom level: `radius = Math.min(50000, Math.round(40000 / Math.pow(2, zoom - 10)))`
 Clamped to minimum 300m. The formula means at zoom 14 ≈ 2500m radius.
@@ -522,20 +526,27 @@ business listing includes a `menu_url` in its attributes, that URL is fetched an
 with the same `fetchMenuFromUrl` schema.org parser. This runs inside the Yelp call itself
 — no extra latency phase.
 
-### Source 4 — DoorDash via Google Custom Search (IMPLEMENTED — requires 2 env vars)
+### Source 4 — DoorDash (two-strategy, no env vars required for basic operation)
 DoorDash has the broadest menu coverage. Every menu item has a name, description,
 and photo — already paired together. DoorDash photos **bypass Gemini** (pre-labeled).
 
-**Implementation**: `fetchMenuFromDoorDash(restaurantName, formattedAddress)` in `google.ts`.
-Uses Google Custom Search API → first `doordash.com` result → fetch page →
-parse `__NEXT_DATA__` JSON recursively for objects with `{name, description, imageUrl}`.
+**Two parallel strategies** (results merged + deduplicated):
 
-**To enable**: add two env vars to `.env.local` and Vercel:
+**Strategy A — Direct scrape (always active, no env vars):**
+`fetchDoorDashDirect` → searches doordash.com/search/?q={name}, extracts store URL slugs
+from the HTML via regex, scores by name overlap, fetches the best match store page,
+parses `__NEXT_DATA__` JSON recursively for `{name, description, imageUrl}` objects.
+Best-effort; gracefully returns `[]` on any failure (bot detection, timeouts, etc.).
+
+**Strategy B — Google Custom Search (optional, more reliable when enabled):**
+`fetchDoorDashViaGoogleSearch` → same as before. Requires two env vars:
 ```
-GOOGLE_SEARCH_API_KEY=...   # from Google Cloud Console → Custom Search API
-GOOGLE_SEARCH_ENGINE_ID=... # from programmablesearchengine.google.com
+GOOGLE_SEARCH_API_KEY=...   # Google Cloud Console → Custom Search API
+GOOGLE_SEARCH_ENGINE_ID=... # programmablesearchengine.google.com
 ```
-Cost: $0.005/query after the 100/day free tier. Without these vars, returns `[]` gracefully.
+Cost: $0.005/query after 100/day free tier. Returns `[]` gracefully if vars absent.
+
+Both strategies call shared `fetchDoorDashStorePage(url)` to parse the store page.
 
 ---
 
@@ -552,10 +563,12 @@ Google returns reviews by "relevance"; Yelp by `yelp_sort`. Both are biased towa
 high-confidence reviews. False positives still occasionally slip through for
 restaurants with non-standard dish names.
 
-### No caching
-Every restaurant load makes fresh API calls. There's no Redis, no CDN cache, no
-`unstable_cache`. Adding response caching for `placeId` → dishes would dramatically
-reduce API costs and latency for popular restaurants.
+### Response caching (added)
+`unstable_cache` from `next/cache` wraps `getGooglePhotosAndReviews` in the dishes
+route handler. Cache key: `["restaurant-dishes", placeId, restaurantName]`.
+TTL: 86400s (24 hours). Uses Next.js / Vercel Data Cache — free, built-in, persistent
+across cold starts. A 20–40s API+Gemini round-trip becomes a sub-100ms cache read on
+repeat visits to the same restaurant.
 
 ### No Yelp photo Vision filtering
 When/if Yelp photos are enabled, they bypass Vision filtering entirely. The Yelp

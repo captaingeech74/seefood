@@ -35,42 +35,14 @@ export default function RestaurantHeader({
       className="sticky top-0 z-20 glass border-b border-[var(--border-subtle)] px-4 pb-3"
       style={{ paddingTop: "max(14px, env(safe-area-inset-top))" }}
     >
-      {/* Top row: "YOU'RE AT" eyebrow left + "Change Restaurant" button right */}
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-1.5">
-          <div className="relative w-1.5 h-1.5 shrink-0">
-            <span className="absolute inset-0 rounded-full bg-emerald-400 dot-pulse" />
-          </div>
-          <span className="text-[9.5px] text-white/35 uppercase tracking-[0.22em] font-bold">
-            You&apos;re at
-          </span>
+      {/* Top row: "YOU'RE AT" eyebrow only */}
+      <div className="flex items-center gap-1.5 mb-1">
+        <div className="relative w-1.5 h-1.5 shrink-0">
+          <span className="absolute inset-0 rounded-full bg-emerald-400 dot-pulse" />
         </div>
-
-        <button
-          onClick={onChangeRestaurant}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full active:scale-95 transition-all"
-          style={{
-            background: "rgba(255,107,53,0.15)",
-            border: "1px solid rgba(255,107,53,0.35)",
-          }}
-        >
-          <svg
-            width="11" height="11" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            style={{ color: "var(--accent)" }}
-          >
-            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-            <path d="M3 3v5h5"/>
-            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-            <path d="M16 21h5v-5"/>
-          </svg>
-          <span
-            className="text-[11px] font-bold whitespace-nowrap"
-            style={{ color: "var(--accent)" }}
-          >
-            Change Restaurant
-          </span>
-        </button>
+        <span className="text-[9.5px] text-white/35 uppercase tracking-[0.22em] font-bold">
+          You&apos;re at
+        </span>
       </div>
 
       {/* Restaurant name */}
@@ -111,10 +83,43 @@ export default function RestaurantHeader({
         </div>
       )}
 
-      {/* Address — full width now that button is in the top row */}
+      {/* Address */}
       <p className="text-[12px] text-white/35 truncate font-medium mt-1.5">
         {restaurant.address}
       </p>
+
+      {/* Change Restaurant — full-width prominent row, easy to find and tap */}
+      <button
+        onClick={onChangeRestaurant}
+        className="w-full flex items-center justify-between mt-3 pt-3 border-t border-white/8 active:opacity-60 transition-opacity"
+        aria-label="Change restaurant"
+      >
+        <div className="flex items-center gap-2">
+          <svg
+            width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ color: "var(--accent)" }}
+          >
+            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span className="text-[13px] text-white/45 font-medium">
+            Not the right place?
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[13px] font-bold" style={{ color: "var(--accent)" }}>
+            Change restaurant
+          </span>
+          <svg
+            width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ color: "var(--accent)" }}
+          >
+            <path d="m9 18 6-6-6-6"/>
+          </svg>
+        </div>
+      </button>
     </header>
   );
 }
