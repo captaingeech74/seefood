@@ -230,7 +230,10 @@ No explanation. Just the dish name or null.`;
         ],
       },
     ],
-    generationConfig: { temperature: 0, maxOutputTokens: 200 },
+    // Gemini 2.5 Flash uses thinking tokens that count against maxOutputTokens.
+    // Empirical: thinking alone consumes 200–700 tokens, leaving almost nothing
+    // for actual output at 200. 1024 gives ample room after thinking budget.
+    generationConfig: { temperature: 0, maxOutputTokens: 1024 },
   });
 
   for (const model of MODELS) {
