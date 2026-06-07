@@ -17,7 +17,7 @@ export interface DishPhoto {
   /** true = matched against the restaurant's actual menu (fuzzy or exact) */
   isMenuMatch: boolean;
   /** where this photo came from */
-  source: "google" | "yelp" | "doordash" | "website";
+  source: "google" | "yelp" | "doordash" | "website" | "grubhub";
   /** who contributed it — "owner" = restaurant/management, "user" = customer */
   attribution: "user" | "owner";
   width: number;

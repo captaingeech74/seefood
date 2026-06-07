@@ -14,6 +14,7 @@ const SOURCE_LABELS: Record<DishPhoto["source"], string> = {
   yelp:     "Yelp",
   doordash: "DoorDash",
   website:  "Restaurant",
+  grubhub:  "Grubhub",
 };
 
 // Subtle tinted backgrounds for each source — dark, on-brand with the app's palette
@@ -22,6 +23,7 @@ const SOURCE_STYLES: Record<DishPhoto["source"], string> = {
   yelp:     "bg-red-500/15 text-red-300",
   doordash: "bg-orange-500/15 text-orange-300",
   website:  "bg-emerald-500/15 text-emerald-300",
+  grubhub:  "bg-purple-500/15 text-purple-300",
 };
 
 export default function Lightbox({ photos, startIndex, onClose }: LightboxProps) {

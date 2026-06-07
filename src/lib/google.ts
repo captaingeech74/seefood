@@ -39,7 +39,7 @@ interface GooglePlace {
 async function fetchMenuFromPlacesV1(placeId: string): Promise<MenuItemData[]> {
   try {
     const res = await fetch(
-      `https://places.googleapis.com/v1/places/${placeId}?key=${API_KEY}&languageCode=en`,
+      `https://places.googleapis.com/v1/places/${placeId}?key=${VISION_KEY}&languageCode=en`,
       {
         headers: { "X-Goog-FieldMask": "menuItems" },
         signal: AbortSignal.timeout(5000),
@@ -69,39 +69,97 @@ async function fetchMenuFromPlacesV1(placeId: string): Promise<MenuItemData[]> {
   }
 }
 
-// ── Source 4: DoorDash (two parallel strategies) ─────────────────────────────
-// Every DoorDash menu item has name + description + photo already paired together.
-// Pre-labeled photos bypass Gemini entirely and score 200 (always shown first).
+// ── Anti-bot fetch helper ─────────────────────────────────────────────────────
+// Routes through Scrapfly (SCRAPFLY_KEY env var) when set.
+// Scrapfly with asp=true uses residential IP rotation + fingerprint spoofing —
+// the industry-leading approach for bypassing DoorDash, Grubhub, and similar
+// platforms that block datacenter IPs at the ASN level.
 //
-// Strategy A — Direct scrape (no env vars needed, best-effort):
-//   Search DoorDash's own website for the restaurant, find the store URL from
-//   the HTML, then fetch the store page and parse __NEXT_DATA__.
+// Free tier: 1,000 API calls/month at scrapfly.io — sufficient for ~500 unique
+// restaurant lookups/month given 24h response caching (2 calls per lookup).
 //
-// Strategy B — Google Custom Search fallback (requires env vars):
-//   GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID — more reliable when present.
-//
-// Both strategies run in parallel; results are merged and deduplicated.
+// Falls back to a direct browser-fingerprinted fetch when no key is set.
+// Direct works for lightly-protected sites (Grubhub); fails for DoorDash.
 
-async function fetchMenuFromDoorDash(
-  restaurantName: string,
-  address: string,
-  lat?: number,
-  lng?: number
-): Promise<MenuItemData[]> {
-  const [directResult, searchResult] = await Promise.allSettled([
-    lat && lng
-      ? fetchDoorDashDirect(restaurantName, lat, lng)
-      : Promise.resolve([] as MenuItemData[]),
-    fetchDoorDashViaGoogleSearch(restaurantName, address),
-  ]);
+const BROWSER_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br",
+  "upgrade-insecure-requests": "1",
+};
 
-  const combined = [
-    ...(directResult.status === "fulfilled" ? directResult.value : []),
-    ...(searchResult.status === "fulfilled" ? searchResult.value : []),
-  ];
+async function fetchWithAntiBot(
+  url: string,
+  referer: string,
+  timeoutMs = 12000
+): Promise<string | null> {
+  const scrapflyKey = process.env.SCRAPFLY_KEY;
 
+  if (scrapflyKey) {
+    // Scrapfly asp=true: Anti Scraping Protection — residential IPs + challenge solving.
+    // render_js=false: DoorDash and Grubhub are Next.js SSR; __NEXT_DATA__ is in HTML.
+    const apiUrl =
+      `https://api.scrapfly.io/scrape` +
+      `?key=${scrapflyKey}` +
+      `&url=${encodeURIComponent(url)}` +
+      `&asp=true&render_js=false&country=us&cost_budget=10`;
+    try {
+      const res = await fetch(apiUrl, { signal: AbortSignal.timeout(timeoutMs + 5000) });
+      if (!res.ok) {
+        console.error(`[Scrapfly] HTTP ${res.status} for ${url}`);
+        return null;
+      }
+      const data = await res.json();
+      if (data.result?.status_code === 200 && data.result?.content) {
+        console.log(`[Scrapfly] ✓ ${url}`);
+        return data.result.content as string;
+      }
+      console.error(`[Scrapfly] upstream status ${data.result?.status_code} for ${url}`);
+      return null;
+    } catch (e) {
+      console.error("[Scrapfly] exception:", e);
+      return null;
+    }
+  }
+
+  // Direct fallback with full browser fingerprint (blocked by DoorDash, may work for Grubhub)
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: { ...BROWSER_HEADERS, Referer: referer },
+    });
+    if (!res.ok) {
+      console.log(`[fetchWithAntiBot] ${res.status} for ${url} (no Scrapfly key)`);
+      return null;
+    }
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
+// ── Shared __NEXT_DATA__ slug/URL helpers ─────────────────────────────────────
+
+/** Score URLs by how many words from the restaurant name appear in the URL. */
+function scoreByNameMatch(candidates: string[], restaurantName: string): string | null {
+  if (!candidates.length) return null;
+  const parts = restaurantName
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, "")
+    .split(" ")
+    .filter((w) => w.length > 2);
+  return candidates.sort((a, b) => {
+    const score = (s: string) => parts.filter((p) => s.toLowerCase().includes(p)).length;
+    return score(b) - score(a);
+  })[0];
+}
+
+/** Deduplicate MenuItemData[] by lowercase name. */
+function deduplicateItems(items: MenuItemData[]): MenuItemData[] {
   const seen = new Set<string>();
-  return combined.filter((item) => {
+  return items.filter((item) => {
     const key = item.name.toLowerCase().trim();
     if (seen.has(key) || item.name.length < 2) return false;
     seen.add(key);
@@ -109,83 +167,60 @@ async function fetchMenuFromDoorDash(
   });
 }
 
-/**
- * Strategy A: Find the store on DoorDash's search page via HTML scraping.
- * No API key required. Gracefully returns [] on any failure.
- */
-async function fetchDoorDashDirect(
+// ── Source 4: DoorDash ────────────────────────────────────────────────────────
+// Pre-labeled photos bypass Gemini (score 200, always shown first).
+// Three parallel strategies — whichever yields data wins:
+//   A. Direct scrape via fetchWithAntiBot (works when SCRAPFLY_KEY is set)
+//   B. Google Custom Search (GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID)
+
+async function fetchMenuFromDoorDash(
   restaurantName: string,
-  lat: number,
-  lng: number
+  address: string,
+  lat?: number,
+  lng?: number
 ): Promise<MenuItemData[]> {
-  void lat; void lng; // coordinates reserved for future geo-biased search
+  void lat; void lng;
+  const [directResult, searchResult] = await Promise.allSettled([
+    fetchDoorDashDirect(restaurantName),
+    fetchDoorDashViaGoogleSearch(restaurantName, address),
+  ]);
+
+  return deduplicateItems([
+    ...(directResult.status === "fulfilled" ? directResult.value : []),
+    ...(searchResult.status === "fulfilled" ? searchResult.value : []),
+  ]);
+}
+
+async function fetchDoorDashDirect(restaurantName: string): Promise<MenuItemData[]> {
   try {
     const q = encodeURIComponent(restaurantName);
-    const searchRes = await fetch(
+    const html = await fetchWithAntiBot(
       `https://www.doordash.com/search/?q=${q}`,
-      {
-        signal: AbortSignal.timeout(10000),
-        headers: {
-          // Full browser fingerprint — DoorDash 403s on incomplete headers
-          "User-Agent":
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Accept-Encoding": "gzip, deflate, br",
-          "Referer": "https://www.doordash.com/",
-          "sec-fetch-dest": "document",
-          "sec-fetch-mode": "navigate",
-          "sec-fetch-site": "same-origin",
-          "upgrade-insecure-requests": "1",
-        },
-      }
+      "https://www.doordash.com/"
     );
-    if (!searchRes.ok) return [];
+    if (!html) return [];
 
-    const html = await searchRes.text();
+    const slugs = [...new Set(
+      [...html.matchAll(/["'](\/store\/([a-z0-9][a-z0-9-]{3,70})\/)/gi)].map((m) => m[2])
+    )].filter((s) => !["pickup", "search", "home", "dasher"].some((x) => s.startsWith(x)));
 
-    // Extract store URL slugs embedded in the search results page
-    const slugSet = new Set(
-      [...html.matchAll(/["'](\/store\/([a-z0-9][a-z0-9-]{3,70})\/)/gi)].map(
-        (m) => m[2]
-      )
-    );
-    const slugs = [...slugSet].filter(
-      (s) => !["pickup", "search", "home", "dasher"].some((x) => s.startsWith(x))
-    );
-
-    if (!slugs.length) {
-      console.log(`[DoorDash direct] no store slugs found for "${restaurantName}"`);
+    const bestSlug = scoreByNameMatch(slugs, restaurantName);
+    if (!bestSlug) {
+      console.log(`[DoorDash] no slugs found for "${restaurantName}"`);
       return [];
     }
-
-    // Score slugs by name-part overlap with the restaurant name
-    const nameParts = restaurantName
-      .toLowerCase()
-      .replace(/[^a-z0-9 ]/g, "")
-      .split(" ")
-      .filter((w) => w.length > 2);
-
-    const bestSlug = slugs.sort((a, b) => {
-      const score = (s: string) => nameParts.filter((p) => s.includes(p)).length;
-      return score(b) - score(a);
-    })[0];
-
-    console.log(
-      `[DoorDash direct] "${restaurantName}" → slug: ${bestSlug} (${slugs.length} candidates)`
+    console.log(`[DoorDash] "${restaurantName}" → slug: ${bestSlug} (${slugs.length} candidates)`);
+    return fetchDeliveryStorePage(
+      `https://www.doordash.com/store/${bestSlug}/`,
+      "https://www.doordash.com/",
+      extractDoorDashItems
     );
-    return fetchDoorDashStorePage(`https://www.doordash.com/store/${bestSlug}/`);
   } catch (e) {
     console.error("[DoorDash direct] failed:", e);
     return [];
   }
 }
 
-/**
- * Strategy B: Google Custom Search → DoorDash store URL.
- * Requires GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID env vars.
- * Returns [] gracefully when keys are absent.
- */
 async function fetchDoorDashViaGoogleSearch(
   restaurantName: string,
   address: string
@@ -193,73 +228,88 @@ async function fetchDoorDashViaGoogleSearch(
   const searchKey = process.env.GOOGLE_SEARCH_API_KEY;
   const searchCx  = process.env.GOOGLE_SEARCH_ENGINE_ID;
   if (!searchKey || !searchCx) return [];
-
   try {
     const query = `"${restaurantName}" ${address} site:doordash.com`;
-    const searchRes = await fetch(
+    const res = await fetch(
       `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(query)}&key=${searchKey}&cx=${searchCx}&num=1`,
       { signal: AbortSignal.timeout(5000) }
     );
-    if (!searchRes.ok) return [];
-
-    const data = await searchRes.json();
+    if (!res.ok) return [];
+    const data = await res.json();
     const url: string | undefined = data.items?.[0]?.link;
     if (!url || !url.includes("doordash.com/store/")) return [];
-
-    return fetchDoorDashStorePage(url);
+    return fetchDeliveryStorePage(url, "https://www.doordash.com/", extractDoorDashItems);
   } catch {
     return [];
   }
 }
 
-/**
- * Fetch a DoorDash store page and extract menu items from __NEXT_DATA__.
- * Works for any DoorDash store URL; called by both strategies above.
- */
-async function fetchDoorDashStorePage(url: string): Promise<MenuItemData[]> {
+// ── Source 5: Grubhub ─────────────────────────────────────────────────────────
+// Free, no API keys — Grubhub has less aggressive bot protection than DoorDash.
+// Same pre-labeled pattern: menu items with photos bypass Gemini entirely.
+// With SCRAPFLY_KEY set this becomes very reliable; without it, best-effort.
+
+async function fetchMenuFromGrubhub(
+  restaurantName: string,
+  lat: number,
+  lng: number
+): Promise<MenuItemData[]> {
   try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(12000),
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Referer": "https://www.doordash.com/",
-        "sec-fetch-dest": "document",
-        "sec-fetch-mode": "navigate",
-        "sec-fetch-site": "same-origin",
-        "upgrade-insecure-requests": "1",
-      },
-    });
-    if (!res.ok) return [];
-
-    const html = await res.text();
-    const match = html.match(
-      /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/
+    const q = encodeURIComponent(restaurantName);
+    const html = await fetchWithAntiBot(
+      `https://www.grubhub.com/search?queryText=${q}&latitude=${lat}&longitude=${lng}&orderMethod=delivery`,
+      "https://www.grubhub.com/"
     );
-    if (!match) return [];
+    if (!html) return [];
 
-    const items: MenuItemData[] = [];
-    try {
-      extractDoorDashItems(JSON.parse(match[1]), items);
-    } catch {
+    // Grubhub restaurant URLs: /restaurant/{slug}/{id}
+    const urls = [...new Set(
+      [...html.matchAll(/["'](\/restaurant\/([^"'?#]+)\/(\d{5,})\/?)["']/gi)]
+        .map((m) => `https://www.grubhub.com/restaurant/${m[2]}/${m[3]}/`)
+    )];
+
+    const bestUrl = scoreByNameMatch(urls, restaurantName);
+    if (!bestUrl) {
+      console.log(`[Grubhub] no results for "${restaurantName}"`);
+      return [];
+    }
+    console.log(`[Grubhub] "${restaurantName}" → ${bestUrl}`);
+    return fetchDeliveryStorePage(bestUrl, "https://www.grubhub.com/", extractGrubhubItems);
+  } catch (e) {
+    console.error("[Grubhub] failed:", e);
+    return [];
+  }
+}
+
+// ── Shared store page fetcher ─────────────────────────────────────────────────
+
+/**
+ * Fetch a delivery platform store page and extract menu items from __NEXT_DATA__.
+ * Shared by DoorDash and Grubhub; takes a platform-specific item extractor.
+ */
+async function fetchDeliveryStorePage(
+  url: string,
+  referer: string,
+  extractor: (obj: unknown, out: MenuItemData[]) => void
+): Promise<MenuItemData[]> {
+  try {
+    const html = await fetchWithAntiBot(url, referer, 15000);
+    if (!html) return [];
+
+    const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+    if (!match) {
+      console.log(`[store page] no __NEXT_DATA__ found at ${url}`);
       return [];
     }
 
-    const seen = new Set<string>();
-    const deduped = items.filter((item) => {
-      const key = item.name.toLowerCase().trim();
-      if (seen.has(key) || item.name.length < 2) return false;
-      seen.add(key);
-      return true;
-    });
+    const items: MenuItemData[] = [];
+    try { extractor(JSON.parse(match[1]), items); } catch { return []; }
 
-    console.log(`[DoorDash store] ${url}: ${deduped.length} items`);
+    const deduped = deduplicateItems(items);
+    console.log(`[store page] ${url}: ${deduped.length} menu items`);
     return deduped;
   } catch (e) {
-    console.error(`[DoorDash store] failed for ${url}:`, e);
+    console.error(`[store page] failed for ${url}:`, e);
     return [];
   }
 }
@@ -289,6 +339,41 @@ function extractDoorDashItems(obj: unknown, out: MenuItemData[]): void {
 
   for (const val of Object.values(o)) {
     if (val && typeof val === "object") extractDoorDashItems(val, out);
+  }
+}
+
+/**
+ * Recursively walks Grubhub __NEXT_DATA__ for menu item objects.
+ * Grubhub items typically have: name, description, photo (URL), price.
+ */
+function extractGrubhubItems(obj: unknown, out: MenuItemData[]): void {
+  if (!obj || typeof obj !== "object") return;
+  if (Array.isArray(obj)) { obj.forEach((v) => extractGrubhubItems(v, out)); return; }
+
+  const o = obj as Record<string, unknown>;
+
+  // Grubhub items: name + at least one of description / photo / price
+  if (
+    typeof o.name === "string" &&
+    o.name.trim().length > 1 &&
+    (
+      typeof o.description === "string" ||
+      typeof o.photo === "string" ||
+      typeof o.photoUrl === "string" ||
+      typeof o.imageUrl === "string" ||
+      typeof o.price === "number"
+    )
+  ) {
+    const item: MenuItemData = { name: o.name.trim() };
+    const desc = (o.description as string | undefined)?.trim();
+    if (desc) item.description = desc.substring(0, 300);
+    const img = o.photo ?? o.photoUrl ?? o.imageUrl;
+    if (typeof img === "string" && img.startsWith("http")) item.imageUrl = img;
+    out.push(item);
+  }
+
+  for (const val of Object.values(o)) {
+    if (val && typeof val === "object") extractGrubhubItems(val, out);
   }
 }
 
@@ -553,24 +638,28 @@ export async function getGooglePhotosAndReviews(
   const websiteUrl: string | undefined = data.result.website;
   const formattedAddress: string = data.result.formatted_address ?? "";
 
-  // ── Phase 2: Website + Yelp + DoorDash in parallel ──────────────────────────
-  // Source 2: restaurant website schema.org (also yields pre-labeled photos with imageUrl)
-  // Source 3: Yelp menu_url attribute + reviews + photo URLs
-  // Source 4: DoorDash (direct scrape + optional Google Custom Search)
-  const [websiteMenuItems, yelpData, doorDashItems] = await Promise.all([
+  // ── Phase 2: Website + Yelp + DoorDash + Grubhub in parallel ───────────────
+  // Source 2: restaurant website schema.org (pre-labeled photos when imageUrl present)
+  // Source 3: Yelp menu_url + reviews + 3 photo URLs
+  // Source 4: DoorDash — via Scrapfly (SCRAPFLY_KEY) or Google Custom Search
+  // Source 5: Grubhub — free, no API key, works without Scrapfly on many sites
+  const [websiteMenuItems, yelpData, doorDashItems, grubhubItems] = await Promise.all([
     websiteUrl ? fetchMenuFromUrl(websiteUrl) : Promise.resolve([]),
     lat && lng
       ? fetchYelpBusinessData(restaurantName, lat, lng)
       : Promise.resolve({ menuItems: [], reviews: [], photoUrls: [] }),
-    fetchMenuFromDoorDash(restaurantName, formattedAddress, lat, lng), // Source 4
+    fetchMenuFromDoorDash(restaurantName, formattedAddress, lat, lng),
+    lat && lng
+      ? fetchMenuFromGrubhub(restaurantName, lat, lng)
+      : Promise.resolve([]),
   ]);
 
-  // Debug logging — helps diagnose why sources return empty
+  // Debug logging — full source breakdown on every load
   console.log(
     `[pipeline] "${restaurantName}" — ` +
     `places:${placesMenuItems.length} website:${websiteMenuItems.length} ` +
     `yelp_menu:${yelpData.menuItems.length} yelp_photos:${yelpData.photoUrls.length} ` +
-    `doordash:${doorDashItems.length}`
+    `doordash:${doorDashItems.length} grubhub:${grubhubItems.length}`
   );
 
   // Merge all menu sources, deduplicate — this is the reference list Gemini works from
@@ -579,6 +668,7 @@ export async function getGooglePhotosAndReviews(
     ...websiteMenuItems,
     ...yelpData.menuItems,
     ...doorDashItems,
+    ...grubhubItems,
   ]);
 
   // Merge reviews for popular dish extraction
@@ -617,6 +707,21 @@ export async function getGooglePhotosAndReviews(
       dishDescription: item.description ?? null,
       isMenuMatch: true,
       source: "doordash",
+      attribution: "owner",
+      width: 800,
+      height: 600,
+    });
+  }
+
+  for (const item of grubhubItems) {
+    if (!item.imageUrl) continue;
+    preLabeledPhotos.push({
+      id: `grubhub-${item.imageUrl.slice(-24)}`,
+      url: item.imageUrl,
+      dishName: item.name,
+      dishDescription: item.description ?? null,
+      isMenuMatch: true,
+      source: "grubhub",
       attribution: "owner",
       width: 800,
       height: 600,
