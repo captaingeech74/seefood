@@ -39,6 +39,12 @@ export async function fetchMenuFromUrl(url: string): Promise<MenuItemData[]> {
       if (items.length > 0) return items;
     }
 
+    // ── Platform 1b: Menufy via order link ───────────────────────────────────
+    // Some restaurants (e.g. Richie's Diner) have their marketing site separate
+    // from their Menufy ordering site. Detect by following "order" / "menu" links.
+    const menufyViaSideLink = await checkLinksForMenufy(url, html);
+    if (menufyViaSideLink.length > 0) return menufyViaSideLink;
+
     // ── Platform 2: Schema.org LD+JSON ────────────────────────────────────────
     return parseSchemaOrgMenuItems(html);
   } catch {
@@ -66,6 +72,69 @@ function extractMenufyParams(html: string): { locationId: string; apiKey: string
   const apiKeyMatch   = html.match(/api-key="([A-Za-z0-9+/=]{8,})"/);
   if (!locationMatch || !apiKeyMatch) return null;
   return { locationId: locationMatch[1], apiKey: apiKeyMatch[1] };
+}
+
+/**
+ * Follow "order" / "menu" links on the main website to find a Menufy
+ * ordering site that's hosted at a different domain.
+ * Example: richiesdiner.com → richiesdinertemecula.com (Menufy)
+ */
+async function checkLinksForMenufy(baseUrl: string, html: string): Promise<MenuItemData[]> {
+  let baseOrigin = "";
+  try { baseOrigin = new URL(baseUrl).origin; } catch { return []; }
+
+  // Find candidate links: hrefs containing order/menu/delivery, or absolute external
+  const hrefPattern = /href="([^"]+)"/gi;
+  const candidates: string[] = [];
+  let m: RegExpExecArray | null;
+
+  while ((m = hrefPattern.exec(html)) !== null) {
+    const href = m[1];
+    // Skip anchors, JS, CSS, tel, mailto
+    if (!href || href.startsWith("#") || href.startsWith("javascript") ||
+        href.startsWith("mailto") || href.startsWith("tel")) continue;
+
+    // Order/menu keywords in relative paths
+    const isOrderPath = /\/(order|menu|delivery|online-order)/i.test(href);
+
+    // Absolute external domains (skip social, maps, yelp, etc.)
+    let isExternal = false;
+    let resolvedUrl = href;
+    if (href.startsWith("http")) {
+      try {
+        const u = new URL(href);
+        isExternal = u.origin !== baseOrigin &&
+          !["facebook.com","instagram.com","yelp.com","google.com","tripadvisor.com","twitter.com","tiktok.com","doordash.com","ubereats.com","grubhub.com"].some(d => u.hostname.includes(d));
+      } catch { continue; }
+    } else if (isOrderPath) {
+      try { resolvedUrl = new URL(href, baseUrl).href; } catch { continue; }
+    } else {
+      continue;
+    }
+
+    if (isOrderPath || isExternal) candidates.push(resolvedUrl);
+  }
+
+  // Deduplicate and limit
+  const unique = [...new Set(candidates)].slice(0, 4);
+
+  for (const candidateUrl of unique) {
+    try {
+      const r = await fetch(candidateUrl, {
+        signal: AbortSignal.timeout(5000),
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; SeeFood/1.0)", Accept: "text/html" },
+      });
+      if (!r.ok) continue;
+      const linkedHtml = await r.text();
+
+      if (linkedHtml.includes("api.menufy.com")) {
+        console.log(`[Menufy] found via link: ${candidateUrl}`);
+        const items = await parseMenufySite(candidateUrl, linkedHtml);
+        if (items.length > 0) return items;
+      }
+    } catch { continue; }
+  }
+  return [];
 }
 
 async function parseMenufySite(url: string, html: string): Promise<MenuItemData[]> {

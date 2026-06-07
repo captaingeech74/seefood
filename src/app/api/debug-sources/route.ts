@@ -15,15 +15,16 @@ export async function GET(req: NextRequest) {
   const lat     = parseFloat(searchParams.get("lat") ?? "0");
   const lng     = parseFloat(searchParams.get("lng") ?? "0");
 
-  const API_KEY = process.env.GOOGLE_MAPS_API_KEY!;
-  const YELP_KEY = process.env.YELP_API_KEY!;
+  const API_KEY   = process.env.GOOGLE_MAPS_API_KEY!;
+  const VISION_KEY = process.env.VISION_API_KEY || API_KEY; // Places v1 uses seefood-vision project
+  const YELP_KEY  = process.env.YELP_API_KEY!;
 
   const results: Record<string, unknown> = {};
 
   // ── Source 1: Google Places v1 menuItems ──────────────────────────────────
   try {
     const r = await fetch(
-      `https://places.googleapis.com/v1/places/${placeId}?key=${API_KEY}&languageCode=en`,
+      `https://places.googleapis.com/v1/places/${placeId}?key=${VISION_KEY}&languageCode=en`,
       { headers: { "X-Goog-FieldMask": "menuItems" }, signal: AbortSignal.timeout(6000) }
     );
     const d = await r.json();
