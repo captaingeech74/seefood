@@ -638,14 +638,22 @@ instead of Vision — that's already partially scaffolded in `yelp.ts`.
   original code (and PRD §5.3) assumed exists simply doesn't. This source is dead — not
   a config problem, a wrong assumption. Flagged for Kyle; no further Places v1 menu work
   should happen without Google actually shipping this.
-- **DoorDash via Scrapfly is real but expensive.** `fetchWithAntiBot`'s ASP challenge for
-  DoorDash costs 51–75+ Scrapfly credits per call (`ERR::SCRAPE::COST_BUDGET_LIMIT` at the
-  old `cost_budget=10`, which silently rejected every DoorDash attempt before it ever hit
-  the network — that's why DoorDash scored 0% on every prior benchmark run). Raised to
-  `cost_budget=100` so it can succeed, but at that price the free 1,000-credit/month tier
-  only covers ~10-13 DoorDash lookups/month total. Grubhub, by contrast, is cheap and
-  working today. DoorDash coverage at scale would require the paid Scrapfly gate in
-  PRODUCT_REVIEW §5.3 — this is exactly the kind of measured gap that gate exists for.
+- **DoorDash is broken two ways, one fixed, one not.** (1) `fetchWithAntiBot`'s ASP
+  challenge for DoorDash costs 51–75+ Scrapfly credits per call (`ERR::SCRAPE::
+  COST_BUDGET_LIMIT` at the old `cost_budget=10`, which silently rejected every DoorDash
+  attempt before it ever hit the network — that's why DoorDash scored 0% on every prior
+  benchmark run). Raised to `cost_budget=100`; at that price the free 1,000-credit/month
+  tier only covers ~10-13 DoorDash lookups/month, a real constraint worth Kyle knowing
+  about. (2) Even past the cost gate, DoorDash's own `/search/?q=` endpoint now returns a
+  plain 404 for search queries that used to work (confirmed directly via Scrapfly against
+  `doordash.com/search/?q=Chick-fil-A` — `ERR::SCRAPE::BAD_UPSTREAM_RESPONSE`, real 404,
+  not a bot block). DoorDash likely changed their search URL structure since this scraper
+  was written. Did not chase further today to avoid burning Scrapfly credits investigating
+  a site-structure question — needs its own investigation (probably a different search
+  endpoint or a GraphQL API) before DoorDash can come back online. Grubhub, by contrast,
+  is cheap and returning real responses today (still 0 hits on the current benchmark set
+  because Grubhub's search often doesn't index small independents — worth re-testing on
+  chains specifically).
 - **Menufy link-follower bug found and fixed**: the original href-scanner matched every
   `href=""` attribute in the HTML (including `<link>`/`<img>` favicon, font, and CDN
   asset tags), which crowded the real `/order` anchor out of the 4-candidate slice taken
