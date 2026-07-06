@@ -560,6 +560,27 @@ Respond with ONLY this JSON, no markdown fences, no explanation:
   return fallback;
 }
 
+// ── Pre-labeled name cleanup ──────────────────────────────────────────────────
+// Pre-labeled sources (Menufy, DoorDash, website schema.org) provide their own
+// verbatim menu text, which is often longer than the ≤4-word menu-style overlay
+// name the Reveal/Grid want. Trim serving-size qualifiers and cap word count for
+// display, but keep the original full text as/with the description.
+
+function toMenuStyleName(rawName: string): { shortName: string; fullName: string } {
+  const fullName = rawName.trim();
+  // Strip trailing serving-size qualifiers: "(5people)", "(Serves 4)", etc.
+  const stripped = fullName.replace(/\s*\(\s*(serves?\s*)?\d+\s*(people|ppl|pax)?\s*\)\s*$/i, "").trim();
+  const words = stripped.split(/\s+/);
+  const shortName = words.length > 4 ? words.slice(0, 4).join(" ") : stripped;
+  return { shortName: shortName || fullName, fullName };
+}
+
+function mergeDescription(shortName: string, fullName: string, description?: string): string | null {
+  const nameWasTruncated = shortName !== fullName;
+  if (description) return nameWasTruncated ? `${fullName} — ${description}` : description;
+  return nameWasTruncated ? fullName : null;
+}
+
 // ── Priority scoring ──────────────────────────────────────────────────────────
 // Pre-labeled photos (DoorDash, website schema.org) bypass Gemini and score 200.
 // Gemini-analyzed photos use this function.
@@ -714,16 +735,17 @@ export async function getGooglePhotosAndReviews(
 
   // ── Phase 3: Pre-labeled photos (bypass Gemini) ──────────────────────────────
   // These come with dish name + description + photo already paired.
-  // Source: schema.org MenuItem.image and DoorDash menu item photos.
+  // Source: schema.org MenuItem.image, DoorDash/Grubhub/Menufy menu item photos.
   const preLabeledPhotos: DishPhoto[] = [];
 
   for (const item of websiteMenuItems) {
     if (!item.imageUrl) continue;
+    const { shortName, fullName } = toMenuStyleName(item.name);
     preLabeledPhotos.push({
       id: `website-${item.imageUrl.slice(-24)}`,
       url: item.imageUrl,
-      dishName: item.name,
-      dishDescription: item.description ?? null,
+      dishName: shortName,
+      dishDescription: mergeDescription(shortName, fullName, item.description),
       isMenuMatch: true,
       source: "website",
       attribution: "owner",
@@ -734,11 +756,12 @@ export async function getGooglePhotosAndReviews(
 
   for (const item of doorDashItems) {
     if (!item.imageUrl) continue;
+    const { shortName, fullName } = toMenuStyleName(item.name);
     preLabeledPhotos.push({
       id: `doordash-${item.imageUrl.slice(-24)}`,
       url: item.imageUrl,
-      dishName: item.name,
-      dishDescription: item.description ?? null,
+      dishName: shortName,
+      dishDescription: mergeDescription(shortName, fullName, item.description),
       isMenuMatch: true,
       source: "doordash",
       attribution: "owner",
@@ -749,11 +772,12 @@ export async function getGooglePhotosAndReviews(
 
   for (const item of grubhubItems) {
     if (!item.imageUrl) continue;
+    const { shortName, fullName } = toMenuStyleName(item.name);
     preLabeledPhotos.push({
       id: `grubhub-${item.imageUrl.slice(-24)}`,
       url: item.imageUrl,
-      dishName: item.name,
-      dishDescription: item.description ?? null,
+      dishName: shortName,
+      dishDescription: mergeDescription(shortName, fullName, item.description),
       isMenuMatch: true,
       source: "grubhub",
       attribution: "owner",
