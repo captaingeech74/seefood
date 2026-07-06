@@ -1,0 +1,1069 @@
+{
+  "run_date": "2026-07-06",
+  "base_url": "https://seefood-rho.vercel.app",
+  "perSource": {
+    "places_v1": {
+      "hits": 0,
+      "totalItems": 0,
+      "totalLatency": 269043,
+      "errors": 23
+    },
+    "website": {
+      "hits": 2,
+      "totalItems": 225,
+      "totalLatency": 269043,
+      "errors": 0
+    },
+    "yelp": {
+      "hits": 0,
+      "totalItems": 0,
+      "totalLatency": 269043,
+      "errors": 23
+    },
+    "doordash": {
+      "hits": 0,
+      "totalItems": 0,
+      "totalLatency": 269043,
+      "errors": 0
+    },
+    "grubhub": {
+      "hits": 0,
+      "totalItems": 0,
+      "totalLatency": 269043,
+      "errors": 0
+    },
+    "menufy": {
+      "hits": 0,
+      "totalItems": 0,
+      "totalLatency": 269043,
+      "errors": 0
+    }
+  },
+  "perRestaurant": [
+    {
+      "name": "Richie's Real American Diner",
+      "category": "independent-menufy",
+      "placeId": "ChIJo5rSwlh_24ARYXLdrsbKRu8",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": true,
+          "items": 221,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 221,
+          "error": null
+        }
+      },
+      "photo_count": 20,
+      "menu_matched_count": 20,
+      "debug_latency_ms": 12871,
+      "dishes_latency_ms": 12716
+    },
+    {
+      "name": "Public House Temecula",
+      "category": "independent",
+      "placeId": "ChIJ0dMsy7h_24ARVZKKVbKtklw",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 22572,
+      "dishes_latency_ms": 22504
+    },
+    {
+      "name": "Villa Italian Kitchen",
+      "category": "independent",
+      "placeId": "ChIJpf5z7D1-24AR1fjSGA5f-1o",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1878,
+      "dishes_latency_ms": 1410
+    },
+    {
+      "name": "Amerikhan Mongolian Grill",
+      "category": "independent",
+      "placeId": "ChIJc_EtVj5-24AR8sxUBuOeizY",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 728,
+      "dishes_latency_ms": 1420
+    },
+    {
+      "name": "Hot Dog on a Stick",
+      "category": "no-website-dive",
+      "placeId": "ChIJb1VVVeV-24ARxGyN8HS6QR8",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1758,
+      "dishes_latency_ms": 1821
+    },
+    {
+      "name": "Olive Garden Italian Restaurant",
+      "category": "chain",
+      "placeId": "ChIJnYF5Njh-24ARjjyUNQiy07Q",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 898,
+      "dishes_latency_ms": 1110
+    },
+    {
+      "name": "Callaway Vineyard & Winery",
+      "category": "independent",
+      "placeId": "ChIJy6GsQyh_24AROvLdxSrFVis",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 5949,
+      "dishes_latency_ms": 5628
+    },
+    {
+      "name": "Cross Creek Golf Club",
+      "category": "independent",
+      "placeId": "ChIJwzLiowaB3IAR5W8wN3DnX1U",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 15997,
+      "dishes_latency_ms": 15703
+    },
+    {
+      "name": "Gourmet Italia",
+      "category": "independent",
+      "placeId": "ChIJGfaca8p_24ARGIljPv6vCJM",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 38810,
+      "dishes_latency_ms": 38605
+    },
+    {
+      "name": "Buffalo Wild Wings",
+      "category": "chain",
+      "placeId": "ChIJ1TleswiC3IAR6R0TZFvb3n4",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1355,
+      "dishes_latency_ms": 1348
+    },
+    {
+      "name": "Cafe Champagne",
+      "category": "independent",
+      "placeId": "ChIJo0N9TCh_24AR-x4ZMT-sLxA",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 45004,
+      "dishes_latency_ms": 57145
+    },
+    {
+      "name": "Temecula Stampede",
+      "category": "independent",
+      "placeId": "ChIJn-yS-75_24AR0ywOxEjD-lc",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 4588,
+      "dishes_latency_ms": 3380
+    },
+    {
+      "name": "BJ's Restaurant & Brewhouse",
+      "category": "chain",
+      "placeId": "ChIJpRIQKTp-24ARMp_EURWySHo",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1668,
+      "dishes_latency_ms": 1646
+    },
+    {
+      "name": "Yard House",
+      "category": "chain",
+      "placeId": "ChIJzxo07j1-24AROgsnsbfPQu4",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1038,
+      "dishes_latency_ms": 1518
+    },
+    {
+      "name": "Subway (Nicolas Rd)",
+      "category": "chain",
+      "placeId": "ChIJKco5nnd-24AR9mPecXEq_YA",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 21352,
+      "dishes_latency_ms": 21055
+    },
+    {
+      "name": "Original Pancake House",
+      "category": "independent",
+      "placeId": "ChIJO4c6qjh-24AR355E9EUwxR8",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 892,
+      "dishes_latency_ms": 1526
+    },
+    {
+      "name": "Little Caesars Pizza",
+      "category": "chain",
+      "placeId": "ChIJx5yXtXd-24AR-f83fUO3Ib0",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 936,
+      "dishes_latency_ms": 1347
+    },
+    {
+      "name": "California Pizza Kitchen at Temecula",
+      "category": "chain",
+      "placeId": "ChIJpf5z7D1-24ARUqlYnAGU-z0",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 877,
+      "dishes_latency_ms": 1234
+    },
+    {
+      "name": "Europa Village Wineries & Resort",
+      "category": "independent",
+      "placeId": "ChIJFeLu9dV-24ARaUXnirYj2wk",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 0,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 45003,
+      "dishes_latency_ms": 60003
+    },
+    {
+      "name": "Chipotle Mexican Grill",
+      "category": "chain",
+      "placeId": "ChIJu4Qp-Dx-24AR0Th1Gob4Hl4",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": true,
+          "items": 4,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 4,
+          "error": null
+        }
+      },
+      "photo_count": 13,
+      "menu_matched_count": 3,
+      "debug_latency_ms": 7772,
+      "dishes_latency_ms": 7912
+    },
+    {
+      "name": "Panera Bread",
+      "category": "chain",
+      "placeId": "ChIJl-yfuTl-24ARVMvO9uSZThM",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1640,
+      "dishes_latency_ms": 1407
+    },
+    {
+      "name": "Taco Bell - Live Más Café",
+      "category": "chain",
+      "placeId": "ChIJoVrxPT1-24ARyxYvCHA_fAo",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 9887,
+      "dishes_latency_ms": 9583
+    },
+    {
+      "name": "In-N-Out Burger",
+      "category": "chain",
+      "placeId": "ChIJtzGOVzB-24ARHSWbj4HG-MY",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 2022,
+      "dishes_latency_ms": 1501
+    },
+    {
+      "name": "Chick-fil-A",
+      "category": "chain",
+      "placeId": "ChIJt5I0j0B-24AR24wtD5053Ww",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 21264,
+      "dishes_latency_ms": 30126
+    },
+    {
+      "name": "LaLa Taco Catering",
+      "category": "no-website-dive",
+      "placeId": "ChIJc0NZ6Xp_24AR4dCZOCZyNgU",
+      "sources": {
+        "places_v1": {
+          "hit": false,
+          "items": 0,
+          "error": "Request contains an invalid argument."
+        },
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "yelp": {
+          "hit": false,
+          "items": 0,
+          "error": "Your Trial has expired. Please upgrade to continue using the service. Visit https://www.yelp.com/developers/v3/manage_app or email at fusion@yelp.com to explore options."
+        },
+        "doordash": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 10,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 2284,
+      "dishes_latency_ms": 1686
+    }
+  ]
+}
