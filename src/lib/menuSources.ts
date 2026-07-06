@@ -95,28 +95,36 @@ async function checkLinksForMenufy(
   let baseOrigin = "";
   try { baseOrigin = new URL(baseUrl).origin; } catch { return []; }
 
-  // Find candidate links: hrefs containing order/menu/delivery, or absolute external
-  const hrefPattern = /href="([^"]+)"/gi;
-  const candidates: string[] = [];
+  // Find candidate links from actual anchor tags only — <a href="...">,
+  // NOT <link>/<img>/<script> resource hrefs (favicons, fonts, CDN assets),
+  // which otherwise flood the candidate list and crowd out the real link.
+  const anchorPattern = /<a\s[^>]*href="([^"]+)"/gi;
+  const STATIC_ASSET_RE = /\.(css|js|png|jpe?g|gif|svg|ico|woff2?|ttf|eot|json|xml|webmanifest)(\?|#|$)/i;
+  const NON_CONTENT_HOSTS = [
+    "facebook.com","instagram.com","yelp.com","google.com","tripadvisor.com","twitter.com","x.com",
+    "tiktok.com","doordash.com","ubereats.com","grubhub.com","typekit.net","adobedtm.com",
+    "cookielaw.org","squarespace-cdn.com","squarespace.com","googletagmanager.com","google-analytics.com",
+  ];
+
+  const orderCandidates: string[] = [];
+  const externalCandidates: string[] = [];
   let m: RegExpExecArray | null;
 
-  while ((m = hrefPattern.exec(html)) !== null) {
+  while ((m = anchorPattern.exec(html)) !== null) {
     const href = m[1];
-    // Skip anchors, JS, CSS, tel, mailto
     if (!href || href.startsWith("#") || href.startsWith("javascript") ||
         href.startsWith("mailto") || href.startsWith("tel")) continue;
+    if (STATIC_ASSET_RE.test(href)) continue;
 
     // Order/menu keywords in relative paths
     const isOrderPath = /\/(order|menu|delivery|online-order)/i.test(href);
 
-    // Absolute external domains (skip social, maps, yelp, etc.)
     let isExternal = false;
     let resolvedUrl = href;
     if (href.startsWith("http")) {
       try {
         const u = new URL(href);
-        isExternal = u.origin !== baseOrigin &&
-          !["facebook.com","instagram.com","yelp.com","google.com","tripadvisor.com","twitter.com","tiktok.com","doordash.com","ubereats.com","grubhub.com"].some(d => u.hostname.includes(d));
+        isExternal = u.origin !== baseOrigin && !NON_CONTENT_HOSTS.some((d) => u.hostname.includes(d));
       } catch { continue; }
     } else if (isOrderPath) {
       try { resolvedUrl = new URL(href, baseUrl).href; } catch { continue; }
@@ -124,11 +132,15 @@ async function checkLinksForMenufy(
       continue;
     }
 
-    if (isOrderPath || isExternal) candidates.push(resolvedUrl);
+    if (isOrderPath) orderCandidates.push(resolvedUrl);
+    else if (isExternal) externalCandidates.push(resolvedUrl);
   }
 
-  // Deduplicate, drop already-visited, and limit
-  const unique = [...new Set(candidates)].filter((u) => !visited.has(u)).slice(0, 4);
+  // Order/menu-path links take priority over generic external links, since
+  // they're far more likely to lead to the actual ordering platform.
+  const unique = [...new Set([...orderCandidates, ...externalCandidates])]
+    .filter((u) => !visited.has(u))
+    .slice(0, 4);
   console.log(`[Menufy links] ${baseUrl} (depth ${depthRemaining}) → candidates: ${JSON.stringify(unique)}`);
 
   for (const candidateUrl of unique) {
