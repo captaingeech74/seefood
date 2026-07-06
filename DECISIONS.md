@@ -632,3 +632,23 @@ instead of Vision — that's already partially scaffolded in `yelp.ts`.
   Menufy-style/no-website dives, Richie's included) hit live against `/api/debug-sources`
   and `/api/dishes`; writes a per-source hit-rate/items/latency table plus a JSON snapshot
   to `benchmark/results/<date>.json`.
+- **Google Places API (New) has no `menuItems` field.** Confirmed live: requesting it
+  returns `400 Cannot find matching fields for path 'menuItems'`. The key/routing works
+  fine (verified with other fields like `reviews`, `editorialSummary`); the field the
+  original code (and PRD §5.3) assumed exists simply doesn't. This source is dead — not
+  a config problem, a wrong assumption. Flagged for Kyle; no further Places v1 menu work
+  should happen without Google actually shipping this.
+- **DoorDash via Scrapfly is real but expensive.** `fetchWithAntiBot`'s ASP challenge for
+  DoorDash costs 51–75+ Scrapfly credits per call (`ERR::SCRAPE::COST_BUDGET_LIMIT` at the
+  old `cost_budget=10`, which silently rejected every DoorDash attempt before it ever hit
+  the network — that's why DoorDash scored 0% on every prior benchmark run). Raised to
+  `cost_budget=100` so it can succeed, but at that price the free 1,000-credit/month tier
+  only covers ~10-13 DoorDash lookups/month total. Grubhub, by contrast, is cheap and
+  working today. DoorDash coverage at scale would require the paid Scrapfly gate in
+  PRODUCT_REVIEW §5.3 — this is exactly the kind of measured gap that gate exists for.
+- **Menufy link-follower bug found and fixed**: the original href-scanner matched every
+  `href=""` attribute in the HTML (including `<link>`/`<img>` favicon, font, and CDN
+  asset tags), which crowded the real `/order` anchor out of the 4-candidate slice taken
+  from the head of the document. Now scans only `<a href="">` anchors and prioritizes
+  order/menu-path links. This alone took Richie's Diner's Menufy source from 0 → 221
+  parsed menu items.

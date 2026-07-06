@@ -101,15 +101,17 @@ async function fetchWithAntiBot(
   if (scrapflyKey) {
     // Scrapfly asp=true: Anti Scraping Protection — residential IPs + challenge solving.
     // render_js=false: DoorDash and Grubhub are Next.js SSR; __NEXT_DATA__ is in HTML.
-    // cost_budget=60: DoorDash's ASP challenge alone costs ~51 credits (confirmed via
-    // ERR::SCRAPE::COST_BUDGET_LIMIT at the old cap of 10) — every DoorDash call was
-    // being rejected before it ever reached the network. Grubhub is cheaper and
-    // unaffected by the higher cap (cost_budget only limits spend, doesn't force it).
+    // cost_budget=100: DoorDash's ASP challenge alone costs 51–75+ credits (observed
+    // via ERR::SCRAPE::COST_BUDGET_LIMIT, rising across repeated probes — a hard,
+    // expensive target). At that rate, DoorDash consumes the entire 1,000-credit free
+    // tier in ~10-13 lookups/month; Grubhub is far cheaper and unaffected by this cap.
+    // See DECISIONS.md "Phase 0 fixes" for the cost finding — flagged for Kyle, not
+    // a blank check to keep raising this further.
     const apiUrl =
       `https://api.scrapfly.io/scrape` +
       `?key=${scrapflyKey}` +
       `&url=${encodeURIComponent(url)}` +
-      `&asp=true&render_js=false&country=us&cost_budget=60`;
+      `&asp=true&render_js=false&country=us&cost_budget=100`;
     try {
       const res = await fetch(apiUrl, { signal: AbortSignal.timeout(timeoutMs + 5000) });
       if (!res.ok) {
