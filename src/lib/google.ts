@@ -3,8 +3,9 @@ import { extractPopularDishes } from "./reviewParser";
 import { fetchYelpBusinessData } from "./yelp";
 import { fetchMenuFromUrl } from "./menuSources";
 
-const API_KEY   = process.env.GOOGLE_MAPS_API_KEY!;
-const VISION_KEY = process.env.VISION_API_KEY || API_KEY;
+const API_KEY   = process.env.GOOGLE_MAPS_API_KEY!.trim();
+const VISION_KEY = (process.env.VISION_API_KEY || API_KEY).trim();
+const PLACES_KEY = (process.env.PLACES_API_KEY || API_KEY).trim();
 
 // ── Shared interfaces ─────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ interface GooglePlace {
 async function fetchMenuFromPlacesV1(placeId: string): Promise<MenuItemData[]> {
   try {
     const res = await fetch(
-      `https://places.googleapis.com/v1/places/${placeId}?key=${VISION_KEY}&languageCode=en`,
+      `https://places.googleapis.com/v1/places/${placeId}?key=${PLACES_KEY}&languageCode=en`,
       {
         headers: { "X-Goog-FieldMask": "menuItems" },
         signal: AbortSignal.timeout(5000),
@@ -173,7 +174,7 @@ function deduplicateItems(items: MenuItemData[]): MenuItemData[] {
 //   A. Direct scrape via fetchWithAntiBot (works when SCRAPFLY_KEY is set)
 //   B. Google Custom Search (GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID)
 
-async function fetchMenuFromDoorDash(
+export async function fetchMenuFromDoorDash(
   restaurantName: string,
   address: string,
   lat?: number,
@@ -249,7 +250,7 @@ async function fetchDoorDashViaGoogleSearch(
 // Same pre-labeled pattern: menu items with photos bypass Gemini entirely.
 // With SCRAPFLY_KEY set this becomes very reliable; without it, best-effort.
 
-async function fetchMenuFromGrubhub(
+export async function fetchMenuFromGrubhub(
   restaurantName: string,
   lat: number,
   lng: number
@@ -403,6 +404,19 @@ interface GeminiResult {
   isFood: boolean;
 }
 
+// A name is unusable if it looks cut off mid-thought — trailing conjunctions,
+// dangling punctuation, or a stray closing fragment. Cheaper and more reliable
+// than asking Gemini to self-police length.
+const TRUNCATION_ENDINGS = /(,|and|with|or|the|a|an|in|on|of|&)$/i;
+function isTruncatedOrInvalid(name: string): boolean {
+  const trimmed = name.trim();
+  if (!trimmed) return true;
+  if (trimmed.length > 60) return true; // ~4 words of menu-style naming, generous ceiling
+  const words = trimmed.split(/\s+/);
+  if (TRUNCATION_ENDINGS.test(words[words.length - 1])) return true;
+  return false;
+}
+
 async function analyzePhotoWithGemini(
   analysisUrl: string,
   menuItems: MenuItemData[],       // from all merged sources
@@ -425,25 +439,24 @@ async function analyzePhotoWithGemini(
     ? menuItems.slice(0, 60).map((i) => i.name)
     : popularDishes.slice(0, 20);
 
-  const prompt =
-    referenceNames.length > 0
-      ? `You are identifying a dish in a food photo from "${restaurantName}".
+  const prompt = `You are identifying a dish in a food photo from "${restaurantName}".
 
-${hasMenu ? "Their menu includes:" : "Dishes commonly ordered here:"}
-${referenceNames.map((name, i) => `${i + 1}. ${name}`).join("\n")}
+${
+  referenceNames.length > 0
+    ? `${hasMenu ? "Their menu includes:" : "Dishes commonly ordered here:"}\n${referenceNames
+        .map((name, i) => `${i + 1}. ${name}`)
+        .join("\n")}\n\n`
+    : ""
+}First decide: is this something a customer would actually order and be excited to eat — a plated dish, a drink made for them, a dessert? NOT a fridge of assorted bottled/canned drinks, a storefront, an interior/decor shot, a menu board, or a group of unrelated items. Set isOrderable to false for all of those, even if food is technically visible.
 
-Look at this photo and respond with ONE of:
-- The EXACT text from the list above if this photo shows that dish (verbatim, same capitalization).
-- The full, specific dish name if food is visible but not in the list — include cooking method, key ingredients, and how it's served (e.g. "Smoked Brisket with Fried Eggs and Hash Browns", "Brisket Sliders with BBQ Dipping Sauce").
-- The word: null — if NO food or drink is visible (decor, exterior, signage only).
+If isOrderable is true:
+- "name": a SHORT, menu-style name of 4 words or fewer, exactly like it would appear on a printed menu (e.g. "Brisket Plate", "Loaded Nachos", "Iced Vanilla Latte"). If it matches an item in the list above, use that item's exact name if it's short enough; otherwise write your own short name. Never include ingredient lists or cooking instructions in "name".
+- "description": a longer sentence with ingredients, preparation, and how it's served. This is where detail belongs, not in "name".
 
-No explanation. Just the dish name or null.`
-      : `You are identifying a dish in a food photo from "${restaurantName}".
+If isOrderable is false, set "name" and "description" to null.
 
-If food or drink is visible, respond with the full, specific dish name — include cooking method, key ingredients, and how it's served (e.g. "Smoked Brisket with Fried Eggs and Hash Browns", "Spicy Salmon Avocado Roll", "Truffle Parmesan Fries with Aioli").
-If nothing edible is visible, respond with the word: null
-
-No explanation. Just the dish name or null.`;
+Respond with ONLY this JSON, no markdown fences, no explanation:
+{"isFood": boolean, "isOrderable": boolean, "name": string|null, "description": string|null}`;
 
   const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
   const requestBody = JSON.stringify({
@@ -458,7 +471,11 @@ No explanation. Just the dish name or null.`;
     // Gemini 2.5 Flash uses thinking tokens that count against maxOutputTokens.
     // Empirical: thinking alone consumes 200–700 tokens, leaving almost nothing
     // for actual output at 200. 1024 gives ample room after thinking budget.
-    generationConfig: { temperature: 0, maxOutputTokens: 1024 },
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 1024,
+      responseMimeType: "application/json",
+    },
   });
 
   for (const model of MODELS) {
@@ -483,17 +500,34 @@ No explanation. Just the dish name or null.`;
       const json = await res.json();
       const rawText: string =
         json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-      const text = rawText.split("\n")[0].substring(0, 120).trim();
 
-      if (!text || text.toLowerCase() === "null") {
-        return { dishName: null, dishDescription: null, isMenuMatch: false, isFood: false };
+      let parsed: {
+        isFood?: boolean;
+        isOrderable?: boolean;
+        name?: string | null;
+        description?: string | null;
+      };
+      try {
+        parsed = JSON.parse(rawText);
+      } catch {
+        console.error(`[Gemini] ${model} returned non-JSON:`, rawText.slice(0, 200));
+        continue;
+      }
+
+      if (!parsed.isFood || !parsed.isOrderable || !parsed.name) {
+        return { dishName: null, dishDescription: null, isMenuMatch: false, isFood: !!parsed.isFood };
+      }
+
+      const name = parsed.name.trim();
+      if (isTruncatedOrInvalid(name)) {
+        return { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true };
       }
 
       // Match against menu reference list — exact first, then one-way fuzzy.
       // IMPORTANT: only match when the menu item *contains* Gemini's response,
       // not the reverse. This prevents generic terms ("Brisket") from swallowing
       // specific dish descriptions ("Smoked Brisket with Eggs and Hash Browns").
-      const lowerText = text.toLowerCase();
+      const lowerText = name.toLowerCase();
       const matchedItem = hasMenu
         ? menuItems.slice(0, 60).find((item) => {
             const itemL = item.name.toLowerCase().trim();
@@ -514,8 +548,8 @@ No explanation. Just the dish name or null.`;
           : undefined;
 
       return {
-        dishName: matchedItem?.name ?? matchedPopular ?? text,
-        dishDescription: matchedItem?.description ?? null,
+        dishName: matchedItem?.name ?? matchedPopular ?? name,
+        dishDescription: matchedItem?.description ?? parsed.description ?? null,
         isMenuMatch: !!(matchedItem || matchedPopular),
         isFood: true,
       };
@@ -742,7 +776,7 @@ export async function getGooglePhotosAndReviews(
     (p) => `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photo_reference}&key=${API_KEY}`
   );
   const googleDisplayUrls = googleCandidates.map(
-    (p) => `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photo_reference}&key=${API_KEY}`
+    (p) => `/api/photo?ref=${encodeURIComponent(p.photo_reference)}&maxwidth=800`
   );
 
   // ── Phase 5: Gemini analysis — all candidates in parallel ────────────────────

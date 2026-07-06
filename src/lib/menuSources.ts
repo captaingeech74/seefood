@@ -41,8 +41,9 @@ export async function fetchMenuFromUrl(url: string): Promise<MenuItemData[]> {
 
     // ── Platform 1b: Menufy via order link ───────────────────────────────────
     // Some restaurants (e.g. Richie's Diner) have their marketing site separate
-    // from their Menufy ordering site. Detect by following "order" / "menu" links.
-    const menufyViaSideLink = await checkLinksForMenufy(url, html);
+    // from their Menufy ordering site, sometimes chained through an intermediate
+    // "/order" redirect page. Follow up to 3 hops.
+    const menufyViaSideLink = await checkLinksForMenufy(url, html, 3);
     if (menufyViaSideLink.length > 0) return menufyViaSideLink;
 
     // ── Platform 2: Schema.org LD+JSON ────────────────────────────────────────
@@ -79,7 +80,14 @@ function extractMenufyParams(html: string): { locationId: string; apiKey: string
  * ordering site that's hosted at a different domain.
  * Example: richiesdiner.com → richiesdinertemecula.com (Menufy)
  */
-async function checkLinksForMenufy(baseUrl: string, html: string): Promise<MenuItemData[]> {
+async function checkLinksForMenufy(
+  baseUrl: string,
+  html: string,
+  depthRemaining: number,
+  visited: Set<string> = new Set()
+): Promise<MenuItemData[]> {
+  if (depthRemaining <= 0) return [];
+  visited.add(baseUrl);
   let baseOrigin = "";
   try { baseOrigin = new URL(baseUrl).origin; } catch { return []; }
 
@@ -115,8 +123,8 @@ async function checkLinksForMenufy(baseUrl: string, html: string): Promise<MenuI
     if (isOrderPath || isExternal) candidates.push(resolvedUrl);
   }
 
-  // Deduplicate and limit
-  const unique = [...new Set(candidates)].slice(0, 4);
+  // Deduplicate, drop already-visited, and limit
+  const unique = [...new Set(candidates)].filter((u) => !visited.has(u)).slice(0, 4);
 
   for (const candidateUrl of unique) {
     try {
@@ -132,6 +140,11 @@ async function checkLinksForMenufy(baseUrl: string, html: string): Promise<MenuI
         const items = await parseMenufySite(candidateUrl, linkedHtml);
         if (items.length > 0) return items;
       }
+
+      // Not a Menufy page itself — but it may link onward to one
+      // (e.g. an intermediate "/order" redirect page). Recurse.
+      const nested = await checkLinksForMenufy(candidateUrl, linkedHtml, depthRemaining - 1, visited);
+      if (nested.length > 0) return nested;
     } catch { continue; }
   }
   return [];

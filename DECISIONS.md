@@ -8,7 +8,27 @@ Update this file whenever a significant decision is made, reversed, or a variabl
 
 ---
 
-## ⚑ The Vision — Version 1 (locked, May 2026)
+## ⚑ The Vision — Version 2 (locked, July 2026) — SUPERSEDES Version 1
+
+> **SeeFood is the menu you can see.** Open it at any restaurant — or point at one on the
+> map — and the menu materializes as beautiful photos of real dishes, instantly. Full spec:
+> **`PRD.md`** (authoritative; wins all conflicts). Rationale: **`PRODUCT_REVIEW.md`**.
+>
+> Key v2 decisions (founder-approved):
+> - **The Reveal** (full-screen dish-first vertical feed) is the default view; an improved
+>   grid remains one tap away via a persistent toggle in the main UI.
+> - **Map Explore is a first-class surface** (dish-photo-thumbnail pins, instant open on
+>   the user's block) — SeeFood is also for browsing restaurants you're not standing in.
+> - **No prices in the UI** (capture into corpus when free; never display in early versions).
+> - **Permanent data corpus** (Supabase) replaces the 24h throwaway cache — the corpus is the moat.
+> - **Two-tier data engine:** unlimited $0 local crawler on the founder's Mac
+>   (Scrapling/Camoufox/curl_cffi, residential IP) + Scrapfly free tier for live gaps.
+> - **Yelp dropped** (no free tier exists anymore; no trial-farming).
+> - **Launch zone: Temecula, CA** — pre-crawled to saturation before expanding.
+> - Long-term: user contributions + reputation (points/levels), and paid restaurant-claimed
+>   pages with "From Management" photos (tagged, filterable).
+
+## ⚑ The Vision — Version 1 (locked, May 2026) — superseded by V2 above
 
 > **SeeFood is the world's best aggregator of restaurant menu data.**
 >
@@ -574,3 +594,41 @@ repeat visits to the same restaurant.
 When/if Yelp photos are enabled, they bypass Vision filtering entirely. The Yelp
 `label` field ("food", "inside", "outside", etc.) can serve as a pre-filter
 instead of Vision — that's already partially scaffolded in `yelp.ts`.
+
+---
+
+## Phase 0 fixes (July 6, 2026)
+
+- **Places API (New) unblocked.** New `PLACES_API_KEY` (seefood-vision project, restricted
+  to Places API New) added to Vercel + `.env.local`. `fetchMenuFromPlacesV1` in `google.ts`
+  now uses it instead of the Gemini-restricted `VISION_API_KEY`.
+- **`SCRAPFLY_KEY` added** — unblocks DoorDash/Grubhub/Menufy anti-bot fallback paths.
+- **Root cause of the stray `\n` on every photo URL found:** it wasn't a code bug — the
+  `GOOGLE_MAPS_API_KEY`, `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, and `VISION_API_KEY` Vercel env
+  var *values themselves* had a literal trailing `\n` baked in (visible via `vercel env
+  pull`), likely from how they were originally pasted in months ago. Removed and re-added
+  all three with clean values; also added defensive `.trim()` in `google.ts` so this class
+  of bug can't silently reappear.
+- **Key-leak fix:** added `/api/photo?ref=&maxwidth=` proxy route (`src/app/api/photo/route.ts`)
+  that fetches Google Places photo bytes server-side. Google display URLs sent to the client
+  no longer contain `GOOGLE_MAPS_API_KEY` — only the photo_reference. The Gemini analysis
+  URL (server-only, never reaches the browser) still uses the raw Google URL.
+- **Gemini prompt rework** (`analyzePhotoWithGemini` in `google.ts`): now requests strict
+  JSON (`responseMimeType: "application/json"`) with separate `name` (≤4 words, menu-style)
+  and `description` (long-form) fields, plus an explicit `isOrderable` flag so drinks-in-
+  fridges/interiors/storefronts get excluded even when technically "food". Added
+  `isTruncatedOrInvalid()` to reject names ending in conjunctions/dangling punctuation as a
+  second line of defense against truncation.
+- **Menufy 2-hop link follower fixed.** `checkLinksForMenufy` in `menuSources.ts` is now
+  recursive (depth cap 3, visited-set guard against loops) instead of following exactly one
+  hop — needed for Richie's Diner's `richiesdiner.com` → `/order` → `richiesdinertemecula.com`
+  chain.
+- **`/api/debug-sources` extended to all 6 sources** (places_v1, website, yelp, doordash,
+  grubhub, menufy) by exporting `fetchMenuFromDoorDash`/`fetchMenuFromGrubhub` from
+  `google.ts` and calling the real production code paths instead of duplicating scrape logic
+  in the debug route.
+- **Benchmark + scoreboard built** (`npm run benchmark`, `scripts/benchmark.mjs`): fixed
+  25-restaurant Temecula set (`benchmark/restaurants.json`, mix of chains/independents/
+  Menufy-style/no-website dives, Richie's included) hit live against `/api/debug-sources`
+  and `/api/dishes`; writes a per-source hit-rate/items/latency table plus a JSON snapshot
+  to `benchmark/results/<date>.json`.
