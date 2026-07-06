@@ -30,7 +30,10 @@ export async function fetchMenuFromUrl(url: string): Promise<MenuItemData[]> {
         Accept: "text/html,application/xhtml+xml",
       },
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.log(`[fetchMenuFromUrl] ${url} → HTTP ${res.status}`);
+      return [];
+    }
     const html = await res.text();
 
     // ── Platform 1: Menufy / HungerRush ───────────────────────────────────────
@@ -48,7 +51,8 @@ export async function fetchMenuFromUrl(url: string): Promise<MenuItemData[]> {
 
     // ── Platform 2: Schema.org LD+JSON ────────────────────────────────────────
     return parseSchemaOrgMenuItems(html);
-  } catch {
+  } catch (e) {
+    console.error(`[fetchMenuFromUrl] ${url} failed:`, e);
     return [];
   }
 }
@@ -125,6 +129,7 @@ async function checkLinksForMenufy(
 
   // Deduplicate, drop already-visited, and limit
   const unique = [...new Set(candidates)].filter((u) => !visited.has(u)).slice(0, 4);
+  console.log(`[Menufy links] ${baseUrl} (depth ${depthRemaining}) → candidates: ${JSON.stringify(unique)}`);
 
   for (const candidateUrl of unique) {
     try {
@@ -132,7 +137,10 @@ async function checkLinksForMenufy(
         signal: AbortSignal.timeout(5000),
         headers: { "User-Agent": "Mozilla/5.0 (compatible; SeeFood/1.0)", Accept: "text/html" },
       });
-      if (!r.ok) continue;
+      if (!r.ok) {
+        console.log(`[Menufy links] ${candidateUrl} → HTTP ${r.status}`);
+        continue;
+      }
       const linkedHtml = await r.text();
 
       if (linkedHtml.includes("api.menufy.com")) {
@@ -152,6 +160,7 @@ async function checkLinksForMenufy(
 
 async function parseMenufySite(url: string, html: string): Promise<MenuItemData[]> {
   const params = extractMenufyParams(html);
+  console.log(`[Menufy] ${url} params: ${params ? `locationId=${params.locationId}` : "NOT FOUND"}`);
 
   // Strategy A: direct API call (fast, free)
   if (params) {
@@ -250,16 +259,13 @@ function walkMenufyApiNode(obj: unknown, out: MenuItemData[]): void {
 
   const o = obj as Record<string, unknown>;
 
-  // Menufy API items typically have: name + (description || imageUrl || price)
+  // Menufy API items always have a price; categories (which also carry a
+  // name + optional description) don't. Require price to avoid misreading
+  // category listings as dishes.
   if (
     typeof o.name === "string" &&
     o.name.trim().length > 1 &&
-    (
-      typeof o.description === "string" ||
-      typeof o.imageUrl === "string" ||
-      typeof o.price === "number" ||
-      typeof o.price === "string"
-    )
+    (typeof o.price === "number" || typeof o.price === "string")
   ) {
     const item: MenuItemData = { name: o.name.trim() };
     const desc = (o.description as string | undefined)?.trim();
