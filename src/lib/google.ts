@@ -374,6 +374,7 @@ interface GeminiResult {
   dishDescription: string | null;
   isMenuMatch: boolean;
   isFood: boolean;
+  isMenuPhoto: boolean;
 }
 
 // A name is unusable if it looks cut off mid-thought — trailing conjunctions,
@@ -405,6 +406,7 @@ async function analyzePhotosWithGeminiBatch(
     dishDescription: null,
     isMenuMatch: false,
     isFood: true,
+    isMenuPhoto: false,
   };
   if (analysisUrls.length === 0) return [];
 
@@ -429,6 +431,8 @@ ${
     : ""
 }For EACH photo, first decide: is this something a customer would actually order and be excited to eat — a plated dish, a drink made for them, a dessert? NOT a fridge of assorted bottled/canned drinks, a storefront, an interior/decor shot, a menu board, or a group of unrelated items. Set isOrderable to false for all of those, even if food is technically visible.
 
+Separately, set "isMenuPhoto" to true if the photo is a picture of a printed menu, a menu board, or a chalkboard listing dishes and prices — these are valuable for reading dish names even though they aren't a photo of food itself. isOrderable should be false for these.
+
 If isOrderable is true for a photo:
 - "name": a SHORT, menu-style name of 4 words or fewer, exactly like it would appear on a printed menu (e.g. "Brisket Plate", "Loaded Nachos", "Iced Vanilla Latte"). If it matches an item in the list above, use that item's exact name if it's short enough; otherwise write your own short name. Never include ingredient lists or cooking instructions in "name".
 - "description": a longer sentence with ingredients, preparation, and how it's served. This is where detail belongs, not in "name".
@@ -436,7 +440,7 @@ If isOrderable is true for a photo:
 If isOrderable is false, set "name" and "description" to null.
 
 Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one per photo in order, no markdown fences, no explanation:
-[{"isFood": boolean, "isOrderable": boolean, "name": string|null, "description": string|null}, ...]`;
+[{"isFood": boolean, "isOrderable": boolean, "isMenuPhoto": boolean, "name": string|null, "description": string|null}, ...]`;
 
   const parts: unknown[] = [{ text: promptIntro }];
   validIndices.forEach((idx, n) => {
@@ -487,6 +491,7 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
       let parsed: Array<{
         isFood?: boolean;
         isOrderable?: boolean;
+        isMenuPhoto?: boolean;
         name?: string | null;
         description?: string | null;
       }>;
@@ -513,20 +518,28 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
 }
 
 function resolveGeminiEntry(
-  entry: { isFood?: boolean; isOrderable?: boolean; name?: string | null; description?: string | null } | undefined,
+  entry:
+    | { isFood?: boolean; isOrderable?: boolean; isMenuPhoto?: boolean; name?: string | null; description?: string | null }
+    | undefined,
   menuItems: MenuItemData[],
   popularDishes: string[],
   hasMenu: boolean
 ): GeminiResult {
-  const fallback: GeminiResult = { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true };
+  const fallback: GeminiResult = { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false };
   if (!entry) return fallback;
   if (!entry.isFood || !entry.isOrderable || !entry.name) {
-    return { dishName: null, dishDescription: null, isMenuMatch: false, isFood: !!entry.isFood };
+    return {
+      dishName: null,
+      dishDescription: null,
+      isMenuMatch: false,
+      isFood: !!entry.isFood,
+      isMenuPhoto: !!entry.isMenuPhoto,
+    };
   }
 
   const name = entry.name.trim();
   if (isTruncatedOrInvalid(name)) {
-    return { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true };
+    return { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false };
   }
 
   // Match against menu reference list — exact first, then one-way fuzzy.
@@ -554,7 +567,66 @@ function resolveGeminiEntry(
     dishDescription: matchedItem?.description ?? entry.description ?? null,
     isMenuMatch: !!(matchedItem || matchedPopular),
     isFood: true,
+    isMenuPhoto: false,
   };
+}
+
+// ── Menu-photo OCR ─────────────────────────────────────────────────────────────
+// Restaurants' Google photo sets frequently include a shot of the physical menu
+// board/paper menu. Rather than discard these as "not orderable" (PRD §5.4: photos
+// *of* menus should feed the OCR pipeline, not the trash), read them with a
+// dedicated Gemini call and fold the result into the corpus for future requests.
+async function ocrMenuPhoto(analysisUrl: string, restaurantName: string): Promise<MenuItemData[]> {
+  const imageData = await fetchImageAsBase64(analysisUrl);
+  if (!imageData) return [];
+
+  const prompt = `This photo shows a menu (printed, board, or chalkboard) from "${restaurantName}". Read every dish name you can make out and respond with ONLY this JSON, no markdown fences, no explanation:
+[{"name": string, "description": string|null, "price": number|null}, ...]
+Use the short name as it appears on the menu. Omit prices/descriptions if illegible. If you can't read any dish names, respond with [].`;
+
+  const requestBody = JSON.stringify({
+    contents: [
+      {
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType: imageData.mimeType, data: imageData.data } },
+        ],
+      },
+    ],
+    generationConfig: { temperature: 0, maxOutputTokens: 2048, responseMimeType: "application/json" },
+  });
+
+  for (const model of ["gemini-2.5-flash", "gemini-2.5-flash-lite"]) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${VISION_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+          signal: AbortSignal.timeout(30000),
+        }
+      );
+      if (!res.ok) continue;
+
+      const json = await res.json();
+      const rawText: string = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+      const parsed = JSON.parse(rawText);
+      if (!Array.isArray(parsed)) continue;
+
+      return (parsed as Array<{ name?: string; description?: string | null; price?: number | null }>)
+        .filter((i) => typeof i.name === "string" && i.name.trim().length > 1)
+        .map((i) => ({
+          name: i.name!.trim(),
+          description: i.description?.trim() || undefined,
+          price: typeof i.price === "number" ? i.price : undefined,
+          source: "menu_ocr" as const,
+        }));
+    } catch (e) {
+      console.error(`[Menu OCR] ${model} failed:`, e);
+    }
+  }
+  return [];
 }
 
 // ── Pre-labeled name cleanup ──────────────────────────────────────────────────
@@ -758,12 +830,29 @@ export async function getGooglePhotosAndReviews(
     restaurantName
   );
 
+  // ── Phase 4b: OCR any photos flagged as pictures of the menu itself ─────────
+  // These items arrive too late to help name photos in *this* request, but get
+  // persisted to the corpus (via the returned menuItems) so future requests for
+  // this restaurant benefit immediately — corpus-first reads never re-OCR the
+  // same photo twice.
+  const menuPhotoIndices = geminiResults
+    .map((r, i) => (r.isMenuPhoto ? i : -1))
+    .filter((i) => i >= 0);
+  const ocrItems = (
+    await Promise.all(
+      menuPhotoIndices.map((i) => ocrMenuPhoto(googleAnalysisUrls[i], restaurantName))
+    )
+  ).flat();
+  if (ocrItems.length > 0) {
+    allMenuItems.push(...deduplicateMenuItems(ocrItems));
+  }
+
   // ── Phase 5: Score, filter, sort ─────────────────────────────────────────────
   const geminiPhotos: { photo: DishPhoto; score: number }[] = [];
 
   googleCandidates.forEach((photo, i) => {
-    const result = geminiResults[i] ?? { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true };
-    if (!result.isFood) return; // drop non-food
+    const result = geminiResults[i] ?? { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false };
+    if (!result.isFood || result.isMenuPhoto) return; // drop non-food and menu-board photos
     const attrText = photo.html_attributions.join(" ").toLowerCase();
     const isOwner =
       attrText.includes("owner") ||
