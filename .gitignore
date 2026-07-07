@@ -8,3 +8,6 @@ tsconfig.tsbuildinfo
 
 # founder-private, never commit
 SEEFOOD_URL_STRATEGY.md
+
+# crawler Python venv (self-installed by npm run crawl, machine-specific)
+crawler/.venv/

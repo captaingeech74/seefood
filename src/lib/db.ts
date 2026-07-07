@@ -156,6 +156,48 @@ export async function savePhotos(
   if (error) console.error("[corpus] savePhotos failed:", error.message);
 }
 
+/**
+ * Persist a full pipeline result (restaurant + menu items + photos) to the
+ * corpus. Shared by the live /api/dishes path and the Tier 1 crawler CLI, so
+ * both write the corpus identically.
+ */
+export async function persistPipelineResult(input: {
+  placeId: string;
+  restaurantName: string;
+  lat: number;
+  lng: number;
+  address: string;
+  photos: DishPhoto[];
+  menuItems: MenuItemData[];
+}): Promise<void> {
+  const { placeId, restaurantName, lat, lng, address, photos, menuItems } = input;
+
+  await upsertRestaurant({
+    id: placeId,
+    placeId,
+    name: restaurantName || placeId,
+    lat,
+    lng,
+    address,
+  });
+
+  const nameToId = await saveMenuItems(placeId, menuItems);
+
+  await savePhotos(
+    placeId,
+    photos.map((p) => ({
+      originUrl: p.url,
+      source: p.source,
+      attribution: p.attribution,
+      isOrderable: true, // non-food already filtered out upstream
+      width: p.width,
+      height: p.height,
+      geminiLabel: p.dishName,
+      menuItemId: p.dishName ? nameToId.get(p.dishName) : undefined,
+    }))
+  );
+}
+
 export async function logSourceRun(run: {
   placeId: string;
   source: string;

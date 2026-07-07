@@ -661,3 +661,75 @@ instead of Vision — that's already partially scaffolded in `yelp.ts`.
   from the head of the document. Now scans only `<a href="">` anchors and prioritizes
   order/menu-path links. This alone took Richie's Diner's Menufy source from 0 → 221
   parsed menu items.
+
+---
+
+## Phase 1 (July 6-7, 2026)
+
+- **Critical Gemini regression found and fixed**: the Phase 0 JSON short-name prompt
+  (`responseMimeType: "application/json"`) was sent to the `v1` Gemini endpoint, which
+  doesn't recognize that field (`400 Cannot find field`) — confirmed live. Every
+  restaurant relying purely on Gemini (no Menufy/website/Grubhub pre-labeled data) got
+  **zero dish names** from the moment that prompt shipped. Only caught now because
+  Richie's has full Menufy coverage and masked it in every prior test. Fixed by moving
+  to `v1beta`. Lesson: verify a fix against a restaurant with NO pre-labeled source, not
+  just the flagship test case — Richie's success can hide totally broken paths.
+- **Supabase corpus is live**: `db/schema.sql` (restaurants, menu_items, photos,
+  source_runs) applied via `scripts/setup-db.mjs`. Direct `db.<ref>.supabase.co` is
+  IPv6-only on new projects and unreachable from networks without IPv6 (including this
+  one) — use the Supavisor pooler connection string from the dashboard (Settings →
+  Database), stored as `DATABASE_URL` in `.env.local` only, never committed.
+- **Corpus persistence race found and fixed**: `/api/dishes` originally fired
+  `persistToCorpus(...)` without awaiting it before returning the response. Vercel
+  serverless functions stop executing the instant a response returns — no background
+  work survives without an explicit `waitUntil`, which this Next 14 setup doesn't use.
+  Only the restaurant-row upsert (a single fast REST call) reliably landed; menu_items
+  and photos were silently never written. Fixed by awaiting persistence before
+  responding — adds a few seconds to cold-miss latency, acceptable since cold misses
+  already take ~30s for Gemini.
+- **Places v1 code fully deleted** (`fetchMenuFromPlacesV1` and all references) —
+  confirmed dead field, not resurrecting without Google shipping it.
+- **Yelp fully deleted** (`yelp.ts`, `findYelpBusiness`, `yelpId` on `Restaurant`) — no
+  free tier exists, per PRD.
+- **DoorDash removed from every live-path call site** (`getGooglePhotosAndReviews`,
+  `/api/debug-sources`) — corpus-only now, via the Tier 1 crawler. `fetchMenuFromDoorDash`
+  and its raw-HTML parsers (`parseDoorDashSearchSlugs`, `extractDoorDashItems`,
+  `parseNextDataMenuItems`) stay exported specifically for crawler reuse.
+- **Ordering-platform parsers added** (Toast, Square, Clover, ChowNow, Olo, PopMenu):
+  stable hostname/CDN detection signatures + a generic embedded-JSON node-walker
+  (same resilient technique as the Menufy API parser). Honest caveat: the fixtures for
+  these six are constructed from each platform's publicly documented embed pattern, NOT
+  recorded from a live restaurant on that platform — confidence is real for detection,
+  best-effort for extraction until the benchmark scoreboard confirms a hit on an actual
+  live target. A platform sitting at 0% hit rate against a restaurant confirmed to use it
+  needs its extractor revisited.
+- **Menu-photo OCR pipeline added**: the batched Gemini call now also returns
+  `isMenuPhoto` per photo; photos of a printed menu/board get a dedicated OCR-style
+  Gemini call extracting `{name, description, price}[]`, tagged `source: "menu_ocr"`,
+  merged into the corpus for future requests (too late to help the current request's
+  photo-naming, which already ran).
+- **Fixture-based contract tests added** (vitest, 18 tests): Menufy item-card parsing,
+  the category-vs-item price guard, schema.org, and all 6 ordering platforms. Run with
+  `npm test`.
+- **Tier 1 local crawler CLI built** (`npm run crawl -- --zone temecula` /
+  `--place <id> --name --lat --lng` / `--refresh-stale`). Architecture (founder decision,
+  July 2026): **hybrid** — Python (`crawler/fetch.py`, Scrapling + Camoufox + curl_cffi)
+  does raw fetching ONLY for DoorDash, the one target genuinely banned from the live
+  path by Scrapfly economics. Every other source (website, Menufy, ordering platforms,
+  Grubhub, Google photos + Gemini) reuses `getGooglePhotosAndReviews` verbatim — the
+  exact same parsers as the live path, never a second copy. `src/crawler/pythonFetch.ts`
+  self-installs the Python venv + `pip install -r crawler/requirements.txt` on first run
+  so `npm run crawl` is the only command Kyle ever needs.
+  **Honest status: the Python/Camoufox fetch path is UNVERIFIED.** This sandbox can't
+  safely exercise it (installing Camoufox pulls a real Firefox binary; running it here
+  would be testing infrastructure that's explicitly meant to run on Kyle's Mac, not a
+  dev sandbox). TypeScript compiles clean and the Node-only paths (website/Menufy/
+  ordering-platforms/Grubhub/Gemini) are exactly the live pipeline, already verified
+  live in production — but the first real end-to-end proof of the DoorDash Python path
+  happens when Kyle runs `npm run crawl` himself. If `camoufox`/`scrapling` fail to
+  install (e.g. Python <3.10 requirement — Kyle's Mac shipped with Python 3.9.6 in
+  testing), that's the first thing to check; the crawler degrades gracefully (skips
+  DoorDash, runs everything else) rather than crashing either way.
+  Zone discovery today reads the fixed `benchmark/restaurants.json` seed list for
+  `--zone temecula` rather than a full paginated Places-API sweep — good enough to prove
+  the pipeline; full zone-wide discovery (a few hundred restaurants) is Phase 3 scope.

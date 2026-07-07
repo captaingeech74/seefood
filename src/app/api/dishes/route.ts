@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGooglePhotosAndReviews } from "@/lib/google";
-import { getCorpusSnapshot, upsertRestaurant, saveMenuItems, savePhotos } from "@/lib/db";
+import { getCorpusSnapshot, persistPipelineResult } from "@/lib/db";
 
 // Gemini analysis of up to 10 images in one batched call, plus source fetches,
 // can take up to ~30s on a cold miss. Vercel paid plan allows up to 300s.
@@ -10,8 +10,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const placeId = searchParams.get("placeId");
   const restaurantName = searchParams.get("name") ?? "";
-  const lat = searchParams.get("lat");
-  const lng = searchParams.get("lng");
+  const lat = parseFloat(searchParams.get("lat") ?? "0");
+  const lng = parseFloat(searchParams.get("lng") ?? "0");
   const address = searchParams.get("address") ?? "";
 
   if (!placeId) {
@@ -37,9 +37,15 @@ export async function GET(req: NextRequest) {
       restaurantName
     );
 
-    await persistToCorpus(placeId, restaurantName, lat, lng, address, photos, menuItems).catch(
-      (e) => console.error("[corpus] persist failed:", e)
-    );
+    await persistPipelineResult({
+      placeId,
+      restaurantName,
+      lat,
+      lng,
+      address,
+      photos,
+      menuItems,
+    }).catch((e) => console.error("[corpus] persist failed:", e));
 
     return NextResponse.json({
       dishes: photos.slice(0, 20),
@@ -52,39 +58,4 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-async function persistToCorpus(
-  placeId: string,
-  restaurantName: string,
-  lat: string | null,
-  lng: string | null,
-  address: string,
-  photos: Awaited<ReturnType<typeof getGooglePhotosAndReviews>>["photos"],
-  menuItems: Awaited<ReturnType<typeof getGooglePhotosAndReviews>>["menuItems"]
-) {
-  await upsertRestaurant({
-    id: placeId,
-    placeId,
-    name: restaurantName || placeId,
-    lat: lat ? parseFloat(lat) : 0,
-    lng: lng ? parseFloat(lng) : 0,
-    address,
-  });
-
-  const nameToId = await saveMenuItems(placeId, menuItems);
-
-  await savePhotos(
-    placeId,
-    photos.map((p) => ({
-      originUrl: p.url,
-      source: p.source,
-      attribution: p.attribution,
-      isOrderable: true, // non-food already filtered out upstream
-      width: p.width,
-      height: p.height,
-      geminiLabel: p.dishName,
-      menuItemId: p.dishName ? nameToId.get(p.dishName) : undefined,
-    }))
-  );
 }

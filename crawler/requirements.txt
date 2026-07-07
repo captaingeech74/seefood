@@ -1,0 +1,3 @@
+curl_cffi>=0.7
+scrapling>=0.2
+camoufox[geoip]>=0.4

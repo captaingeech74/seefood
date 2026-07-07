@@ -164,6 +164,19 @@ export async function fetchMenuFromDoorDash(
   ]);
 }
 
+/**
+ * Pure parse of a DoorDash search-results page: extract store slugs and pick
+ * the best match by name overlap. Exported so the Tier 1 crawler (which fetches
+ * this HTML itself via Python/Camoufox, not fetchWithAntiBot) reuses the exact
+ * same parsing logic as the live path — never two copies of a parser.
+ */
+export function parseDoorDashSearchSlugs(html: string, restaurantName: string): string | null {
+  const slugs = [...new Set(
+    [...html.matchAll(/["'](\/store\/([a-z0-9][a-z0-9-]{3,70})\/)/gi)].map((m) => m[2])
+  )].filter((s) => !["pickup", "search", "home", "dasher"].some((x) => s.startsWith(x)));
+  return scoreByNameMatch(slugs, restaurantName);
+}
+
 async function fetchDoorDashDirect(restaurantName: string): Promise<MenuItemData[]> {
   try {
     const q = encodeURIComponent(restaurantName);
@@ -173,16 +186,12 @@ async function fetchDoorDashDirect(restaurantName: string): Promise<MenuItemData
     );
     if (!html) return [];
 
-    const slugs = [...new Set(
-      [...html.matchAll(/["'](\/store\/([a-z0-9][a-z0-9-]{3,70})\/)/gi)].map((m) => m[2])
-    )].filter((s) => !["pickup", "search", "home", "dasher"].some((x) => s.startsWith(x)));
-
-    const bestSlug = scoreByNameMatch(slugs, restaurantName);
+    const bestSlug = parseDoorDashSearchSlugs(html, restaurantName);
     if (!bestSlug) {
       console.log(`[DoorDash] no slugs found for "${restaurantName}"`);
       return [];
     }
-    console.log(`[DoorDash] "${restaurantName}" → slug: ${bestSlug} (${slugs.length} candidates)`);
+    console.log(`[DoorDash] "${restaurantName}" → slug: ${bestSlug}`);
     return fetchDeliveryStorePage(
       `https://www.doordash.com/store/${bestSlug}/`,
       "https://www.doordash.com/",
@@ -222,6 +231,15 @@ async function fetchDoorDashViaGoogleSearch(
 // Same pre-labeled pattern: menu items with photos bypass Gemini entirely.
 // With SCRAPFLY_KEY set this becomes very reliable; without it, best-effort.
 
+/** Pure parse of a Grubhub search-results page — same reuse rationale as parseDoorDashSearchSlugs. */
+export function parseGrubhubSearchUrl(html: string, restaurantName: string): string | null {
+  const urls = [...new Set(
+    [...html.matchAll(/["'](\/restaurant\/([^"'?#]+)\/(\d{5,})\/?)["']/gi)]
+      .map((m) => `https://www.grubhub.com/restaurant/${m[2]}/${m[3]}/`)
+  )];
+  return scoreByNameMatch(urls, restaurantName);
+}
+
 export async function fetchMenuFromGrubhub(
   restaurantName: string,
   lat: number,
@@ -235,13 +253,7 @@ export async function fetchMenuFromGrubhub(
     );
     if (!html) return [];
 
-    // Grubhub restaurant URLs: /restaurant/{slug}/{id}
-    const urls = [...new Set(
-      [...html.matchAll(/["'](\/restaurant\/([^"'?#]+)\/(\d{5,})\/?)["']/gi)]
-        .map((m) => `https://www.grubhub.com/restaurant/${m[2]}/${m[3]}/`)
-    )];
-
-    const bestUrl = scoreByNameMatch(urls, restaurantName);
+    const bestUrl = parseGrubhubSearchUrl(html, restaurantName);
     if (!bestUrl) {
       console.log(`[Grubhub] no results for "${restaurantName}"`);
       return [];
@@ -257,6 +269,26 @@ export async function fetchMenuFromGrubhub(
 // ── Shared store page fetcher ─────────────────────────────────────────────────
 
 /**
+ * Pure parse of a delivery platform store page's __NEXT_DATA__ blob. Exported
+ * so the Tier 1 crawler (which fetches this HTML itself, not via fetchWithAntiBot)
+ * reuses the exact same parser as the live path.
+ */
+export function parseNextDataMenuItems(
+  html: string,
+  extractor: (obj: unknown, out: MenuItemData[]) => void
+): MenuItemData[] {
+  const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!match) return [];
+  const items: MenuItemData[] = [];
+  try {
+    extractor(JSON.parse(match[1]), items);
+  } catch {
+    return [];
+  }
+  return deduplicateItems(items);
+}
+
+/**
  * Fetch a delivery platform store page and extract menu items from __NEXT_DATA__.
  * Shared by DoorDash and Grubhub; takes a platform-specific item extractor.
  */
@@ -268,17 +300,7 @@ async function fetchDeliveryStorePage(
   try {
     const html = await fetchWithAntiBot(url, referer, 15000);
     if (!html) return [];
-
-    const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    if (!match) {
-      console.log(`[store page] no __NEXT_DATA__ found at ${url}`);
-      return [];
-    }
-
-    const items: MenuItemData[] = [];
-    try { extractor(JSON.parse(match[1]), items); } catch { return []; }
-
-    const deduped = deduplicateItems(items);
+    const deduped = parseNextDataMenuItems(html, extractor);
     console.log(`[store page] ${url}: ${deduped.length} menu items`);
     return deduped;
   } catch (e) {
@@ -288,7 +310,7 @@ async function fetchDeliveryStorePage(
 }
 
 /** Recursively walks DoorDash __NEXT_DATA__ looking for menu item objects. */
-function extractDoorDashItems(obj: unknown, out: MenuItemData[]): void {
+export function extractDoorDashItems(obj: unknown, out: MenuItemData[]): void {
   if (!obj || typeof obj !== "object") return;
   if (Array.isArray(obj)) { obj.forEach((v) => extractDoorDashItems(v, out)); return; }
 
@@ -319,7 +341,7 @@ function extractDoorDashItems(obj: unknown, out: MenuItemData[]): void {
  * Recursively walks Grubhub __NEXT_DATA__ for menu item objects.
  * Grubhub items typically have: name, description, photo (URL), price.
  */
-function extractGrubhubItems(obj: unknown, out: MenuItemData[]): void {
+export function extractGrubhubItems(obj: unknown, out: MenuItemData[]): void {
   if (!obj || typeof obj !== "object") return;
   if (Array.isArray(obj)) { obj.forEach((v) => extractGrubhubItems(v, out)); return; }
 
