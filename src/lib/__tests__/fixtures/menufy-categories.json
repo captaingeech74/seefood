@@ -1,0 +1,6 @@
+{
+  "categories": [
+    { "id": 1095665, "name": "Seafood", "description": null, "isDeliveryAvailable": false, "isCarryoutAvailable": true, "isActive": true, "categoryType": 1 },
+    { "id": 1095668, "name": "Burgers", "description": "All burgers come with a choice of French fries, coleslaw, or roasted garlic red potato salad.", "isDeliveryAvailable": false, "isCarryoutAvailable": true, "isActive": true, "categoryType": 1 }
+  ]
+}

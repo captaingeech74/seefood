@@ -48,7 +48,16 @@ export async function fetchMenuFromUrl(url: string): Promise<MenuItemData[]> {
     const menufyViaSideLink = await checkLinksForMenufy(url, html, 3);
     if (menufyViaSideLink.length > 0) return menufyViaSideLink;
 
+    // ── Platform 3: Named ordering platforms (Toast, Square, Clover, ChowNow, Olo, PopMenu)
+    const platform = detectOrderingPlatform(html);
+    if (platform) {
+      const items = extractEmbeddedJsonMenuItems(html, platform);
+      if (items.length > 0) return items;
+    }
+
     // ── Platform 2: Schema.org LD+JSON ────────────────────────────────────────
+    // Universal fallback — these platforms often also emit schema.org for SEO
+    // even when their own embedded JSON isn't present in the raw (unrendered) HTML.
     return parseSchemaOrgMenuItems(html);
   } catch (e) {
     console.error(`[fetchMenuFromUrl] ${url} failed:`, e);
@@ -257,7 +266,7 @@ async function fetchMenufyAPI(
 }
 
 /** Walk any Menufy API response shape and extract MenuItemData. */
-function parseMenufyApiData(data: unknown): MenuItemData[] {
+export function parseMenufyApiData(data: unknown): MenuItemData[] {
   if (!data || typeof data !== "object") return [];
   const items: MenuItemData[] = [];
   walkMenufyApiNode(data, items);
@@ -278,13 +287,15 @@ function walkMenufyApiNode(obj: unknown, out: MenuItemData[]): void {
     o.name.trim().length > 1 &&
     (typeof o.price === "number" || typeof o.price === "string")
   ) {
-    const item: MenuItemData = { name: o.name.trim() };
+    const item: MenuItemData = { name: o.name.trim(), source: "menufy" };
     const desc = (o.description as string | undefined)?.trim();
     if (desc) item.description = desc.substring(0, 300);
     const img = o.imageUrl ?? o.image ?? o.photo;
     if (typeof img === "string" && img.startsWith("http")) {
       item.imageUrl = upscaleHungerRushUrl(img);
     }
+    if (typeof o.price === "number") item.price = o.price;
+    else if (typeof o.price === "string" && !isNaN(parseFloat(o.price))) item.price = parseFloat(o.price);
     out.push(item);
     return; // Don't recurse into an item's own children (avoid picking up modifier groups etc.)
   }
@@ -332,7 +343,7 @@ async function fetchMenufyViaScrapfly(
  * Works on Scrapfly-rendered HTML where elements have been added to the DOM.
  * Each card has: item-name, item-description, item-image-url, item-price, item-id.
  */
-function parseMenufyItemCards(html: string): MenuItemData[] {
+export function parseMenufyItemCards(html: string): MenuItemData[] {
   const items: MenuItemData[] = [];
   const cardPattern = /<new-menufy-item-card([^>]+)>/gi;
   let match: RegExpExecArray | null;
@@ -342,7 +353,7 @@ function parseMenufyItemCards(html: string): MenuItemData[] {
     const name = extractHtmlAttr(attrs, "item-name");
     if (!name || name.length < 2) continue;
 
-    const item: MenuItemData = { name };
+    const item: MenuItemData = { name, source: "menufy" };
     const desc = extractHtmlAttr(attrs, "item-description");
     if (desc) item.description = desc.substring(0, 300);
 
@@ -350,6 +361,9 @@ function parseMenufyItemCards(html: string): MenuItemData[] {
     if (imgUrl?.startsWith("http")) {
       item.imageUrl = upscaleHungerRushUrl(imgUrl);
     }
+
+    const priceAttr = extractHtmlAttr(attrs, "item-price");
+    if (priceAttr && !isNaN(parseFloat(priceAttr))) item.price = parseFloat(priceAttr);
 
     items.push(item);
   }
@@ -382,9 +396,99 @@ function upscaleHungerRushUrl(url: string): string {
     .replace("width=300,height=300,fit=crop", "width=800,height=800,fit=scale-down");
 }
 
+// ── Named ordering platforms ──────────────────────────────────────────────────
+// Toast, Square Online, Clover, ChowNow, Olo, and PopMenu all render their menu
+// client-side from a JSON blob embedded in the page (or loaded async from their
+// own domain). Detection signatures are stable brand/CDN hostnames; extraction
+// reuses the same "walk any JSON for {name + (price|description|image)} shaped
+// nodes" technique as the Menufy API parser, since the exact internal schema of
+// each platform isn't publicly documented and will drift — the walker is
+// resilient to field reordering/renaming as long as the shape holds.
+//
+// Coverage confidence: real (detection signatures are well-known, stable
+// hostnames). Extraction confidence: best-effort until proven against a live
+// restaurant on each platform — the benchmark scoreboard is the tripwire; a
+// platform with 0% hit rate across restaurants confirmed to use it needs its
+// extractor revisited.
+
+type OrderingPlatform = "toast" | "square" | "clover" | "chownow" | "olo" | "popmenu";
+
+const PLATFORM_SIGNATURES: Array<{ platform: OrderingPlatform; test: (html: string) => boolean }> = [
+  { platform: "toast", test: (h) => h.includes("toasttab.com") },
+  { platform: "chownow", test: (h) => h.includes("chownow.com") || h.includes("chownow-order") },
+  { platform: "olo", test: (h) => h.includes("static.olo.com") || h.includes("olo.com/menu") },
+  { platform: "clover", test: (h) => h.includes("clover.com/online-ordering") || h.includes("clover-ecomm") },
+  { platform: "square", test: (h) => h.includes(".square.site") || h.includes("squareup.com/checkout") },
+  { platform: "popmenu", test: (h) => h.includes("popmenu.com") || h.includes("cdn.popmenu.com") },
+];
+
+export function detectOrderingPlatform(html: string): OrderingPlatform | null {
+  for (const { platform, test } of PLATFORM_SIGNATURES) {
+    if (test(html)) return platform;
+  }
+  return null;
+}
+
+/** Scan every <script> block on the page for embedded JSON menu data. */
+export function extractEmbeddedJsonMenuItems(html: string, source: OrderingPlatform): MenuItemData[] {
+  const items: MenuItemData[] = [];
+  const scriptPattern = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+
+  while ((m = scriptPattern.exec(html)) !== null) {
+    const body = m[1].trim();
+    if (!body || (!body.includes("{") && !body.includes("["))) continue;
+
+    // Try the whole script body as JSON first (application/json blocks),
+    // then fall back to extracting the first balanced {...} or [...] literal
+    // from a `var x = {...}` / `window.x = {...}` assignment.
+    const candidates: string[] = [body];
+    const assignMatch = body.match(/=\s*(\{[\s\S]*\}|\[[\s\S]*\])\s*;?\s*$/);
+    if (assignMatch) candidates.push(assignMatch[1]);
+
+    for (const candidate of candidates) {
+      try {
+        const data = JSON.parse(candidate);
+        walkGenericMenuNode(data, source, items);
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  return deduplicateMenuItems(items);
+}
+
+function walkGenericMenuNode(obj: unknown, source: OrderingPlatform, out: MenuItemData[]): void {
+  if (!obj || typeof obj !== "object") return;
+  if (Array.isArray(obj)) { obj.forEach((v) => walkGenericMenuNode(v, source, out)); return; }
+
+  const o = obj as Record<string, unknown>;
+  const name = (o.name ?? o.itemName ?? o.title) as unknown;
+  const price = o.price ?? o.basePrice ?? o.cost;
+  const description = (o.description ?? o.desc) as unknown;
+  const image = (o.imageUrl ?? o.image ?? o.photoUrl ?? o.thumbnailUrl) as unknown;
+
+  const hasPrice = typeof price === "number" || (typeof price === "string" && !isNaN(parseFloat(price)));
+  if (typeof name === "string" && name.trim().length > 1 && name.trim().length < 80 && hasPrice) {
+    const item: MenuItemData = { name: name.trim(), source };
+    if (typeof description === "string" && description.trim()) {
+      item.description = description.trim().substring(0, 300);
+    }
+    if (typeof image === "string" && image.startsWith("http")) item.imageUrl = image;
+    item.price = typeof price === "number" ? price : parseFloat(price as string);
+    out.push(item);
+    return; // don't recurse into an item's own children (modifiers, etc.)
+  }
+
+  for (const val of Object.values(o)) {
+    if (val && typeof val === "object") walkGenericMenuNode(val, source, out);
+  }
+}
+
 // ── Schema.org parser ─────────────────────────────────────────────────────────
 
-function parseSchemaOrgMenuItems(html: string): MenuItemData[] {
+export function parseSchemaOrgMenuItems(html: string): MenuItemData[] {
   const results: MenuItemData[] = [];
   const pattern =
     /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
@@ -408,7 +512,7 @@ function walkSchemaNode(node: unknown): MenuItemData[] {
   const type = String(obj["@type"] ?? "").toLowerCase();
 
   if (type === "menuitem" && typeof obj.name === "string" && obj.name.trim()) {
-    const item: MenuItemData = { name: obj.name.trim() };
+    const item: MenuItemData = { name: obj.name.trim(), source: "schema_org" };
     if (typeof obj.description === "string" && obj.description.trim()) {
       item.description = obj.description.trim().substring(0, 300);
     }
@@ -423,6 +527,10 @@ function walkSchemaNode(node: unknown): MenuItemData[] {
         item.imageUrl = imgObj.url;
       }
     }
+    const offers = obj.offers as Record<string, unknown> | undefined;
+    const rawPrice = offers?.price;
+    if (typeof rawPrice === "number") item.price = rawPrice;
+    else if (typeof rawPrice === "string" && !isNaN(parseFloat(rawPrice))) item.price = parseFloat(rawPrice);
     results.push(item);
   }
 

@@ -1,0 +1,29 @@
+<!-- Representative structure: Toast-hosted ordering page embeds a JSON blob of
+     menu data in a script tag; detection signature is the toasttab.com hostname
+     appearing somewhere on the page (asset CDN, iframe src, or canonical link).
+     NOT recorded from a live restaurant — constructed from Toast's publicly
+     documented embed pattern. Treat extraction confidence as best-effort until
+     confirmed against a real Toast restaurant via the benchmark scoreboard. -->
+<html><head>
+<link rel="canonical" href="https://order.toasttab.com/online/test-diner">
+</head><body>
+<script type="application/json" id="preloadedMenuData">
+{
+  "restaurant": { "name": "Test Diner" },
+  "menus": [
+    {
+      "name": "Dinner",
+      "groups": [
+        {
+          "name": "Entrees",
+          "items": [
+            { "name": "Smoked Brisket Plate", "description": "14hr smoked brisket, mac and cheese, collard greens", "price": 22.5, "imageUrl": "https://cdn.toasttab.com/brisket.jpg" },
+            { "name": "Fried Chicken Sandwich", "description": "Buttermilk fried chicken, pickles, spicy mayo", "price": 14 }
+          ]
+        }
+      ]
+    }
+  ]
+}
+</script>
+</body></html>

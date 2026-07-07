@@ -28,15 +28,17 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Corpus miss or stale — run the live pipeline, stream result back, and
-    // persist everything learned (fire-and-forget; never blocks the response).
+    // Corpus miss or stale — run the live pipeline, then persist everything
+    // learned before responding. Vercel serverless functions stop executing the
+    // moment a response is returned (no background work survives past that
+    // without an explicit waitUntil), so this must be awaited, not fire-and-forget.
     const { photos, popularDishes, menuItems } = await getGooglePhotosAndReviews(
       placeId,
       restaurantName
     );
 
-    persistToCorpus(placeId, restaurantName, lat, lng, address, photos, menuItems).catch((e) =>
-      console.error("[corpus] persist failed:", e)
+    await persistToCorpus(placeId, restaurantName, lat, lng, address, photos, menuItems).catch(
+      (e) => console.error("[corpus] persist failed:", e)
     );
 
     return NextResponse.json({
