@@ -674,11 +674,12 @@ export async function getGooglePhotosAndReviews(
 ): Promise<{
   photos: DishPhoto[];
   popularDishes: string[];
+  menuItems: MenuItemData[];
 }> {
   const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=photos,reviews,geometry,website,formatted_address&key=${API_KEY}`;
   const detailsRes = await fetch(detailsUrl);
   const data = await detailsRes.json();
-  if (!data.result) return { photos: [], popularDishes: [] };
+  if (!data.result) return { photos: [], popularDishes: [], menuItems: [] };
 
   const { photos = [], reviews = [] } = data.result;
   const lat: number | undefined = data.result.geometry?.location?.lat;
@@ -796,5 +797,6 @@ export async function getGooglePhotosAndReviews(
   return {
     photos: all.map((e) => e.photo),
     popularDishes,
+    menuItems: allMenuItems,
   };
 }

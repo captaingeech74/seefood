@@ -35,6 +35,9 @@ export default function Home() {
       const params = new URLSearchParams({
         placeId: r.placeId || r.id,
         name: r.name,
+        lat: String(r.lat),
+        lng: String(r.lng),
+        address: r.address || "",
       });
       const res = await fetch(`/api/dishes?${params}`);
       const data = await res.json();
