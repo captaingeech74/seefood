@@ -78,11 +78,12 @@ Authoritative companions: `PRODUCT_REVIEW.md` (rationale & research), `AGENT_PRO
 
 ### 5.2 Two-tier acquisition engine
 - **Tier 1 — Local corpus crawler (unlimited, $0):** CLI in-repo (`npm run crawl -- --zone temecula`, `--place <id>`, `--refresh-stale`), runs on the founder's Mac (residential IP). Stack: Scrapling + Camoufox for hard targets (DoorDash, Grubhub, Menufy), curl_cffi/plain fetch for easy ones (restaurant sites, ordering platforms). Polite rate limits (~1 restaurant/min default), resumable, idempotent, writes to corpus + logs `source_runs`. Founder-runnable: one command, clear progress output, safe to interrupt.
-- **Tier 2 — Live serverless gap-filler:** existing Vercel pipeline, corpus-first; on miss runs free direct sources (Places New menuItems, website/ordering-platform parse, Google photos + Gemini, menu-photo OCR) plus ≤2 Scrapfly free-tier attempts for hard targets; streams to user; persists everything learned. Every user request enriches the corpus.
+- **Tier 2 — Live serverless gap-filler:** existing Vercel pipeline, corpus-first; on miss runs free direct sources (website/ordering-platform parse, Google photos + Gemini, menu-photo OCR) plus ≤2 Scrapfly free-tier attempts for *cheap* hard targets only (Menufy, Grubhub — never DoorDash); streams to user; persists everything learned. Every user request enriches the corpus.
 
 ### 5.3 Sources (pluggable interface: `fetch(restaurant) → SourceResult`)
-Active: Google Places photos+reviews · Places API (New) menuItems · restaurant website schema.org · **ordering platforms (new: Toast, Square Online, Clover, ChowNow, Olo, PopMenu hosted pages)** · DoorDash · Grubhub · Menufy (2-hop link following, depth ≤3) · **menu-photo OCR (new: menu photos in Google's photo set → Gemini OCR → structured menu)**.
-Dropped: Yelp (no free tier exists; no trial-farming).
+Active: Google Places photos+reviews · restaurant website schema.org · **ordering platforms (new: Toast, Square Online, Clover, ChowNow, Olo, PopMenu hosted pages)** · DoorDash (**corpus-only — local crawler exclusively; never the live path**, see below) · Grubhub · Menufy (2-hop link following, depth ≤3) · **menu-photo OCR (new: menu photos in Google's photo set → Gemini OCR → structured menu)**.
+Dropped: Yelp (no free tier exists; no trial-farming) · **Places API (New) `menuItems` (confirmed July 2026: the field does not exist in Google's API — 400s on request; delete `fetchMenuFromPlacesV1` and all references; menu-photo OCR + ordering platforms absorb its intended role)**.
+DoorDash economics (measured July 2026): its anti-bot challenge costs 51–75+ Scrapfly credits per lookup (~13 lookups/mo on the free tier) and its search endpoint changed (404s). Therefore: zero Scrapfly credits may ever be spent on DoorDash; all DoorDash acquisition and endpoint reverse-engineering happens in the Tier 1 local crawler where retries are $0.
 Shadow candidates (scoreboard-gated): Uber Eats, ezCater, Instagram location pages, TikTok place tags, OpenMenu, Crawl4AI-for-websites.
 
 ### 5.4 AI pipeline
@@ -108,8 +109,8 @@ Stray `\n` on photo URLs · `GOOGLE_MAPS_API_KEY` leaking in client-visible phot
 ## 7. Delivery phases & acceptance criteria
 
 **Phase 0 — Turn it on (~days)**
-Unblocks (`PLACES_API_KEY` — new key on seefood-vision restricted to Places API (New), founder holds it; key routing in `google.ts`; `SCRAPFLY_KEY`), §5.6 fixes, short-names prompt + orderability filter, benchmark + scoreboard v1.
-✓ Accept: debug-sources shows ≥3 non-Google sources returning data on benchmark restaurants; Richie's shows menu-matched dishes with ≤4-word names in production; scoreboard produces a real table.
+Unblocks (`SCRAPFLY_KEY`; delete the dead `fetchMenuFromPlacesV1`/menuItems path), §5.6 fixes, short-names prompt + orderability filter, benchmark + scoreboard v1.
+✓ Accept: debug-sources shows ≥2 non-Google sources returning data on benchmark restaurants (website/ordering-platform/Menufy/Grubhub); Richie's shows menu-matched dishes with ≤4-word names in production; scoreboard produces a real table. (DoorDash is exempt from Phase 0 — it arrives with the Phase 1 crawler.)
 
 **Phase 1 — Corpus + engine (~1–2 wks)**
 Supabase persistence, corpus-first streaming read path, batched Gemini, ordering-platform parsers, menu-photo OCR, local crawler CLI.

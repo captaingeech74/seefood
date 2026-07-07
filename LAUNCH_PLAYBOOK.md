@@ -5,8 +5,8 @@
 
 ## Step 1 — Unlock the data feeds (do these first, ~20 min total)
 
-**1a. Google — Places API (New) key — ✅ DONE (Plan B, July 2026)**
-seefood-map was unreachable, so a new API key was created on **seefood-vision** (where Places API (New) is already enabled, billing active), restricted to Places API (New) only. Keep that key handy — give it to the agent at kickoff when it asks; it goes into Vercel as `PLACES_API_KEY`.
+**1a. Google — Places API (New) menu data — ☠️ DEAD END (confirmed July 2026)**
+Kyle verified directly against Google: the `menuItems` field does not exist in Places API (New) — the entire planned source was a phantom. **No action needed.** Keep the new key you made (it's free and may be useful later); the agent deletes the dead code, and menu-photo OCR + ordering-platform parsing cover the gap.
 
 **1b. Scrapfly — free key (5 min)**
 1. Sign up free at **scrapfly.io** (no credit card; 1,000 calls/month).
@@ -42,7 +42,7 @@ Buy `seefood.app` or similar at a registrar (Namecheap/Porkbun). Tell the agent 
 | When | You give the agent |
 |---|---|
 | Session start | AGENT_PROMPT.md contents (it reads PRD/REVIEW/etc. from the repo itself) |
-| Phase 0, when asked | New Places key (1a) · Scrapfly key (1b) |
+| Phase 0, when asked | Scrapfly key (1b) — (1a is a confirmed dead end, nothing to give) |
 | Phase 1, when asked | Supabase URL + keys (1c) |
 | Phase 2, when asked | Domain name (1e) |
 | Phase 3 | Nothing — you run the crawler (Step 4) and walk-test (Step 5) |

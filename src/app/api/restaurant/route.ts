@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findNearbyRestaurant, getRestaurantDetails } from "@/lib/google";
-import { findYelpBusiness } from "@/lib/yelp";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -30,16 +29,6 @@ export async function GET(req: NextRequest) {
         { error: "No restaurant found nearby" },
         { status: 404 }
       );
-    }
-
-    // Try to find matching Yelp business
-    const yelpId = await findYelpBusiness(
-      restaurant.name,
-      restaurant.lat,
-      restaurant.lng
-    );
-    if (yelpId) {
-      restaurant.yelpId = yelpId;
     }
 
     return NextResponse.json(restaurant);

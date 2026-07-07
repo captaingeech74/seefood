@@ -10,20 +10,34 @@ interface LightboxProps {
 }
 
 const SOURCE_LABELS: Record<DishPhoto["source"], string> = {
-  google:   "Google",
-  yelp:     "Yelp",
-  doordash: "DoorDash",
-  website:  "Restaurant",
-  grubhub:  "Grubhub",
+  google:     "Google",
+  doordash:   "DoorDash",
+  grubhub:    "Grubhub",
+  menufy:     "Menufy",
+  schema_org: "Restaurant",
+  toast:      "Toast",
+  square:     "Square",
+  clover:     "Clover",
+  chownow:    "ChowNow",
+  olo:        "Olo",
+  popmenu:    "PopMenu",
+  menu_ocr:   "Menu",
 };
 
 // Subtle tinted backgrounds for each source — dark, on-brand with the app's palette
 const SOURCE_STYLES: Record<DishPhoto["source"], string> = {
-  google:   "bg-blue-500/15 text-blue-300",
-  yelp:     "bg-red-500/15 text-red-300",
-  doordash: "bg-orange-500/15 text-orange-300",
-  website:  "bg-emerald-500/15 text-emerald-300",
-  grubhub:  "bg-purple-500/15 text-purple-300",
+  google:     "bg-blue-500/15 text-blue-300",
+  doordash:   "bg-orange-500/15 text-orange-300",
+  grubhub:    "bg-purple-500/15 text-purple-300",
+  menufy:     "bg-emerald-500/15 text-emerald-300",
+  schema_org: "bg-emerald-500/15 text-emerald-300",
+  toast:      "bg-rose-500/15 text-rose-300",
+  square:     "bg-cyan-500/15 text-cyan-300",
+  clover:     "bg-lime-500/15 text-lime-300",
+  chownow:    "bg-amber-500/15 text-amber-300",
+  olo:        "bg-fuchsia-500/15 text-fuchsia-300",
+  popmenu:    "bg-teal-500/15 text-teal-300",
+  menu_ocr:   "bg-slate-500/15 text-slate-300",
 };
 
 export default function Lightbox({ photos, startIndex, onClose }: LightboxProps) {

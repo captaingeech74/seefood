@@ -1,8 +1,8 @@
 /**
  * Shared URL → MenuItemData[] extractor.
  *
- * Fetches any URL (restaurant website, Yelp menu link) and pulls
- * dish names, descriptions, and photo URLs from multiple sources.
+ * Fetches a restaurant's own website and pulls dish names, descriptions, and
+ * photo URLs from multiple sources.
  *
  * Platform detection order (first match wins):
  *   1. Menufy / HungerRush — web-component ordering sites.
@@ -15,8 +15,7 @@
  *      Coverage: ~35–50% of restaurants with a website.
  *
  * Called by:
- *   - google.ts  → restaurant's own website (Place Details `website` field)
- *   - yelp.ts    → Yelp business `attributes.menu_url`
+ *   - google.ts → restaurant's own website (Place Details `website` field)
  */
 
 import { MenuItemData } from "./types";

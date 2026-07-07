@@ -528,10 +528,11 @@ dish from this restaurant."
 Three sources are queried in parallel on every restaurant load and merged before Gemini
 sees a single image. `menuSources.ts` provides the shared URL-to-items parser.
 
-### Source 1 — Google Places API v1 `menuItems` (existing)
-`fetchMenuFromPlacesV1(placeId)` — structured API, ~15–25% coverage.
-Returns verbatim menu item names when the restaurant has uploaded their menu to Google.
-Falls back to `[]` gracefully.
+### Source 1 — Google Places API v1 `menuItems` — ☠️ CONFIRMED NONEXISTENT (July 2026)
+`fetchMenuFromPlacesV1(placeId)` — **this source was a phantom.** Founder verified directly
+against Google: Places API (New) has no `menuItems` field ("cannot find matching fields for
+path 'menuItems'"). The "~15–25% coverage" claim below was never real; the call never once
+returned data. Code deleted per PRD. Replacement roles: menu-photo OCR + ordering-platform parsers.
 
 ### Source 2 — Restaurant website schema.org LD+JSON
 `fetchMenuFromUrl(websiteUrl)` — the restaurant's own website, ~35–50% of restaurants

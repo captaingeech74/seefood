@@ -1,3 +1,18 @@
+/** Ordering/menu platform a MenuItemData or DishPhoto was sourced from. */
+export type DataSource =
+  | "google"
+  | "doordash"
+  | "grubhub"
+  | "menufy"
+  | "schema_org"
+  | "toast"
+  | "square"
+  | "clover"
+  | "chownow"
+  | "olo"
+  | "popmenu"
+  | "menu_ocr";
+
 /**
  * A single menu item sourced from any data provider.
  * Carried through the pipeline so description and imageUrl travel
@@ -5,8 +20,10 @@
  */
 export interface MenuItemData {
   name: string;
-  description?: string; // sourced from Places v1, schema.org, DoorDash, etc.
-  imageUrl?: string;    // photo URL when the source already provides one (schema.org, DoorDash)
+  description?: string;
+  imageUrl?: string;    // photo URL when the source already provides one
+  price?: number;       // captured for the corpus; NEVER displayed in the UI
+  source?: DataSource;  // which platform this item was extracted from
 }
 
 export interface DishPhoto {
@@ -17,7 +34,7 @@ export interface DishPhoto {
   /** true = matched against the restaurant's actual menu (fuzzy or exact) */
   isMenuMatch: boolean;
   /** where this photo came from */
-  source: "google" | "yelp" | "doordash" | "website" | "grubhub";
+  source: DataSource;
   /** who contributed it — "owner" = restaurant/management, "user" = customer */
   attribution: "user" | "owner";
   width: number;
@@ -31,7 +48,6 @@ export interface Restaurant {
   lat: number;
   lng: number;
   placeId?: string;
-  yelpId?: string;
   rating?: number;
   reviewCount?: number;
   priceLevel?: number; // 0–4

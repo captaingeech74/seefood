@@ -18,15 +18,13 @@ const restaurants = JSON.parse(
 // per run to force a fresh full-pipeline execution instead of a 24h cache hit.
 const RUN_TAG = new Date().toISOString().slice(0, 10);
 
-const SOURCES = ["places_v1", "website", "yelp", "doordash", "grubhub", "menufy"];
+// DoorDash excluded — corpus-only, never live-tested (Scrapfly credit cost).
+const SOURCES = ["website", "grubhub", "menufy"];
 
 function isHit(source, result) {
   if (!result) return false;
   switch (source) {
-    case "places_v1": return (result.menuItems_count ?? 0) > 0;
     case "website": return (result.parsed_menu_items ?? 0) > 0;
-    case "yelp": return !!result.business_found;
-    case "doordash": return !!result.ok;
     case "grubhub": return !!result.ok;
     case "menufy": return !!result.detected && (result.item_count ?? 0) > 0;
     default: return false;
@@ -36,9 +34,7 @@ function isHit(source, result) {
 function itemCount(source, result) {
   if (!result) return 0;
   switch (source) {
-    case "places_v1": return result.menuItems_count ?? 0;
     case "website": return result.parsed_menu_items ?? 0;
-    case "doordash": return result.item_count ?? 0;
     case "grubhub": return result.item_count ?? 0;
     case "menufy": return result.item_count ?? 0;
     default: return 0;

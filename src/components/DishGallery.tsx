@@ -168,7 +168,7 @@ export default function DishGallery({
         )}
 
         <p className="text-center text-white/20 text-[11px] mt-6 font-medium">
-          Photos via Google · Yelp · DoorDash · Restaurant
+          Photos via Google · Grubhub · Menufy · Restaurant
         </p>
       </div>
 
