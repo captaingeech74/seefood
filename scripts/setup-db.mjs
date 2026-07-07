@@ -22,11 +22,11 @@ function loadEnvLocal() {
 }
 loadEnvLocal();
 
-const projectRef = new URL(process.env.SUPABASE_URL).hostname.split(".")[0];
-const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD);
 // Direct db.<ref>.supabase.co only has an AAAA (IPv6) record on new projects;
-// use the IPv4-reachable Supavisor pooler instead (session mode, port 5432).
-const connectionString = `postgresql://postgres.${projectRef}:${password}@aws-0-us-west-1.pooler.supabase.com:5432/postgres`;
+// use the IPv4-reachable Supavisor pooler instead. DATABASE_URL holds the exact
+// pooler connection string from the Supabase dashboard (Settings → Database).
+const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD);
+const connectionString = process.env.DATABASE_URL.replace("[YOUR-PASSWORD]", password);
 
 const schema = readFileSync(join(__dirname, "..", "db", "schema.sql"), "utf-8");
 
@@ -34,7 +34,7 @@ const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: fals
 
 async function main() {
   await client.connect();
-  console.log(`Connected to db.${projectRef}.supabase.co`);
+  console.log("Connected to Supabase pooler");
   await client.query(schema);
   console.log("Schema applied.");
   const res = await client.query(

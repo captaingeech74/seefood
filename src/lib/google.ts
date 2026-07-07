@@ -460,7 +460,11 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
   for (const model of MODELS) {
     try {
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${VISION_KEY}`,
+        // v1beta required: responseMimeType (structured JSON output) is not
+        // recognized on the v1 endpoint ("Cannot find field" 400) — confirmed
+        // live July 2026. This silently zeroed out every Gemini-only restaurant
+        // (no pre-labeled source) since the JSON prompt was introduced.
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${VISION_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
