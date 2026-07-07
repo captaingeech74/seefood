@@ -1,0 +1,676 @@
+{
+  "run_date": "2026-07-07",
+  "base_url": "https://seefood-rho.vercel.app",
+  "perSource": {
+    "website": {
+      "hits": 1,
+      "totalItems": 221,
+      "totalLatency": 234986,
+      "errors": 0
+    },
+    "grubhub": {
+      "hits": 0,
+      "totalItems": 0,
+      "totalLatency": 234986,
+      "errors": 0
+    },
+    "menufy": {
+      "hits": 0,
+      "totalItems": 0,
+      "totalLatency": 234986,
+      "errors": 0
+    }
+  },
+  "perRestaurant": [
+    {
+      "name": "Richie's Real American Diner",
+      "category": "independent-menufy",
+      "placeId": "ChIJo5rSwlh_24ARYXLdrsbKRu8",
+      "sources": {
+        "website": {
+          "hit": true,
+          "items": 221,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 221,
+          "error": null
+        }
+      },
+      "photo_count": 20,
+      "menu_matched_count": 20,
+      "debug_latency_ms": 12671,
+      "dishes_latency_ms": 20527
+    },
+    {
+      "name": "Public House Temecula",
+      "category": "independent",
+      "placeId": "ChIJ0dMsy7h_24ARVZKKVbKtklw",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 6,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 23719,
+      "dishes_latency_ms": 698
+    },
+    {
+      "name": "Villa Italian Kitchen",
+      "category": "independent",
+      "placeId": "ChIJpf5z7D1-24AR1fjSGA5f-1o",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 7,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 3042,
+      "dishes_latency_ms": 15064
+    },
+    {
+      "name": "Amerikhan Mongolian Grill",
+      "category": "independent",
+      "placeId": "ChIJc_EtVj5-24AR8sxUBuOeizY",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 6,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1032,
+      "dishes_latency_ms": 16479
+    },
+    {
+      "name": "Hot Dog on a Stick",
+      "category": "no-website-dive",
+      "placeId": "ChIJb1VVVeV-24ARxGyN8HS6QR8",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 5,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1592,
+      "dishes_latency_ms": 22519
+    },
+    {
+      "name": "Olive Garden Italian Restaurant",
+      "category": "chain",
+      "placeId": "ChIJnYF5Njh-24ARjjyUNQiy07Q",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 7,
+      "menu_matched_count": 1,
+      "debug_latency_ms": 1386,
+      "dishes_latency_ms": 8530
+    },
+    {
+      "name": "Callaway Vineyard & Winery",
+      "category": "independent",
+      "placeId": "ChIJy6GsQyh_24AROvLdxSrFVis",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 0,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 23165,
+      "dishes_latency_ms": 17573
+    },
+    {
+      "name": "Cross Creek Golf Club",
+      "category": "independent",
+      "placeId": "ChIJwzLiowaB3IAR5W8wN3DnX1U",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 1,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 9808,
+      "dishes_latency_ms": 322
+    },
+    {
+      "name": "Gourmet Italia",
+      "category": "independent",
+      "placeId": "ChIJGfaca8p_24ARGIljPv6vCJM",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 8,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 34402,
+      "dishes_latency_ms": 47500
+    },
+    {
+      "name": "Buffalo Wild Wings",
+      "category": "chain",
+      "placeId": "ChIJ1TleswiC3IAR6R0TZFvb3n4",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 7,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1414,
+      "dishes_latency_ms": 9571
+    },
+    {
+      "name": "Cafe Champagne",
+      "category": "independent",
+      "placeId": "ChIJo0N9TCh_24AR-x4ZMT-sLxA",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 0,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 45003,
+      "dishes_latency_ms": 60001
+    },
+    {
+      "name": "Temecula Stampede",
+      "category": "independent",
+      "placeId": "ChIJn-yS-75_24AR0ywOxEjD-lc",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 0,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 3754,
+      "dishes_latency_ms": 8118
+    },
+    {
+      "name": "BJ's Restaurant & Brewhouse",
+      "category": "chain",
+      "placeId": "ChIJpRIQKTp-24ARMp_EURWySHo",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 6,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1167,
+      "dishes_latency_ms": 8764
+    },
+    {
+      "name": "Yard House",
+      "category": "chain",
+      "placeId": "ChIJzxo07j1-24AROgsnsbfPQu4",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 7,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1202,
+      "dishes_latency_ms": 13710
+    },
+    {
+      "name": "Subway (Nicolas Rd)",
+      "category": "chain",
+      "placeId": "ChIJKco5nnd-24AR9mPecXEq_YA",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 0,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 21861,
+      "dishes_latency_ms": 31736
+    },
+    {
+      "name": "Original Pancake House",
+      "category": "independent",
+      "placeId": "ChIJO4c6qjh-24AR355E9EUwxR8",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 7,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1266,
+      "dishes_latency_ms": 8742
+    },
+    {
+      "name": "Swing Inn Cafe & BBQ",
+      "category": "independent-toast",
+      "placeId": "ChIJZbGqMb9_24ARuH0Unk-IeLk",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 7,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 2517,
+      "dishes_latency_ms": 10183
+    },
+    {
+      "name": "E.A.T Marketplace",
+      "category": "independent-toast",
+      "placeId": "ChIJXQeNWSV-24ARZlxgEGFIti4",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 8,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 8339,
+      "dishes_latency_ms": 29045
+    },
+    {
+      "name": "Ebullition Brew Works Pub and Grill",
+      "category": "independent-toast",
+      "placeId": "ChIJbYNKrIaB24ARQd8tlLEuerg",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 8,
+      "menu_matched_count": 2,
+      "debug_latency_ms": 5538,
+      "dishes_latency_ms": 12104
+    },
+    {
+      "name": "Uncle Bob's",
+      "category": "independent-toast",
+      "placeId": "ChIJSSL2wld_24ARZSjuWW4Pun8",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 7,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1292,
+      "dishes_latency_ms": 14517
+    },
+    {
+      "name": "Le Coffee Shop",
+      "category": "independent-square",
+      "placeId": "ChIJ01hQmLh_24ARcYulrkUIHX4",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 8,
+      "menu_matched_count": 1,
+      "debug_latency_ms": 1094,
+      "dishes_latency_ms": 11794
+    },
+    {
+      "name": "Panera Bread",
+      "category": "chain",
+      "placeId": "ChIJl-yfuTl-24ARVMvO9uSZThM",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 7,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 846,
+      "dishes_latency_ms": 13388
+    },
+    {
+      "name": "In-N-Out Burger",
+      "category": "chain",
+      "placeId": "ChIJtzGOVzB-24ARHSWbj4HG-MY",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 5,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1538,
+      "dishes_latency_ms": 12558
+    },
+    {
+      "name": "Chick-fil-A",
+      "category": "chain",
+      "placeId": "ChIJt5I0j0B-24AR24wtD5053Ww",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 8,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 25818,
+      "dishes_latency_ms": 37627
+    },
+    {
+      "name": "LaLa Taco Catering",
+      "category": "no-website-dive",
+      "placeId": "ChIJc0NZ6Xp_24AR4dCZOCZyNgU",
+      "sources": {
+        "website": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "grubhub": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        },
+        "menufy": {
+          "hit": false,
+          "items": 0,
+          "error": null
+        }
+      },
+      "photo_count": 9,
+      "menu_matched_count": 0,
+      "debug_latency_ms": 1520,
+      "dishes_latency_ms": 11433
+    }
+  ]
+}

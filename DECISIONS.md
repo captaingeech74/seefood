@@ -733,3 +733,35 @@ instead of Vision — that's already partially scaffolded in `yelp.ts`.
   Zone discovery today reads the fixed `benchmark/restaurants.json` seed list for
   `--zone temecula` rather than a full paginated Places-API sweep — good enough to prove
   the pipeline; full zone-wide discovery (a few hundred restaurants) is Phase 3 scope.
+
+---
+
+## Phase 1 closeout — real-world ordering-platform test (July 7, 2026)
+
+Swapped 5 benchmark chains for 5 real Temecula restaurants confirmed live to use our
+parsers (curled each site directly before adding): Swing Inn Cafe & BBQ, E.A.T
+Marketplace, Ebullition Brew Works, Uncle Bob's (all **toasttab.com** links), Le Coffee
+Shop (**.square.site**). This surfaced two real bugs the fixture tests couldn't catch:
+
+- **Toast restaurants link out, they don't embed.** Every real Toast restaurant found
+  links to a *separate* `toasttab.com` ordering page (`<a href="https://www.toasttab.com/...">`
+  on the marketing site) — same 2-hop pattern as Menufy, which our extractor didn't
+  follow. Fixed: `findOrderingPlatformLink()` now follows a link to the platform's own
+  domain when nothing is embedded on the page. **But Toast's ordering page itself blocks
+  direct fetches (403), and Scrapfly's ASP challenge for it costs ~51 credits/attempt —
+  the identical expensive tier that got DoorDash banned from the live path.** Toast is
+  therefore also corpus-only now: the link-follow fix lands (useful for the crawler,
+  which can render it via Camoufox for $0), but the live serverless path will never pay
+  Scrapfly for Toast, matching the DoorDash policy exactly.
+- **Square/ChowNow/Clover/Olo/PopMenu render their menu entirely client-side.** Le Coffee
+  Shop's raw HTML has zero `<a href>` tags and no embedded JSON at all — confirmed it's a
+  pure JS SPA (Square's `editmysite.com`/Vue stack). The original parser design (scan raw
+  HTML for embedded JSON) was checking the wrong thing entirely for this platform family.
+  Added `fetchOrderingPlatformViaScrapfly()` — Scrapfly `render_js=true` fallback for
+  every platform except Toast (cost was ~<30 credits on the one test, far cheaper than
+  Toast's ASP wall). Confirmed the render succeeds (200, real page content) but this
+  specific site's menu lives behind additional in-page navigation Scrapfly's default
+  render didn't reach — extraction still returned 0 there. The render fallback is real
+  and lands, but "renders the JS" and "finds the menu content" turned out to be two
+  different problems; the second one needs more iteration per platform and is not fully
+  solved by this pass. Honest status, not a claimed fix.

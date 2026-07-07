@@ -761,26 +761,40 @@ export async function getRestaurantDetails(
 // Live sources (PRD §5.3): Google photos+reviews, restaurant website (schema.org +
 // Menufy 2-hop), Grubhub. DoorDash is corpus-only (Tier 1 crawler) — its anti-bot
 // challenge costs 51–75+ Scrapfly credits/lookup, so it never runs in this path.
+//
+// Split into two stages so /api/dishes can stream: stage 1 (pre-labeled photos +
+// raw Google photo candidates) resolves in a couple seconds with no Gemini call;
+// stage 2 (batched Gemini + OCR + final scoring) is the slow part. Non-streaming
+// callers (crawler, benchmark, debug-sources) just call getGooglePhotosAndReviews,
+// which runs both stages back to back.
 
-export async function getGooglePhotosAndReviews(
+export interface StreamingCandidates {
+  placeId: string;
+  restaurantName: string;
+  preLabeledPhotos: DishPhoto[];
+  rawGooglePhotos: DishPhoto[]; // unlabeled placeholders — shown instantly, replaced by stage 2
+  googleCandidates: GooglePhoto[];
+  googleAnalysisUrls: string[];
+  googleDisplayUrls: string[];
+  allMenuItems: MenuItemData[];
+  popularDishes: string[];
+}
+
+/** Stage 1: everything that doesn't need Gemini. Typically resolves in 1-3s. */
+export async function fetchStreamingCandidates(
   placeId: string,
   restaurantName = ""
-): Promise<{
-  photos: DishPhoto[];
-  popularDishes: string[];
-  menuItems: MenuItemData[];
-}> {
+): Promise<StreamingCandidates | null> {
   const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=photos,reviews,geometry,website,formatted_address&key=${API_KEY}`;
   const detailsRes = await fetch(detailsUrl);
   const data = await detailsRes.json();
-  if (!data.result) return { photos: [], popularDishes: [], menuItems: [] };
+  if (!data.result) return null;
 
   const { photos = [], reviews = [] } = data.result;
   const lat: number | undefined = data.result.geometry?.location?.lat;
   const lng: number | undefined = data.result.geometry?.location?.lng;
   const websiteUrl: string | undefined = data.result.website;
 
-  // ── Phase 1: Website (+ Menufy 2-hop) + Grubhub in parallel ─────────────────
   const [websiteMenuItems, grubhubItems] = await Promise.all([
     websiteUrl ? fetchMenuFromUrl(websiteUrl) : Promise.resolve([]),
     lat && lng ? fetchMenuFromGrubhub(restaurantName, lat, lng) : Promise.resolve([]),
@@ -790,15 +804,11 @@ export async function getGooglePhotosAndReviews(
     `[pipeline] "${restaurantName}" — website:${websiteMenuItems.length} grubhub:${grubhubItems.length}`
   );
 
-  // Merge all menu sources, deduplicate — this is the reference list Gemini works from
   const allMenuItems = deduplicateMenuItems([...websiteMenuItems, ...grubhubItems]);
   const popularDishes = extractPopularDishes(reviews as GoogleReview[]);
 
-  // ── Phase 2: Pre-labeled photos (bypass Gemini) ──────────────────────────────
-  // These come with dish name + description + photo already paired.
-  // Source: schema.org MenuItem.image, Grubhub/Menufy menu item photos.
+  // Pre-labeled photos (bypass Gemini) — schema.org MenuItem.image, Grubhub/Menufy photos.
   const preLabeledPhotos: DishPhoto[] = [];
-
   for (const item of websiteMenuItems) {
     if (!item.imageUrl) continue;
     const { shortName, fullName } = toMenuStyleName(item.name);
@@ -814,7 +824,6 @@ export async function getGooglePhotosAndReviews(
       height: 600,
     });
   }
-
   for (const item of grubhubItems) {
     if (!item.imageUrl) continue;
     const { shortName, fullName } = toMenuStyleName(item.name);
@@ -831,7 +840,6 @@ export async function getGooglePhotosAndReviews(
     });
   }
 
-  // ── Phase 3: Build Gemini candidate pool (Google photos) ─────────────────────
   const allGooglePhotos = photos as GooglePhoto[];
   const nonPortrait = allGooglePhotos.filter((p) => p.height <= p.width);
   const portrait    = allGooglePhotos.filter((p) => p.height >  p.width);
@@ -844,7 +852,41 @@ export async function getGooglePhotosAndReviews(
     (p) => `/api/photo?ref=${encodeURIComponent(p.photo_reference)}&maxwidth=800`
   );
 
-  // ── Phase 4: One batched Gemini call for every Google photo ──────────────────
+  // Raw, unlabeled placeholders — shown to the user immediately (PRD §4.5:
+  // "Cold miss: show best available source immediately, backfill") while stage 2
+  // (Gemini) is still running.
+  const rawGooglePhotos: DishPhoto[] = googleCandidates.map((photo, i) => ({
+    id: `google-${placeId}-${i}`,
+    url: googleDisplayUrls[i],
+    dishName: null,
+    dishDescription: null,
+    isMenuMatch: false,
+    source: "google",
+    attribution: "user",
+    width: photo.width,
+    height: photo.height,
+  }));
+
+  return {
+    placeId,
+    restaurantName,
+    preLabeledPhotos,
+    rawGooglePhotos,
+    googleCandidates,
+    googleAnalysisUrls,
+    googleDisplayUrls,
+    allMenuItems,
+    popularDishes,
+  };
+}
+
+/** Stage 2: the batched Gemini call, OCR, and final scoring/sort. The slow part. */
+export async function finalizeWithGemini(
+  c: StreamingCandidates
+): Promise<{ photos: DishPhoto[]; menuItems: MenuItemData[] }> {
+  const { placeId, restaurantName, preLabeledPhotos, googleCandidates, googleAnalysisUrls, googleDisplayUrls, popularDishes } = c;
+  const allMenuItems = [...c.allMenuItems];
+
   const geminiResults = await analyzePhotosWithGeminiBatch(
     googleAnalysisUrls,
     allMenuItems,
@@ -852,11 +894,9 @@ export async function getGooglePhotosAndReviews(
     restaurantName
   );
 
-  // ── Phase 4b: OCR any photos flagged as pictures of the menu itself ─────────
-  // These items arrive too late to help name photos in *this* request, but get
-  // persisted to the corpus (via the returned menuItems) so future requests for
-  // this restaurant benefit immediately — corpus-first reads never re-OCR the
-  // same photo twice.
+  // OCR any photos flagged as pictures of the menu itself. These items arrive too
+  // late to help name photos in *this* request, but get persisted to the corpus
+  // so future requests for this restaurant benefit immediately.
   const menuPhotoIndices = geminiResults
     .map((r, i) => (r.isMenuPhoto ? i : -1))
     .filter((i) => i >= 0);
@@ -869,9 +909,7 @@ export async function getGooglePhotosAndReviews(
     allMenuItems.push(...deduplicateMenuItems(ocrItems));
   }
 
-  // ── Phase 5: Score, filter, sort ─────────────────────────────────────────────
   const geminiPhotos: { photo: DishPhoto; score: number }[] = [];
-
   googleCandidates.forEach((photo, i) => {
     const result = geminiResults[i] ?? { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false };
     if (!result.isFood || result.isMenuPhoto) return; // drop non-food and menu-board photos
@@ -897,17 +935,23 @@ export async function getGooglePhotosAndReviews(
     });
   });
 
-  // Stable sort Gemini photos by score descending
   geminiPhotos.sort((a, b) => b.score - a.score);
-
-  // Pre-labeled photos scored at 200 (always shown first)
   const scoredPreLabeled = preLabeledPhotos.map((photo) => ({ photo, score: 200 }));
-
-  // Combine: pre-labeled first, then Gemini-analyzed
   const all = [...scoredPreLabeled, ...geminiPhotos];
-  return {
-    photos: all.map((e) => e.photo),
-    popularDishes,
-    menuItems: allMenuItems,
-  };
+
+  return { photos: all.map((e) => e.photo), menuItems: allMenuItems };
+}
+
+export async function getGooglePhotosAndReviews(
+  placeId: string,
+  restaurantName = ""
+): Promise<{
+  photos: DishPhoto[];
+  popularDishes: string[];
+  menuItems: MenuItemData[];
+}> {
+  const candidates = await fetchStreamingCandidates(placeId, restaurantName);
+  if (!candidates) return { photos: [], popularDishes: [], menuItems: [] };
+  const { photos, menuItems } = await finalizeWithGemini(candidates);
+  return { photos, popularDishes: candidates.popularDishes, menuItems };
 }

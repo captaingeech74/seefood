@@ -40,9 +40,34 @@ export default function Home() {
         address: r.address || "",
       });
       const res = await fetch(`/api/dishes?${params}`);
-      const data = await res.json();
-      setDishes(data.dishes || []);
-      setPopularDishes(data.popularDishes || []);
+      if (!res.body) throw new Error("No response body");
+
+      // Server streams newline-delimited JSON: pre-labeled + raw photos first
+      // (no blocking skeleton — PRD §4.5), then the final Gemini-labeled result.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let first = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const chunk = JSON.parse(line);
+          setDishes(chunk.dishes ?? []);
+          if (chunk.popularDishes) setPopularDishes(chunk.popularDishes);
+          if (first) {
+            setState("ready");
+            setDishesLoading(false);
+            first = false;
+          }
+        }
+      }
     } catch {
       setDishes([]);
     } finally {

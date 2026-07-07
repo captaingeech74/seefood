@@ -49,9 +49,26 @@ export async function fetchMenuFromUrl(url: string): Promise<MenuItemData[]> {
     if (menufyViaSideLink.length > 0) return menufyViaSideLink;
 
     // ── Platform 3: Named ordering platforms (Toast, Square, Clover, ChowNow, Olo, PopMenu)
+    // Real-world finding (July 2026, live restaurants): these sites almost never
+    // embed menu JSON in the raw HTML of the marketing page. Toast restaurants
+    // typically just *link* to a separate toasttab.com ordering page (same 2-hop
+    // pattern as Menufy). Square/ChowNow/Clover/Olo/PopMenu render their menu
+    // entirely client-side (JS SPA) — nothing useful in the raw HTML at all.
     const platform = detectOrderingPlatform(html);
     if (platform) {
-      const items = extractEmbeddedJsonMenuItems(html, platform);
+      let items = extractEmbeddedJsonMenuItems(html, platform);
+
+      if (items.length === 0) {
+        const platformUrl = findOrderingPlatformLink(html, url, platform) ?? url;
+
+        // Toast's ASP challenge costs ~51 Scrapfly credits/attempt — the same
+        // expensive tier that got DoorDash banned from the live path (see
+        // DECISIONS.md). Never spend Scrapfly credits on Toast; it's crawler-only.
+        if (platform !== "toast" && process.env.SCRAPFLY_KEY) {
+          items = await fetchOrderingPlatformViaScrapfly(platformUrl, platform);
+        }
+      }
+
       if (items.length > 0) return items;
     }
 
@@ -427,6 +444,69 @@ export function detectOrderingPlatform(html: string): OrderingPlatform | null {
     if (test(html)) return platform;
   }
   return null;
+}
+
+const PLATFORM_HOSTNAME_HINTS: Record<OrderingPlatform, string[]> = {
+  toast: ["toasttab.com"],
+  chownow: ["chownow.com"],
+  olo: ["olo.com"],
+  clover: ["clover.com"],
+  square: ["square.site", "squareup.com"],
+  popmenu: ["popmenu.com"],
+};
+
+/**
+ * Find an <a href> on the marketing page pointing to the platform's own
+ * ordering domain (e.g. a restaurant site linking out to toasttab.com). Most
+ * restaurants on these platforms link out rather than embed — same pattern as
+ * Menufy's separate ordering site.
+ */
+function findOrderingPlatformLink(html: string, baseUrl: string, platform: OrderingPlatform): string | null {
+  const hints = PLATFORM_HOSTNAME_HINTS[platform];
+  const anchorPattern = /<a\s[^>]*href="([^"]+)"/gi;
+  let m: RegExpExecArray | null;
+  while ((m = anchorPattern.exec(html)) !== null) {
+    const href = m[1];
+    if (hints.some((h) => href.includes(h))) {
+      try {
+        return new URL(href, baseUrl).href;
+      } catch {
+        continue;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Render fallback for platforms whose menu is client-side JS (Square Online,
+ * ChowNow, Clover, Olo, PopMenu observed to load menu data only after JS runs —
+ * confirmed live, none embed it in raw HTML). NEVER call this for "toast" —
+ * its ASP challenge costs the same 51+ Scrapfly credits/attempt that got
+ * DoorDash banned from the live path; see DECISIONS.md.
+ */
+async function fetchOrderingPlatformViaScrapfly(
+  url: string,
+  platform: OrderingPlatform
+): Promise<MenuItemData[]> {
+  const scrapflyKey = process.env.SCRAPFLY_KEY;
+  if (!scrapflyKey || platform === "toast") return [];
+  try {
+    const scrapUrl =
+      `https://api.scrapfly.io/scrape` +
+      `?key=${scrapflyKey}` +
+      `&url=${encodeURIComponent(url)}` +
+      `&asp=true&render_js=true&country=us&cost_budget=30`;
+    const res = await fetch(scrapUrl, { signal: AbortSignal.timeout(35000) });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const html = data.result?.content;
+    if (!html) return [];
+    return extractEmbeddedJsonMenuItems(html, platform);
+  } catch (e) {
+    console.error(`[${platform} Scrapfly] failed:`, e);
+    return [];
+  }
 }
 
 /** Scan every <script> block on the page for embedded JSON menu data. */
