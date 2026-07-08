@@ -1,8 +1,10 @@
 curl_cffi>=0.7
-scrapling>=0.2
 camoufox[geoip]>=0.4
-# Scrapling's StealthyFetcher defaults to a patchright (patched Playwright) backend
-# rather than camoufox unless told otherwise — confirmed live: "No module named
-# 'patchright'" when it wasn't installed. Both need a post-install browser binary
-# fetch step (see pythonFetch.ts ensurePythonEnv).
+# scrapling's StealthyFetcher pulls in optional extras (patchright, msgspec, etc.)
+# that a plain `pip install scrapling` doesn't include — confirmed live twice
+# (missing patchright, then missing msgspec after adding patchright by hand).
+# Installing every extra avoids further one-by-one whack-a-mole on the next
+# scrapling release. Both patchright and camoufox need a post-install browser
+# binary fetch step (see pythonFetch.ts ensurePythonEnv).
+scrapling[all]>=0.2
 patchright>=1.40
