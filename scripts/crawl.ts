@@ -19,13 +19,25 @@
  * live path uses — getGooglePhotosAndReviews — so there is exactly one
  * parser per source, not two.
  */
-import { getGooglePhotosAndReviews, parseDoorDashSearchSlugs, extractDoorDashItems } from "../src/lib/google";
-import { parseNextDataMenuItems } from "../src/lib/google";
-import { persistPipelineResult, saveMenuItems, savePhotos, logSourceRun, getCorpusSnapshot } from "../src/lib/db";
-import { ensurePythonEnv, pythonFetch } from "../src/crawler/pythonFetch";
-import { MenuItemData } from "../src/lib/types";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+
+// Load .env.local into process.env BEFORE importing anything that reads env
+// vars at module-load time (google.ts, db.ts, storage.ts all do). Next.js does
+// this automatically; a plain tsx script doesn't, so we do it by hand here.
+function loadEnvLocal() {
+  const envPath = join(__dirname, "..", ".env.local");
+  if (!existsSync(envPath)) {
+    console.error(`\n⚠ ${envPath} not found. Copy your Vercel env vars into it first.\n`);
+    return;
+  }
+  const content = readFileSync(envPath, "utf-8");
+  for (const line of content.split("\n")) {
+    const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+  }
+}
+loadEnvLocal();
 
 interface CrawlTarget {
   name: string;
@@ -86,95 +98,103 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
   process.exit(1);
 }
 
-/** DoorDash via Python (the one target banned from the live Scrapfly path). */
-async function crawlDoorDash(target: CrawlTarget): Promise<MenuItemData[]> {
-  const searchUrl = `https://www.doordash.com/search/?q=${encodeURIComponent(target.name)}`;
-  const searchResult = pythonFetch(searchUrl, { render: true, referer: "https://www.doordash.com/" });
-  if (!searchResult.ok || !searchResult.html) {
-    console.log(`  [doordash] search fetch failed: ${searchResult.error ?? searchResult.status}`);
-    return [];
-  }
-
-  const slug = parseDoorDashSearchSlugs(searchResult.html, target.name);
-  if (!slug) {
-    console.log(`  [doordash] no store slug found for "${target.name}"`);
-    return [];
-  }
-
-  const storeUrl = `https://www.doordash.com/store/${slug}/`;
-  const storeResult = pythonFetch(storeUrl, { render: true, referer: "https://www.doordash.com/" });
-  if (!storeResult.ok || !storeResult.html) {
-    console.log(`  [doordash] store page fetch failed: ${storeResult.error ?? storeResult.status}`);
-    return [];
-  }
-
-  const items = parseNextDataMenuItems(storeResult.html, extractDoorDashItems);
-  console.log(`  [doordash] ${items.length} items from ${storeUrl}`);
-  return items.map((i) => ({ ...i, source: "doordash" as const }));
-}
-
-async function crawlOne(target: CrawlTarget, refreshStale: boolean): Promise<void> {
-  if (!refreshStale) {
-    const existing = await getCorpusSnapshot(target.placeId).catch(() => null);
-    if (existing?.isFresh) {
-      console.log(`⏭  ${target.name} — corpus already fresh, skipping`);
-      return;
-    }
-  }
-
-  console.log(`\n▶ ${target.name}`);
-  const start = Date.now();
-
-  // Website + Menufy + ordering platforms + Grubhub + Google photos + Gemini —
-  // the exact same pipeline the live serverless path runs.
-  const { photos, menuItems } = await getGooglePhotosAndReviews(target.placeId, target.name);
-  console.log(`  [pipeline] ${photos.length} photos, ${menuItems.length} menu items`);
-
-  // DoorDash — Python-only, crawler-exclusive.
-  const doorDashStart = Date.now();
-  const doorDashItems = await crawlDoorDash(target);
-  await logSourceRun({
-    placeId: target.placeId,
-    source: "doordash",
-    ok: doorDashItems.length > 0,
-    itemCount: doorDashItems.length,
-    photoCount: doorDashItems.filter((i) => i.imageUrl).length,
-    latencyMs: Date.now() - doorDashStart,
-  }).catch(() => {});
-
-  await persistPipelineResult({
-    placeId: target.placeId,
-    restaurantName: target.name,
-    lat: target.lat,
-    lng: target.lng,
-    address: target.address ?? "",
-    photos,
-    menuItems,
-  });
-
-  if (doorDashItems.length > 0) {
-    const nameToId = await saveMenuItems(target.placeId, doorDashItems);
-    await savePhotos(
-      target.placeId,
-      doorDashItems
-        .filter((i) => i.imageUrl)
-        .map((i) => ({
-          originUrl: i.imageUrl!,
-          source: "doordash",
-          attribution: "owner",
-          isOrderable: true,
-          width: 800,
-          height: 600,
-          geminiLabel: i.name,
-          menuItemId: nameToId.get(i.name),
-        }))
-    );
-  }
-
-  console.log(`✓ ${target.name} done in ${((Date.now() - start) / 1000).toFixed(1)}s`);
-}
-
 async function main() {
+  // Dynamic imports — deferred until after loadEnvLocal() has populated
+  // process.env, since these modules read env vars at module-load time.
+  const { getGooglePhotosAndReviews, parseDoorDashSearchSlugs, extractDoorDashItems, parseNextDataMenuItems } =
+    await import("../src/lib/google");
+  const { persistPipelineResult, saveMenuItems, savePhotos, logSourceRun, getCorpusSnapshot } =
+    await import("../src/lib/db");
+  const { ensurePythonEnv, pythonFetch } = await import("../src/crawler/pythonFetch");
+  type MenuItemData = import("../src/lib/types").MenuItemData;
+
+  async function crawlDoorDash(target: CrawlTarget): Promise<MenuItemData[]> {
+    const searchUrl = `https://www.doordash.com/search/?q=${encodeURIComponent(target.name)}`;
+    const searchResult = pythonFetch(searchUrl, { render: true, referer: "https://www.doordash.com/" });
+    if (!searchResult.ok || !searchResult.html) {
+      console.log(`  [doordash] search fetch failed: ${searchResult.error ?? searchResult.status}`);
+      return [];
+    }
+
+    const slug = parseDoorDashSearchSlugs(searchResult.html, target.name);
+    if (!slug) {
+      console.log(`  [doordash] no store slug found for "${target.name}"`);
+      return [];
+    }
+
+    const storeUrl = `https://www.doordash.com/store/${slug}/`;
+    const storeResult = pythonFetch(storeUrl, { render: true, referer: "https://www.doordash.com/" });
+    if (!storeResult.ok || !storeResult.html) {
+      console.log(`  [doordash] store page fetch failed: ${storeResult.error ?? storeResult.status}`);
+      return [];
+    }
+
+    const items = parseNextDataMenuItems(storeResult.html, extractDoorDashItems);
+    console.log(`  [doordash] ${items.length} items from ${storeUrl}`);
+    return items.map((i) => ({ ...i, source: "doordash" as const }));
+  }
+
+  async function crawlOne(target: CrawlTarget, refreshStale: boolean): Promise<void> {
+    if (!refreshStale) {
+      const existing = await getCorpusSnapshot(target.placeId).catch(() => null);
+      if (existing?.isFresh) {
+        console.log(`⏭  ${target.name} — corpus already fresh, skipping`);
+        return;
+      }
+    }
+
+    console.log(`\n▶ ${target.name}`);
+    const start = Date.now();
+
+    // Website + Menufy + ordering platforms + Grubhub + Google photos + Gemini —
+    // the exact same pipeline the live serverless path runs.
+    const { photos, menuItems } = await getGooglePhotosAndReviews(target.placeId, target.name);
+    console.log(`  [pipeline] ${photos.length} photos, ${menuItems.length} menu items`);
+
+    // DoorDash — Python-only, crawler-exclusive.
+    const doorDashStart = Date.now();
+    const doorDashItems = await crawlDoorDash(target);
+    await logSourceRun({
+      placeId: target.placeId,
+      source: "doordash",
+      ok: doorDashItems.length > 0,
+      itemCount: doorDashItems.length,
+      photoCount: doorDashItems.filter((i) => i.imageUrl).length,
+      latencyMs: Date.now() - doorDashStart,
+    }).catch(() => {});
+
+    await persistPipelineResult({
+      placeId: target.placeId,
+      restaurantName: target.name,
+      lat: target.lat,
+      lng: target.lng,
+      address: target.address ?? "",
+      photos,
+      menuItems,
+    });
+
+    if (doorDashItems.length > 0) {
+      const nameToId = await saveMenuItems(target.placeId, doorDashItems);
+      await savePhotos(
+        target.placeId,
+        doorDashItems
+          .filter((i) => i.imageUrl)
+          .map((i) => ({
+            originUrl: i.imageUrl!,
+            source: "doordash",
+            attribution: "owner",
+            isOrderable: true,
+            width: 800,
+            height: 600,
+            geminiLabel: i.name,
+            menuItemId: nameToId.get(i.name),
+          }))
+      );
+    }
+
+    console.log(`✓ ${target.name} done in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+  }
+
   const args = parseArgs(process.argv.slice(2));
   const refreshStale = !!args["refresh-stale"];
 
