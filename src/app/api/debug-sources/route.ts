@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchMenuFromGrubhub } from "@/lib/google";
 import { fetchMenuFromUrl } from "@/lib/menuSources";
-import { getSearchApiUsageToday, getDoorDashStoreUrl } from "@/lib/db";
+import { getDoorDashStoreUrl } from "@/lib/db";
 
 export const maxDuration = 60;
 
@@ -80,16 +80,13 @@ export async function GET(req: NextRequest) {
   // ── Source: DoorDash — status only, never actually fetched here ─────────────
   // Corpus-only (Tier 1 crawler): Scrapfly's ASP challenge costs 51-75+
   // credits/attempt, and this endpoint is hit often during debugging. Discovery
-  // now goes through Google Custom Search (100 free queries/day, self-enforced
-  // hard cap) — read-only status shown here, never consumes a query.
+  // is sitemap-first with a Camoufox-driven interactive search fallback in the
+  // crawler (Google Custom Search is permanently closed to new customers —
+  // see DECISIONS.md). Read-only status shown here.
   try {
-    const [usage, cachedUrl] = await Promise.all([
-      getSearchApiUsageToday(),
-      placeId ? getDoorDashStoreUrl(placeId) : Promise.resolve(null),
-    ]);
+    const cachedUrl = placeId ? await getDoorDashStoreUrl(placeId) : null;
     results.doordash = {
-      note: "Corpus-only — not fetched here to conserve Scrapfly credits. Coverage comes from the Tier 1 local crawler via Google Custom Search discovery.",
-      google_search_usage_today: `${usage.count}/${usage.cap}`,
+      note: "Corpus-only — not fetched here to conserve Scrapfly credits. Coverage comes from the Tier 1 local crawler.",
       cached_store_url: cachedUrl,
     };
   } catch (e) {

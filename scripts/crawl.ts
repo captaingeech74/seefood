@@ -101,29 +101,24 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
 async function main() {
   // Dynamic imports — deferred until after loadEnvLocal() has populated
   // process.env, since these modules read env vars at module-load time.
-  const { getGooglePhotosAndReviews, parseDoorDashSearchSlugs, extractDoorDashItems, parseNextDataMenuItems, findDoorDashStoreUrl } =
+  const { getGooglePhotosAndReviews, parseDoorDashSearchSlugs, extractDoorDashItems, parseNextDataMenuItems } =
     await import("../src/lib/google");
-  const { persistPipelineResult, saveMenuItems, savePhotos, logSourceRun, getCorpusSnapshot, getSearchApiUsageToday } =
+  const { persistPipelineResult, saveMenuItems, savePhotos, logSourceRun, getCorpusSnapshot, getDoorDashStoreUrl, saveDoorDashStoreUrl } =
     await import("../src/lib/db");
   const { ensurePythonEnv, pythonFetch } = await import("../src/crawler/pythonFetch");
   type MenuItemData = import("../src/lib/types").MenuItemData;
 
+  // DoorDash discovery: Google Custom Search JSON API is permanently closed to
+  // new customers (confirmed July 2026 — hard 403 even with a clean project +
+  // enabled API). Discovery is sitemap-first / Camoufox-interactive-search
+  // fallback (see DECISIONS.md) — TODO once sitemap/search-DOM diagnostics are
+  // in. Guessed URL patterns remain as a last resort in the meantime.
   async function crawlDoorDash(target: CrawlTarget): Promise<MenuItemData[]> {
-    // Primary: Google Custom Search (DoorDash has no store-level sitemap and
-    // no stable public search URL — confirmed live, see DECISIONS.md). Budget-
-    // capped at 100 free queries/day (self-enforced, survives across runs) and
-    // caches the result per restaurant so we never search the same place twice.
-    const usage = await getSearchApiUsageToday();
-    console.log(`  [doordash] Google Custom Search usage today: ${usage.count}/${usage.cap}`);
-
-    let storeUrl = await findDoorDashStoreUrl(target.placeId, target.name, target.address ?? "");
+    const cached = await getDoorDashStoreUrl(target.placeId).catch(() => null);
+    let storeUrl = cached;
     if (storeUrl) {
-      console.log(`  [doordash] found via Google Custom Search: ${storeUrl}`);
+      console.log(`  [doordash] using cached store URL: ${storeUrl}`);
     } else {
-      // Fallback: guessed URL patterns. DoorDash's own search has changed at
-      // least once already (confirmed 404 on a pattern that used to work) —
-      // cheap to keep trying here since the crawler runs $0 on a residential
-      // IP, unlike the live Scrapfly path where every attempt costs credits.
       const q = encodeURIComponent(target.name);
       const candidateSearchUrls = [
         `https://www.doordash.com/search/?q=${q}`,
@@ -136,7 +131,7 @@ async function main() {
       for (const searchUrl of candidateSearchUrls) {
         const searchResult = pythonFetch(searchUrl, { render: true, referer: "https://www.doordash.com/" });
         console.log(
-          `  [doordash] fallback search ${searchUrl} → status=${searchResult.status} ok=${searchResult.ok}` +
+          `  [doordash] search ${searchUrl} → status=${searchResult.status} ok=${searchResult.ok}` +
           (searchResult.finalUrl ? ` finalUrl=${searchResult.finalUrl}` : "") +
           (!searchResult.ok ? ` error=${searchResult.error ?? "n/a"}` : "")
         );
@@ -149,10 +144,11 @@ async function main() {
         }
       }
       if (!slug) {
-        console.log(`  [doordash] no store found for "${target.name}" (Google Search + ${candidateSearchUrls.length} fallback patterns)`);
+        console.log(`  [doordash] no store found for "${target.name}" across ${candidateSearchUrls.length} URL patterns`);
         return [];
       }
       storeUrl = `https://www.doordash.com/store/${slug}/`;
+      await saveDoorDashStoreUrl(target.placeId, storeUrl).catch(() => {});
     }
 
     const storeResult = pythonFetch(storeUrl, { render: true, referer: "https://www.doordash.com/" });

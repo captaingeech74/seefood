@@ -1,7 +1,6 @@
 import { Restaurant, DishPhoto, MenuItemData } from "./types";
 import { extractPopularDishes } from "./reviewParser";
 import { fetchMenuFromUrl } from "./menuSources";
-import { getDoorDashStoreUrl, saveDoorDashStoreUrl, reserveSearchApiCall } from "./db";
 
 const API_KEY   = process.env.GOOGLE_MAPS_API_KEY!.trim();
 const VISION_KEY = (process.env.VISION_API_KEY || API_KEY).trim();
@@ -143,27 +142,14 @@ function deduplicateItems(items: MenuItemData[]): MenuItemData[] {
 
 // ── Source 4: DoorDash ────────────────────────────────────────────────────────
 // Pre-labeled photos bypass Gemini (score 200, always shown first).
-// Three parallel strategies — whichever yields data wins:
-//   A. Direct scrape via fetchWithAntiBot (works when SCRAPFLY_KEY is set)
-//   B. Google Custom Search (GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID)
+// Corpus-only (Tier 1 crawler) — see DECISIONS.md. Discovery (finding the store
+// URL for a restaurant) lives in scripts/crawl.ts, not here: Google Custom
+// Search JSON API is permanently closed to new customers (confirmed July 2026,
+// hard 403 even with a clean project + enabled API), so discovery is now
+// sitemap-first with a Camoufox-driven interactive search fallback.
 
-export async function fetchMenuFromDoorDash(
-  placeId: string,
-  restaurantName: string,
-  address: string,
-  lat?: number,
-  lng?: number
-): Promise<MenuItemData[]> {
-  void lat; void lng;
-  const [directResult, searchResult] = await Promise.allSettled([
-    fetchDoorDashDirect(restaurantName),
-    fetchDoorDashViaGoogleSearch(placeId, restaurantName, address),
-  ]);
-
-  return deduplicateItems([
-    ...(directResult.status === "fulfilled" ? directResult.value : []),
-    ...(searchResult.status === "fulfilled" ? searchResult.value : []),
-  ]);
+export async function fetchMenuFromDoorDash(restaurantName: string): Promise<MenuItemData[]> {
+  return fetchDoorDashDirect(restaurantName);
 }
 
 /**
@@ -203,63 +189,6 @@ async function fetchDoorDashDirect(restaurantName: string): Promise<MenuItemData
     console.error("[DoorDash direct] failed:", e);
     return [];
   }
-}
-
-/**
- * Google Custom Search is the only viable DoorDash discovery channel — DoorDash
- * publishes no store-level sitemap and its client-side search has no stable
- * public URL (both confirmed live, see DECISIONS.md "DoorDash discovery").
- *
- * Budget discipline (Kyle's requirement, matching the Scrapfly cost_budget
- * pattern): self-enforced hard cap at the 100 free queries/day, tracked in
- * Supabase so it survives across serverless/crawler invocations — never
- * trust Google's own quota alone for something that must never trip into
- * paid billing without explicit sign-off. Every discovered URL is cached on
- * the restaurant row so the same place is never searched twice.
- */
-export async function findDoorDashStoreUrl(
-  placeId: string,
-  restaurantName: string,
-  address: string
-): Promise<string | null> {
-  const cached = await getDoorDashStoreUrl(placeId).catch(() => null);
-  if (cached) return cached;
-
-  const searchKey = process.env.GOOGLE_SEARCH_API_KEY;
-  const searchCx  = process.env.GOOGLE_SEARCH_ENGINE_ID;
-  if (!searchKey || !searchCx) return null;
-
-  const reserved = await reserveSearchApiCall().catch(() => false);
-  if (!reserved) {
-    console.log("[DoorDash Google Search] daily cap reached — skipping, not calling the API");
-    return null;
-  }
-
-  try {
-    const query = `"${restaurantName}" ${address} site:doordash.com`;
-    const res = await fetch(
-      `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(query)}&key=${searchKey}&cx=${searchCx}&num=1`,
-      { signal: AbortSignal.timeout(5000) }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const url: string | undefined = data.items?.[0]?.link;
-    if (!url || !url.includes("doordash.com/store/")) return null;
-    await saveDoorDashStoreUrl(placeId, url).catch(() => {});
-    return url;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchDoorDashViaGoogleSearch(
-  placeId: string,
-  restaurantName: string,
-  address: string
-): Promise<MenuItemData[]> {
-  const url = await findDoorDashStoreUrl(placeId, restaurantName, address);
-  if (!url) return [];
-  return fetchDeliveryStorePage(url, "https://www.doordash.com/", extractDoorDashItems);
 }
 
 // ── Source 5: Grubhub ─────────────────────────────────────────────────────────

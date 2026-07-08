@@ -198,35 +198,12 @@ export async function persistPipelineResult(input: {
   );
 }
 
-// ── Google Custom Search budget guard (DoorDash discovery) ──────────────────
-// Self-enforced hard cap — never trust Google's own quota alone for something
-// that must never trip into paid billing without explicit sign-off. Same
-// discipline as the Scrapfly cost_budget pattern.
-const DAILY_SEARCH_CAP = 100;
-
-function todayUtc(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-export async function getSearchApiUsageToday(): Promise<{ count: number; cap: number }> {
-  const { data } = await supabase
-    .from("search_api_usage")
-    .select("query_count")
-    .eq("usage_date", todayUtc())
-    .maybeSingle();
-  return { count: data?.query_count ?? 0, cap: DAILY_SEARCH_CAP };
-}
-
-/** Returns true if under the daily cap (and reserves a slot); false if exhausted — never call the API when false. */
-export async function reserveSearchApiCall(): Promise<boolean> {
-  const { count } = await getSearchApiUsageToday();
-  if (count >= DAILY_SEARCH_CAP) return false;
-  await supabase
-    .from("search_api_usage")
-    .upsert({ usage_date: todayUtc(), query_count: count + 1 }, { onConflict: "usage_date" });
-  return true;
-}
-
+// ── DoorDash store URL cache ─────────────────────────────────────────────────
+// Google Custom Search JSON API is permanently closed to new customers
+// (confirmed July 2026 — hard 403 even with a clean project + enabled API).
+// Discovery now happens via sitemap and/or Camoufox-driven interactive search
+// in the Tier 1 crawler (scripts/crawl.ts). This cache still applies regardless
+// of which discovery method finds the URL — never search the same place twice.
 export async function getDoorDashStoreUrl(placeId: string): Promise<string | null> {
   const { data } = await supabase
     .from("restaurants")

@@ -802,3 +802,40 @@ cap at 100 queries/day tracked in `search_api_usage` (Supabase, survives across
 serverless/crawler invocations — not just relying on Google's own quota), visible in
 `/api/debug-sources`, and discovered store URLs are cached on `restaurants.doordash_store_url`
 so the same restaurant is never looked up twice.
+
+---
+
+## DoorDash discovery: Custom Search JSON API is dead — closed to new customers (July 2026)
+
+Wired the whole thing above (`findDoorDashStoreUrl`, budget guard, `search_api_usage`
+table, debug-sources counter) the moment Kyle sent real API key + Search Engine ID.
+First live call: `403 PERMISSION_DENIED — This project does not have the access to
+Custom Search JSON API`. Assumed a project/key mismatch and asked Kyle to check. **He'd
+already verified it properly**: clean key created directly under the enabled project
+(`seefood-vision`, Custom Search API confirmed Enabled in the console), correct
+restrictions — still a hard 403. Google has closed the Custom Search JSON API to new
+customers entirely; no project can activate it going forward regardless of setup.
+**Deleted all of it** — `findDoorDashStoreUrl`, `fetchDoorDashViaGoogleSearch`, the
+`reserveSearchApiCall`/`getSearchApiUsageToday` budget guard, the `search_api_usage`
+table, `GOOGLE_SEARCH_API_KEY`/`GOOGLE_SEARCH_ENGINE_ID` (removed from Vercel + local
+env). Kept `restaurants.doordash_store_url` + `getDoorDashStoreUrl`/`saveDoorDashStoreUrl`
+— that cache is discovery-method-agnostic and still applies to whatever replaces it.
+
+**New discovery plan (Kyle's direction, in order):**
+1. **Sitemap, take two.** The July 7 investigation above only reached `cdn.doordash.com`
+   (no Cloudflare wall) and found cuisine-category sitemaps, not store-level ones. It
+   never actually read `www.doordash.com/robots.txt` — every attempt from this sandbox
+   (curl, WebFetch, Googlebot UA, plain UA) hit the same Cloudflare challenge. The
+   crawler's Camoufox setup, proven to get past that wall (clean 404s from DoorDash's
+   real server, not challenge pages), can read the real robots.txt — diagnostic command
+   given to Kyle to run and paste back.
+2. **Camoufox-driven interactive search**, if no store sitemap exists: type the
+   restaurant name into DoorDash's own search box on a real rendered page, same as a
+   human would. Free, unlimited retries on Kyle's residential IP — exactly the crawler's
+   reason to exist. No public documentation exists for DoorDash's search input selector;
+   a second diagnostic command dumps every `<input>` tag from the real rendered homepage
+   so the actual selector gets used, not a guess.
+3. **Brave Search API** (~2,000 free queries/month) as a last-resort managed fallback,
+   only with the same self-enforced budget-cap discipline as Scrapfly/the now-dead
+   Custom Search attempt, and only after asking Kyle first — not to be wired
+   speculatively ahead of need.

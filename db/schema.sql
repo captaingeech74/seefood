@@ -11,7 +11,7 @@ create table if not exists restaurants (
   website              text,
   status               text default 'active',
   last_crawled_at      jsonb default '{}'::jsonb,  -- per-source: { "menufy": "2026-07-06T...", ... }
-  doordash_store_url   text,  -- cached Google Custom Search result — never re-search once found
+  doordash_store_url   text,  -- cached DoorDash discovery result — never re-search once found
   created_at           timestamptz default now(),
   updated_at           timestamptz default now()
 );
@@ -56,14 +56,11 @@ create table if not exists source_runs (
   error              text
 );
 
--- Self-enforced daily cap on Google Custom Search calls (100 free/day). One row
--- per UTC date; incremented atomically before every call so the cap survives
--- across serverless invocations and crawler runs — never trust an in-memory
--- counter for a budget that must never trip into paid billing without sign-off.
-create table if not exists search_api_usage (
-  usage_date  date primary key default current_date,
-  query_count int not null default 0
-);
+-- search_api_usage table (Google Custom Search budget tracking) was dropped —
+-- the API is permanently closed to new customers, confirmed July 2026. See
+-- DECISIONS.md "DoorDash discovery: Custom Search closed". If a stray table
+-- exists from an earlier deploy, drop it:
+drop table if exists search_api_usage;
 
 create index if not exists idx_menu_items_restaurant on menu_items(restaurant_id);
 create index if not exists idx_photos_restaurant on photos(restaurant_id);
