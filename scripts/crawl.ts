@@ -101,54 +101,49 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
 async function main() {
   // Dynamic imports — deferred until after loadEnvLocal() has populated
   // process.env, since these modules read env vars at module-load time.
-  const { getGooglePhotosAndReviews, parseDoorDashSearchSlugs, extractDoorDashItems, parseNextDataMenuItems } =
+  const { extractDoorDashItems, parseNextDataMenuItems, getGooglePhotosAndReviews } =
     await import("../src/lib/google");
   const { persistPipelineResult, saveMenuItems, savePhotos, logSourceRun, getCorpusSnapshot, getDoorDashStoreUrl, saveDoorDashStoreUrl } =
     await import("../src/lib/db");
   const { ensurePythonEnv, pythonFetch } = await import("../src/crawler/pythonFetch");
+  const { loadStoreSitemap, findDoorDashStoreUrlInSitemap } = await import("../src/crawler/doordashSitemap");
   type MenuItemData = import("../src/lib/types").MenuItemData;
 
-  // DoorDash discovery: Google Custom Search JSON API is permanently closed to
-  // new customers (confirmed July 2026 — hard 403 even with a clean project +
-  // enabled API). Discovery is sitemap-first / Camoufox-interactive-search
-  // fallback (see DECISIONS.md) — TODO once sitemap/search-DOM diagnostics are
-  // in. Guessed URL patterns remain as a last resort in the meantime.
+  // DoorDash discovery, in priority order (Kyle's direction, July 2026 —
+  // Google Custom Search JSON API is permanently closed to new customers,
+  // confirmed with a hard 403 on a clean project; see DECISIONS.md):
+  //   1. Cache — never discover the same restaurant twice.
+  //   2. Sitemap — confirmed real: www.doordash.com/robots.txt lists a genuine
+  //      store-level sitemap index, unprotected on cdn.doordash.com (no
+  //      Cloudflare wall, no Camoufox needed). One state file, ~100k URLs,
+  //      cached to disk for 24h. This alone resolved 4/5 known-DoorDash
+  //      restaurants correctly in testing.
+  //   3. Camoufox interactive search — TODO, only needed for restaurants the
+  //      sitemap doesn't cover (e.g. states/regions not yet cached).
+  // Launch zone is Temecula, CA — hardcoded here; generalize when the crawler
+  // covers more than one state.
+  const DOORDASH_STATE = "ca";
+  const DOORDASH_CITY = "temecula";
+
   async function crawlDoorDash(target: CrawlTarget): Promise<MenuItemData[]> {
-    const cached = await getDoorDashStoreUrl(target.placeId).catch(() => null);
-    let storeUrl = cached;
+    let storeUrl = await getDoorDashStoreUrl(target.placeId).catch(() => null);
     if (storeUrl) {
       console.log(`  [doordash] using cached store URL: ${storeUrl}`);
     } else {
-      const q = encodeURIComponent(target.name);
-      const candidateSearchUrls = [
-        `https://www.doordash.com/search/?q=${q}`,
-        `https://www.doordash.com/search/store/${q}/`,
-        `https://www.doordash.com/food-delivery/search/?query=${q}`,
-        `https://www.doordash.com/search/?query=${q}`,
-      ];
+      const sitemapUrls = await loadStoreSitemap(DOORDASH_STATE).catch((e) => {
+        console.log(`  [doordash] sitemap load failed: ${e}`);
+        return [] as string[];
+      });
+      console.log(`  [doordash] sitemap loaded: ${sitemapUrls.length} CA store URLs`);
+      storeUrl = findDoorDashStoreUrlInSitemap(sitemapUrls, target.name, DOORDASH_CITY);
 
-      let slug: string | null = null;
-      for (const searchUrl of candidateSearchUrls) {
-        const searchResult = pythonFetch(searchUrl, { render: true, referer: "https://www.doordash.com/" });
-        console.log(
-          `  [doordash] search ${searchUrl} → status=${searchResult.status} ok=${searchResult.ok}` +
-          (searchResult.finalUrl ? ` finalUrl=${searchResult.finalUrl}` : "") +
-          (!searchResult.ok ? ` error=${searchResult.error ?? "n/a"}` : "")
-        );
-        if (searchResult.ok && searchResult.html) {
-          slug = parseDoorDashSearchSlugs(searchResult.html, target.name);
-          if (slug) {
-            console.log(`  [doordash] found slug "${slug}" via ${searchUrl}`);
-            break;
-          }
-        }
-      }
-      if (!slug) {
-        console.log(`  [doordash] no store found for "${target.name}" across ${candidateSearchUrls.length} URL patterns`);
+      if (storeUrl) {
+        console.log(`  [doordash] found via sitemap: ${storeUrl}`);
+        await saveDoorDashStoreUrl(target.placeId, storeUrl).catch(() => {});
+      } else {
+        console.log(`  [doordash] not found in sitemap for "${target.name}" — no interactive-search fallback yet`);
         return [];
       }
-      storeUrl = `https://www.doordash.com/store/${slug}/`;
-      await saveDoorDashStoreUrl(target.placeId, storeUrl).catch(() => {});
     }
 
     const storeResult = pythonFetch(storeUrl, { render: true, referer: "https://www.doordash.com/" });

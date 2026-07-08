@@ -839,3 +839,46 @@ env). Kept `restaurants.doordash_store_url` + `getDoorDashStoreUrl`/`saveDoorDas
    only with the same self-enforced budget-cap discipline as Scrapfly/the now-dead
    Custom Search attempt, and only after asking Kyle first — not to be wired
    speculatively ahead of need.
+
+---
+
+## DoorDash discovery: sitemap works — solved for California (July 7, 2026)
+
+Take two on sitemap discovery, this time actually reading the real `robots.txt` via
+Kyle's crawler (Camoufox gets past Cloudflare; this sandbox never could). Result: a
+genuine store-level sitemap exists.
+
+- `www.doordash.com/robots.txt` lists 18 `Sitemap:` directives, including
+  `sitemap-store-doordash-index.xml` — the July 6 investigation only ever reached
+  `cdn.doordash.com` directly and found the cuisine-category sitemaps; it never got to
+  read the real robots.txt to find this one, because every attempt from this sandbox
+  hit the Cloudflare wall.
+- That URL 301-redirects to `cdn.doordash.com/sitemaps/sitemaps/sitemap-store-doordash-
+  index.xml` — a per-**state** index (`sitemap-doordash-{state}-stores.xml` for ~30 US
+  states/CA provinces). Confirmed live: **this CDN host has no Cloudflare wall at all**
+  — plain `fetch()` works from anywhere, including this sandbox. No Camoufox, no
+  residential IP, $0, needed only for discovery.
+- Downloaded `sitemap-doordash-ca-stores.xml` directly (17.9MB, 103,071 store URLs,
+  ~85k after excluding `/convenience/store/` retail listings) and tested against 6 real
+  Temecula restaurants: **4/5 known-DoorDash restaurants matched correctly** (Panera
+  Bread, Buffalo Wild Wings, Ebullition, Swing Inn Cafe & BBQ — Swing Inn's actual
+  DoorDash listing name is "Swing Inn Cafe", missing "& BBQ"). Richie's and E.A.T
+  Marketplace correctly returned no match (both independently confirmed absent from
+  DoorDash). One real bug found and fixed: BJ's initially matched a "-catering-" sub-
+  listing instead of the primary restaurant (same word-overlap score, more slug words)
+  — fixed by preferring the tightest match (fewest unexplained extra words) on ties.
+- Individual store pages (`www.doordash.com/store/...`) remain Cloudflare-walled — the
+  sitemap only solves *discovery* (finding the right URL), the crawler's Camoufox still
+  does the actual page fetch for menu items.
+
+**Implementation**: `src/crawler/doordashSitemap.ts` — `loadStoreSitemap(state)`
+downloads + disk-caches a state's sitemap (24h TTL, matching DoorDash's own
+`changefreq: daily`), `findDoorDashStoreUrlInSitemap(urls, name, city)` matches by
+word-overlap with a tightest-match tiebreak. Wired into `crawlDoorDash` as the primary
+discovery step (after the persistent `doordash_store_url` cache check), hardcoded to
+`ca`/`temecula` for now since that's the exclusive launch zone. Camoufox interactive
+search (priority #2 in Kyle's plan) is deferred — not needed yet since the sitemap alone
+resolves Temecula-area restaurants; revisit if/when the crawler expands beyond
+California or a specific restaurant isn't in the state sitemap.
+6 fixture-based tests added (`src/lib/__tests__/doordashSitemap.test.ts`) covering the
+catering-tiebreak bug, city disambiguation, and the two confirmed-absent restaurants.
