@@ -8,18 +8,26 @@
  * ever has to type — no manual Python setup.
  */
 import { spawnSync } from "child_process";
-import { existsSync, writeFileSync, rmSync } from "fs";
+import { existsSync, writeFileSync, readFileSync, rmSync } from "fs";
 import { join } from "path";
+import { createHash } from "crypto";
 
 const CRAWLER_DIR = join(__dirname, "..", "..", "crawler");
 const VENV_DIR = join(CRAWLER_DIR, ".venv");
 const VENV_PYTHON = process.platform === "win32"
   ? join(VENV_DIR, "Scripts", "python.exe")
   : join(VENV_DIR, "bin", "python3");
-// Written only after a fully successful `pip install`. A failed install still
-// leaves a venv directory behind (venv creation succeeds, pip fails) — without
-// this marker, ensurePythonEnv would wrongly treat that half-built venv as done.
+const REQUIREMENTS_PATH = join(CRAWLER_DIR, "requirements.txt");
+// Written only after a fully successful `pip install`, stamped with a hash of
+// requirements.txt. A failed install still leaves a venv directory behind (venv
+// creation succeeds, pip fails), and an edited requirements.txt needs a reinstall
+// — without this marker (and the hash check), ensurePythonEnv would wrongly treat
+// either case as already done.
 const INSTALL_MARKER = join(VENV_DIR, ".install_complete");
+
+function requirementsHash(): string {
+  return createHash("sha256").update(readFileSync(REQUIREMENTS_PATH)).digest("hex");
+}
 
 export interface PythonFetchResult {
   ok: boolean;
@@ -75,7 +83,7 @@ export function ensurePythonEnv(): { ready: boolean; reason?: string } {
     };
   }
 
-  if (existsSync(INSTALL_MARKER)) {
+  if (existsSync(INSTALL_MARKER) && readFileSync(INSTALL_MARKER, "utf-8").includes(requirementsHash())) {
     return { ready: true };
   }
 
@@ -115,7 +123,16 @@ export function ensurePythonEnv(): { ready: boolean; reason?: string } {
     };
   }
 
-  writeFileSync(INSTALL_MARKER, new Date().toISOString());
+  // Both stealth backends need their own browser binary downloaded post-install
+  // (pip only installs the Python bindings). Best-effort — exact CLI names drift
+  // across versions, so a failure here logs and continues rather than blocking
+  // the whole setup; pythonFetch() will surface a clear per-request error if the
+  // binary really is missing.
+  console.log("[crawler] Downloading browser binaries for Camoufox/patchright...");
+  spawnSync(VENV_PYTHON, ["-m", "camoufox", "fetch"], { stdio: "inherit" });
+  spawnSync(VENV_PYTHON, ["-m", "patchright", "install", "chromium"], { stdio: "inherit" });
+
+  writeFileSync(INSTALL_MARKER, `${new Date().toISOString()} ${requirementsHash()}`);
   console.log("[crawler] Python environment ready.\n");
   return { ready: true };
 }
