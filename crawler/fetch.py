@@ -44,7 +44,15 @@ def fetch_rendered(url: str, timeout: int) -> dict:
     from scrapling.fetchers import StealthyFetcher
 
     page = StealthyFetcher.fetch(url, timeout=timeout * 1000, headless=True)
-    return {"ok": page.status < 400, "status": page.status, "html": page.html_content}
+    # final_url surfaces client-side redirects (DoorDash's router may bounce a
+    # dead search URL somewhere useful) — diagnostic value on a 404/miss.
+    final_url = getattr(page, "url", None)
+    return {
+        "ok": page.status < 400,
+        "status": page.status,
+        "html": page.html_content,
+        "finalUrl": final_url if final_url and final_url != url else None,
+    }
 
 
 def main():

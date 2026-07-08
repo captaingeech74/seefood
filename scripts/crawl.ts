@@ -109,16 +109,40 @@ async function main() {
   type MenuItemData = import("../src/lib/types").MenuItemData;
 
   async function crawlDoorDash(target: CrawlTarget): Promise<MenuItemData[]> {
-    const searchUrl = `https://www.doordash.com/search/?q=${encodeURIComponent(target.name)}`;
-    const searchResult = pythonFetch(searchUrl, { render: true, referer: "https://www.doordash.com/" });
-    if (!searchResult.ok || !searchResult.html) {
-      console.log(`  [doordash] search fetch failed: ${searchResult.error ?? searchResult.status}`);
-      return [];
+    // DoorDash's search URL has changed at least once (confirmed 404 on the
+    // pattern that used to work). Try a few candidate patterns in sequence —
+    // cheap here since the crawler runs $0 on a residential IP, unlike the
+    // live Scrapfly path where every attempt costs real credits.
+    const q = encodeURIComponent(target.name);
+    const candidateSearchUrls = [
+      `https://www.doordash.com/search/?q=${q}`,
+      `https://www.doordash.com/search/store/${q}/`,
+      `https://www.doordash.com/food-delivery/search/?query=${q}`,
+      `https://www.doordash.com/search/?query=${q}`,
+    ];
+
+    let slug: string | null = null;
+    for (const searchUrl of candidateSearchUrls) {
+      const searchResult = pythonFetch(searchUrl, { render: true, referer: "https://www.doordash.com/" });
+      console.log(
+        `  [doordash] search ${searchUrl} → status=${searchResult.status} ok=${searchResult.ok}` +
+        (searchResult.finalUrl ? ` finalUrl=${searchResult.finalUrl}` : "") +
+        (!searchResult.ok ? ` error=${searchResult.error ?? "n/a"}` : "")
+      );
+      if (searchResult.ok && searchResult.html) {
+        slug = parseDoorDashSearchSlugs(searchResult.html, target.name);
+        if (slug) {
+          console.log(`  [doordash] found slug "${slug}" via ${searchUrl}`);
+          break;
+        }
+        // Got a real page but no recognizable store slug in it — dump a
+        // snippet so we can see what DoorDash actually served.
+        console.log(`  [doordash] no slug pattern matched; body snippet: ${searchResult.html.slice(0, 300).replace(/\s+/g, " ")}`);
+      }
     }
 
-    const slug = parseDoorDashSearchSlugs(searchResult.html, target.name);
     if (!slug) {
-      console.log(`  [doordash] no store slug found for "${target.name}"`);
+      console.log(`  [doordash] no store slug found for "${target.name}" across ${candidateSearchUrls.length} URL patterns`);
       return [];
     }
 

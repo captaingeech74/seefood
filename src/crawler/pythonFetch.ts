@@ -34,6 +34,7 @@ export interface PythonFetchResult {
   status: number | null;
   html?: string;
   error?: string;
+  finalUrl?: string | null;
 }
 
 function getPythonVersion(exe: string): [number, number] | null {
