@@ -765,3 +765,40 @@ Shop (**.square.site**). This surfaced two real bugs the fixture tests couldn't 
   and lands, but "renders the JS" and "finds the menu content" turned out to be two
   different problems; the second one needs more iteration per platform and is not fully
   solved by this pass. Honest status, not a claimed fix.
+
+---
+
+## DoorDash discovery: sitemap investigated and ruled out (July 2026)
+
+First real end-to-end crawler run (Kyle's Mac, Python 3.12 + Camoufox + patchright,
+after fixing three real setup bugs: old system Python, missing `patchright`, missing
+`msgspec` — see commits) proved Camoufox genuinely gets past Cloudflare (clean `404`
+from DoorDash's real server, not a challenge page) — but DoorDash's client-side search
+has no stable public URL. Confirmed against **BJ's Restaurant & Brewhouse**, a
+restaurant independently confirmed present on DoorDash (`doordash.com/store/bj's-
+restaurant-&-brewhouse-temecula-262570/804086/`, found via web search) — all 4 guessed
+search URL patterns still failed. This ruled out "wrong restaurant" as the cause; the
+search endpoint itself is the problem, and it isn't documented anywhere.
+
+Per Kyle's instruction, spent real time checking sitemap-based discovery *before*
+reaching for a paid API:
+- `www.doordash.com/robots.txt`, `/sitemap-static-doordash-index.xml`, and
+  `/sitemap/{country}/{state}/{city}/...` browse pages are all behind the same
+  Cloudflare challenge as the rest of the app — inaccessible without a real browser
+  render, same cost as scraping search directly.
+- `cdn.doordash.com/sitemaps/sitemaps/sitemap-cuisine-doordash-index.xml` **is** publicly
+  reachable (plain CDN asset, no Cloudflare challenge) and indexes 4 regional sitemaps
+  (`en-US`, `en-CA`, `en-AU`, `en-NZ`). But every URL in them is a generic category page
+  (`/cuisine/indian-near-me/`, `/cuisine/hot-pot-near-me/`, 311 of them) — not a single
+  per-restaurant `/store/` URL anywhere. DoorDash does not publish a store-level sitemap.
+- Guessed store/sitemap-index paths under `cdn.doordash.com` (`sitemap-doordash-en-US-
+  store-index.xml`, `sitemap-index.xml`, etc.) all returned a clean S3 `AccessDenied` —
+  confirms these paths genuinely don't exist there, not a block.
+
+**Conclusion: sitemap discovery is a dead end for DoorDash specifically.** Google Custom
+Search (approved by Kyle, PRODUCT_REVIEW §5.3 low-cost gate) is the only viable
+discovery channel. Budget discipline matching the Scrapfly pattern: self-enforced hard
+cap at 100 queries/day tracked in `search_api_usage` (Supabase, survives across
+serverless/crawler invocations — not just relying on Google's own quota), visible in
+`/api/debug-sources`, and discovered store URLs are cached on `restaurants.doordash_store_url`
+so the same restaurant is never looked up twice.

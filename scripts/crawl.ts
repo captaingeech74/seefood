@@ -101,52 +101,60 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
 async function main() {
   // Dynamic imports — deferred until after loadEnvLocal() has populated
   // process.env, since these modules read env vars at module-load time.
-  const { getGooglePhotosAndReviews, parseDoorDashSearchSlugs, extractDoorDashItems, parseNextDataMenuItems } =
+  const { getGooglePhotosAndReviews, parseDoorDashSearchSlugs, extractDoorDashItems, parseNextDataMenuItems, findDoorDashStoreUrl } =
     await import("../src/lib/google");
-  const { persistPipelineResult, saveMenuItems, savePhotos, logSourceRun, getCorpusSnapshot } =
+  const { persistPipelineResult, saveMenuItems, savePhotos, logSourceRun, getCorpusSnapshot, getSearchApiUsageToday } =
     await import("../src/lib/db");
   const { ensurePythonEnv, pythonFetch } = await import("../src/crawler/pythonFetch");
   type MenuItemData = import("../src/lib/types").MenuItemData;
 
   async function crawlDoorDash(target: CrawlTarget): Promise<MenuItemData[]> {
-    // DoorDash's search URL has changed at least once (confirmed 404 on the
-    // pattern that used to work). Try a few candidate patterns in sequence —
-    // cheap here since the crawler runs $0 on a residential IP, unlike the
-    // live Scrapfly path where every attempt costs real credits.
-    const q = encodeURIComponent(target.name);
-    const candidateSearchUrls = [
-      `https://www.doordash.com/search/?q=${q}`,
-      `https://www.doordash.com/search/store/${q}/`,
-      `https://www.doordash.com/food-delivery/search/?query=${q}`,
-      `https://www.doordash.com/search/?query=${q}`,
-    ];
+    // Primary: Google Custom Search (DoorDash has no store-level sitemap and
+    // no stable public search URL — confirmed live, see DECISIONS.md). Budget-
+    // capped at 100 free queries/day (self-enforced, survives across runs) and
+    // caches the result per restaurant so we never search the same place twice.
+    const usage = await getSearchApiUsageToday();
+    console.log(`  [doordash] Google Custom Search usage today: ${usage.count}/${usage.cap}`);
 
-    let slug: string | null = null;
-    for (const searchUrl of candidateSearchUrls) {
-      const searchResult = pythonFetch(searchUrl, { render: true, referer: "https://www.doordash.com/" });
-      console.log(
-        `  [doordash] search ${searchUrl} → status=${searchResult.status} ok=${searchResult.ok}` +
-        (searchResult.finalUrl ? ` finalUrl=${searchResult.finalUrl}` : "") +
-        (!searchResult.ok ? ` error=${searchResult.error ?? "n/a"}` : "")
-      );
-      if (searchResult.ok && searchResult.html) {
-        slug = parseDoorDashSearchSlugs(searchResult.html, target.name);
-        if (slug) {
-          console.log(`  [doordash] found slug "${slug}" via ${searchUrl}`);
-          break;
+    let storeUrl = await findDoorDashStoreUrl(target.placeId, target.name, target.address ?? "");
+    if (storeUrl) {
+      console.log(`  [doordash] found via Google Custom Search: ${storeUrl}`);
+    } else {
+      // Fallback: guessed URL patterns. DoorDash's own search has changed at
+      // least once already (confirmed 404 on a pattern that used to work) —
+      // cheap to keep trying here since the crawler runs $0 on a residential
+      // IP, unlike the live Scrapfly path where every attempt costs credits.
+      const q = encodeURIComponent(target.name);
+      const candidateSearchUrls = [
+        `https://www.doordash.com/search/?q=${q}`,
+        `https://www.doordash.com/search/store/${q}/`,
+        `https://www.doordash.com/food-delivery/search/?query=${q}`,
+        `https://www.doordash.com/search/?query=${q}`,
+      ];
+
+      let slug: string | null = null;
+      for (const searchUrl of candidateSearchUrls) {
+        const searchResult = pythonFetch(searchUrl, { render: true, referer: "https://www.doordash.com/" });
+        console.log(
+          `  [doordash] fallback search ${searchUrl} → status=${searchResult.status} ok=${searchResult.ok}` +
+          (searchResult.finalUrl ? ` finalUrl=${searchResult.finalUrl}` : "") +
+          (!searchResult.ok ? ` error=${searchResult.error ?? "n/a"}` : "")
+        );
+        if (searchResult.ok && searchResult.html) {
+          slug = parseDoorDashSearchSlugs(searchResult.html, target.name);
+          if (slug) {
+            console.log(`  [doordash] found slug "${slug}" via ${searchUrl}`);
+            break;
+          }
         }
-        // Got a real page but no recognizable store slug in it — dump a
-        // snippet so we can see what DoorDash actually served.
-        console.log(`  [doordash] no slug pattern matched; body snippet: ${searchResult.html.slice(0, 300).replace(/\s+/g, " ")}`);
       }
+      if (!slug) {
+        console.log(`  [doordash] no store found for "${target.name}" (Google Search + ${candidateSearchUrls.length} fallback patterns)`);
+        return [];
+      }
+      storeUrl = `https://www.doordash.com/store/${slug}/`;
     }
 
-    if (!slug) {
-      console.log(`  [doordash] no store slug found for "${target.name}" across ${candidateSearchUrls.length} URL patterns`);
-      return [];
-    }
-
-    const storeUrl = `https://www.doordash.com/store/${slug}/`;
     const storeResult = pythonFetch(storeUrl, { render: true, referer: "https://www.doordash.com/" });
     if (!storeResult.ok || !storeResult.html) {
       console.log(`  [doordash] store page fetch failed: ${storeResult.error ?? storeResult.status}`);

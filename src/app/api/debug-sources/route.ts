@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchMenuFromGrubhub } from "@/lib/google";
 import { fetchMenuFromUrl } from "@/lib/menuSources";
+import { getSearchApiUsageToday, getDoorDashStoreUrl } from "@/lib/db";
 
 export const maxDuration = 60;
 
@@ -76,9 +77,24 @@ export async function GET(req: NextRequest) {
     note: "Menufy items are surfaced via the `website` source above (2-hop link follower included); duplicated here for scoreboard visibility.",
   };
 
-  results.doordash = {
-    note: "Corpus-only — not tested here to conserve Scrapfly credits (its ASP challenge costs 51-75+ credits/attempt). Coverage comes from the Tier 1 local crawler.",
-  };
+  // ── Source: DoorDash — status only, never actually fetched here ─────────────
+  // Corpus-only (Tier 1 crawler): Scrapfly's ASP challenge costs 51-75+
+  // credits/attempt, and this endpoint is hit often during debugging. Discovery
+  // now goes through Google Custom Search (100 free queries/day, self-enforced
+  // hard cap) — read-only status shown here, never consumes a query.
+  try {
+    const [usage, cachedUrl] = await Promise.all([
+      getSearchApiUsageToday(),
+      placeId ? getDoorDashStoreUrl(placeId) : Promise.resolve(null),
+    ]);
+    results.doordash = {
+      note: "Corpus-only — not fetched here to conserve Scrapfly credits. Coverage comes from the Tier 1 local crawler via Google Custom Search discovery.",
+      google_search_usage_today: `${usage.count}/${usage.cap}`,
+      cached_store_url: cachedUrl,
+    };
+  } catch (e) {
+    results.doordash = { note: "Corpus-only.", error: String(e) };
+  }
 
   return NextResponse.json(results, {
     headers: { "Cache-Control": "no-store" },

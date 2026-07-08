@@ -2,17 +2,18 @@
 -- Idempotent: safe to re-run.
 
 create table if not exists restaurants (
-  place_id          text primary key,
-  slug              text unique,
-  name              text not null,
-  lat               double precision,
-  lng               double precision,
-  address           text,
-  website           text,
-  status            text default 'active',
-  last_crawled_at   jsonb default '{}'::jsonb,  -- per-source: { "menufy": "2026-07-06T...", ... }
-  created_at        timestamptz default now(),
-  updated_at        timestamptz default now()
+  place_id             text primary key,
+  slug                 text unique,
+  name                 text not null,
+  lat                  double precision,
+  lng                  double precision,
+  address              text,
+  website              text,
+  status               text default 'active',
+  last_crawled_at      jsonb default '{}'::jsonb,  -- per-source: { "menufy": "2026-07-06T...", ... }
+  doordash_store_url   text,  -- cached Google Custom Search result — never re-search once found
+  created_at           timestamptz default now(),
+  updated_at           timestamptz default now()
 );
 
 create table if not exists menu_items (
@@ -53,6 +54,15 @@ create table if not exists source_runs (
   photo_count       int default 0,
   latency_ms        int,
   error              text
+);
+
+-- Self-enforced daily cap on Google Custom Search calls (100 free/day). One row
+-- per UTC date; incremented atomically before every call so the cap survives
+-- across serverless invocations and crawler runs — never trust an in-memory
+-- counter for a budget that must never trip into paid billing without sign-off.
+create table if not exists search_api_usage (
+  usage_date  date primary key default current_date,
+  query_count int not null default 0
 );
 
 create index if not exists idx_menu_items_restaurant on menu_items(restaurant_id);

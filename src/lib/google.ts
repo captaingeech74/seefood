@@ -1,6 +1,7 @@
 import { Restaurant, DishPhoto, MenuItemData } from "./types";
 import { extractPopularDishes } from "./reviewParser";
 import { fetchMenuFromUrl } from "./menuSources";
+import { getDoorDashStoreUrl, saveDoorDashStoreUrl, reserveSearchApiCall } from "./db";
 
 const API_KEY   = process.env.GOOGLE_MAPS_API_KEY!.trim();
 const VISION_KEY = (process.env.VISION_API_KEY || API_KEY).trim();
@@ -147,6 +148,7 @@ function deduplicateItems(items: MenuItemData[]): MenuItemData[] {
 //   B. Google Custom Search (GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID)
 
 export async function fetchMenuFromDoorDash(
+  placeId: string,
   restaurantName: string,
   address: string,
   lat?: number,
@@ -155,7 +157,7 @@ export async function fetchMenuFromDoorDash(
   void lat; void lng;
   const [directResult, searchResult] = await Promise.allSettled([
     fetchDoorDashDirect(restaurantName),
-    fetchDoorDashViaGoogleSearch(restaurantName, address),
+    fetchDoorDashViaGoogleSearch(placeId, restaurantName, address),
   ]);
 
   return deduplicateItems([
@@ -203,27 +205,61 @@ async function fetchDoorDashDirect(restaurantName: string): Promise<MenuItemData
   }
 }
 
-async function fetchDoorDashViaGoogleSearch(
+/**
+ * Google Custom Search is the only viable DoorDash discovery channel — DoorDash
+ * publishes no store-level sitemap and its client-side search has no stable
+ * public URL (both confirmed live, see DECISIONS.md "DoorDash discovery").
+ *
+ * Budget discipline (Kyle's requirement, matching the Scrapfly cost_budget
+ * pattern): self-enforced hard cap at the 100 free queries/day, tracked in
+ * Supabase so it survives across serverless/crawler invocations — never
+ * trust Google's own quota alone for something that must never trip into
+ * paid billing without explicit sign-off. Every discovered URL is cached on
+ * the restaurant row so the same place is never searched twice.
+ */
+export async function findDoorDashStoreUrl(
+  placeId: string,
   restaurantName: string,
   address: string
-): Promise<MenuItemData[]> {
+): Promise<string | null> {
+  const cached = await getDoorDashStoreUrl(placeId).catch(() => null);
+  if (cached) return cached;
+
   const searchKey = process.env.GOOGLE_SEARCH_API_KEY;
   const searchCx  = process.env.GOOGLE_SEARCH_ENGINE_ID;
-  if (!searchKey || !searchCx) return [];
+  if (!searchKey || !searchCx) return null;
+
+  const reserved = await reserveSearchApiCall().catch(() => false);
+  if (!reserved) {
+    console.log("[DoorDash Google Search] daily cap reached — skipping, not calling the API");
+    return null;
+  }
+
   try {
     const query = `"${restaurantName}" ${address} site:doordash.com`;
     const res = await fetch(
       `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(query)}&key=${searchKey}&cx=${searchCx}&num=1`,
       { signal: AbortSignal.timeout(5000) }
     );
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const data = await res.json();
     const url: string | undefined = data.items?.[0]?.link;
-    if (!url || !url.includes("doordash.com/store/")) return [];
-    return fetchDeliveryStorePage(url, "https://www.doordash.com/", extractDoorDashItems);
+    if (!url || !url.includes("doordash.com/store/")) return null;
+    await saveDoorDashStoreUrl(placeId, url).catch(() => {});
+    return url;
   } catch {
-    return [];
+    return null;
   }
+}
+
+async function fetchDoorDashViaGoogleSearch(
+  placeId: string,
+  restaurantName: string,
+  address: string
+): Promise<MenuItemData[]> {
+  const url = await findDoorDashStoreUrl(placeId, restaurantName, address);
+  if (!url) return [];
+  return fetchDeliveryStorePage(url, "https://www.doordash.com/", extractDoorDashItems);
 }
 
 // ── Source 5: Grubhub ─────────────────────────────────────────────────────────
