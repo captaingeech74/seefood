@@ -23,7 +23,7 @@
  * live path uses — getGooglePhotosAndReviews — so there is exactly one
  * parser per source, not two.
  */
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 
 // Load .env.local into process.env BEFORE importing anything that reads env
@@ -159,8 +159,12 @@ async function main() {
     const items = parseNextDataMenuItems(storeResult.html, extractDoorDashItems);
     if (items.length === 0) {
       const hasNextData = storeResult.html.includes('id="__NEXT_DATA__"');
+      const debugDir = join(__dirname, "..", "crawler", ".cache");
+      mkdirSync(debugDir, { recursive: true });
+      const debugPath = join(debugDir, `debug-doordash-${target.placeId}.html`);
+      writeFileSync(debugPath, storeResult.html);
       console.log(
-        `  [doordash] 0 items from ${storeUrl} — html_length=${storeResult.html.length} has_next_data=${hasNextData}`
+        `  [doordash] 0 items from ${storeUrl} — html_length=${storeResult.html.length} has_next_data=${hasNextData} — full HTML saved to ${debugPath}`
       );
     } else {
       console.log(`  [doordash] ${items.length} items from ${storeUrl}`);
