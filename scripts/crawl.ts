@@ -105,7 +105,7 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
 async function main() {
   // Dynamic imports — deferred until after loadEnvLocal() has populated
   // process.env, since these modules read env vars at module-load time.
-  const { extractDoorDashItems, extractGrubhubItems, parseGrubhubSearchUrl, parseNextDataMenuItems, getGooglePhotosAndReviews } =
+  const { extractDoorDashItems, extractGrubhubItems, parseGrubhubSearchUrl, parseNextDataMenuItems, parseNextFlightMenuItems, getGooglePhotosAndReviews } =
     await import("../src/lib/google");
   const { persistPipelineResult, saveMenuItems, savePhotos, logSourceRun, getCorpusSnapshot, getDoorDashStoreUrl, saveDoorDashStoreUrl } =
     await import("../src/lib/db");
@@ -156,15 +156,21 @@ async function main() {
       return [];
     }
 
-    const items = parseNextDataMenuItems(storeResult.html, extractDoorDashItems);
+    // DoorDash store pages now ship menu data as Next.js App Router RSC
+    // "flight" chunks, not the old Pages Router __NEXT_DATA__ blob (confirmed
+    // live July 2026 — see DECISIONS.md). Try the current format first, fall
+    // back to the old one in case a page still uses it.
+    let items = parseNextFlightMenuItems(storeResult.html, extractDoorDashItems);
     if (items.length === 0) {
-      const hasNextData = storeResult.html.includes('id="__NEXT_DATA__"');
+      items = parseNextDataMenuItems(storeResult.html, extractDoorDashItems);
+    }
+    if (items.length === 0) {
       const debugDir = join(__dirname, "..", "crawler", ".cache");
       mkdirSync(debugDir, { recursive: true });
       const debugPath = join(debugDir, `debug-doordash-${target.placeId}.html`);
       writeFileSync(debugPath, storeResult.html);
       console.log(
-        `  [doordash] 0 items from ${storeUrl} — html_length=${storeResult.html.length} has_next_data=${hasNextData} — full HTML saved to ${debugPath}`
+        `  [doordash] 0 items from ${storeUrl} — html_length=${storeResult.html.length} — full HTML saved to ${debugPath}`
       );
     } else {
       console.log(`  [doordash] ${items.length} items from ${storeUrl}`);

@@ -996,3 +996,46 @@ DoorDash already was.
 
 Both fixes are corpus-side (crawler + shared pipeline) — pending a fresh
 crawler run to confirm real DoorDash items now come back for BJ's.
+
+## DoorDash store pages: root cause of "0 items" was the parser targeting a dead format (July 2026)
+
+After the sitemap XML-unescape fix, BJ's crawl still returned 0 DoorDash
+items despite finding the exact right store URL and fetching it
+successfully (page loaded, correct `<title>`, not a bot-block — "captcha"/
+"verify you" matches in the raw HTML were false positives: generic recaptcha
+library code and unrelated business-account i18n strings that ship on every
+DoorDash page regardless of challenge state).
+
+Root cause: DoorDash's store pages migrated from Next.js **Pages Router**
+(the old `<script id="__NEXT_DATA__">` blob our parser assumed) to **App
+Router**, which streams data as RSC "flight" chunks via
+`self.__next_f.push([1,"..."])` script calls instead. Confirmed live via a
+targeted extraction: 0 `__NEXT_DATA__` matches, 0 `application/json` script
+tags, but real menu data present as `{"__typename":"MenuPageItem",
+"name":"Pizookie® Trio","description":"...","displayPrice":"$14.49"}`
+objects nested inside `{"__typename":"MenuPageItemList",...,"items":[...]}`
+category objects, embedded in those flight chunks.
+
+Added `parseNextFlightMenuItems`: unescapes each pushed chunk (each is a
+JSON-encoded string — `JSON.parse('"' + chunk + '"')` recovers it, since the
+overall RSC wire format isn't valid JSON as a whole but each pushed string
+literal is), concatenates them, then extracts individual
+`MenuPageItemList` objects via brace-depth matching (the surrounding stream
+isn't parseable JSON, but each embedded object boundary is) and runs each
+through the existing `extractDoorDashItems` walker.
+
+Found one real false positive while writing the fixture test: `extractDoorDashItems`'s
+original name+description heuristic also matched the **category** object itself
+(`MenuPageItemList`, e.g. "Most Ordered") as if it were a dish, since it has
+the identical name+description shape as a real `MenuPageItem`. Fixed by
+checking the RSC payload's `__typename` discriminator when present and
+excluding `MenuPageItemList` explicitly — the old __NEXT_DATA__ format (no
+`__typename` field) is unaffected and still falls through to the original
+heuristic. `crawlDoorDash` in the crawler now tries the new RSC parser first,
+falling back to the old `__NEXT_DATA__` parser for safety.
+
+Lesson: "page fetched successfully, 0 items parsed" does not mean bot-block —
+check whether the site's own data-embedding format changed before assuming
+an anti-bot wall. Two of three DoorDash "bugs" this session were pure format
+drift (XML escaping, then the Pages→App Router migration), not adversarial
+blocking at all.

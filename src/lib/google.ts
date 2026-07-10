@@ -106,25 +106,99 @@ export function parseNextDataMenuItems(
   return deduplicateItems(items);
 }
 
-/** Recursively walks DoorDash __NEXT_DATA__ looking for menu item objects. */
+/** Finds the substring of `s` starting at `start` (must be "{") up to its matching close brace. */
+function extractBalancedJsonObject(s: string, start: number): string | null {
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (escape) { escape = false; continue; }
+    if (c === "\\") { escape = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return s.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Pure parse of a Next.js App Router RSC "flight" payload — DoorDash's store
+ * pages moved off the old Pages Router __NEXT_DATA__ blob to this streaming
+ * format (confirmed live July 2026: 0 __NEXT_DATA__ matches, but real menu
+ * data present as `{"__typename":"MenuPageItem",...}` objects inside
+ * `self.__next_f.push([1,"..."])` script calls — see DECISIONS.md). Each
+ * pushed chunk is a JSON-escaped string; unescaping via JSON.parse of the
+ * quoted string (not the whole payload, which isn't valid JSON as a whole —
+ * it's DoorDash's internal wire framing) recovers the readable text, from
+ * which individual `{"__typename":"MenuPageItem...` objects are extracted by
+ * brace-balance matching and parsed individually.
+ */
+export function parseNextFlightMenuItems(
+  html: string,
+  extractor: (obj: unknown, out: MenuItemData[]) => void
+): MenuItemData[] {
+  const chunkRe = /self\.__next_f\.push\(\[\d+,"((?:[^"\\]|\\.)*)"\]\)/g;
+  let combined = "";
+  for (const m of html.matchAll(chunkRe)) {
+    try {
+      combined += JSON.parse(`"${m[1]}"`);
+    } catch {
+      // one malformed chunk shouldn't sink the rest
+    }
+  }
+
+  const items: MenuItemData[] = [];
+  const startRe = /\{"__typename":"MenuPageItemList/g;
+  for (const m of combined.matchAll(startRe)) {
+    const objText = extractBalancedJsonObject(combined, m.index!);
+    if (!objText) continue;
+    try {
+      extractor(JSON.parse(objText), items);
+    } catch {
+      // skip unparseable fragment
+    }
+  }
+  return deduplicateItems(items);
+}
+
+/** Recursively walks DoorDash menu data (either __NEXT_DATA__ or RSC flight payload) looking for menu item objects. */
 export function extractDoorDashItems(obj: unknown, out: MenuItemData[]): void {
   if (!obj || typeof obj !== "object") return;
   if (Array.isArray(obj)) { obj.forEach((v) => extractDoorDashItems(v, out)); return; }
 
   const o = obj as Record<string, unknown>;
 
-  // DoorDash items have name + (description or imageUrl or price)
+  // RSC flight payload objects carry an explicit __typename discriminator.
+  // MenuPageItemList (a category, e.g. "Most Ordered") has the exact same
+  // name+description shape as a real MenuPageItem (an actual dish) — without
+  // this check every category name gets extracted as a fake menu item.
+  const isListType = o.__typename === "MenuPageItemList";
+
+  // DoorDash items have name + (description or an image field or price)
   if (
+    !isListType &&
     typeof o.name === "string" &&
     o.name.trim().length > 1 &&
-    (typeof o.description === "string" || typeof o.imageUrl === "string")
+    (
+      typeof o.description === "string" ||
+      typeof o.imageUrl === "string" ||
+      typeof o.photoUrl === "string" ||
+      typeof o.image === "string" ||
+      typeof o.displayPrice === "string"
+    )
   ) {
     const item: MenuItemData = { name: o.name.trim() };
     if (typeof o.description === "string" && o.description.trim()) {
       item.description = o.description.trim().substring(0, 300);
     }
-    if (typeof o.imageUrl === "string" && o.imageUrl.startsWith("http")) {
-      item.imageUrl = o.imageUrl;
+    const img = o.imageUrl ?? o.photoUrl ?? o.image;
+    if (typeof img === "string" && img.startsWith("http")) {
+      item.imageUrl = img;
     }
     out.push(item);
   }
