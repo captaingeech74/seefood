@@ -193,7 +193,10 @@ async function main() {
 
     const storeUrl = parseGrubhubSearchUrl(searchResult.html, target.name);
     if (!storeUrl) {
-      console.log(`  [grubhub] no matching restaurant found for "${target.name}"`);
+      const restaurantLinkCount = (searchResult.html.match(/\/restaurant\/[^"'?#]+\/\d{5,}/g) ?? []).length;
+      console.log(
+        `  [grubhub] no matching restaurant found for "${target.name}" — html_length=${searchResult.html.length} restaurant_links_on_page=${restaurantLinkCount}`
+      );
       return [];
     }
     console.log(`  [grubhub] found: ${storeUrl}`);
