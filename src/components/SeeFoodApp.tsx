@@ -6,7 +6,7 @@ import RestaurantHeader from "@/components/RestaurantHeader";
 import TopDishesGrid from "@/components/TopDishesGrid";
 import Reveal from "@/components/Reveal";
 import PopularDishes from "@/components/PopularDishes";
-import MapPicker from "@/components/MapPicker";
+import MapPicker, { MapView } from "@/components/MapPicker";
 import LoadingScreen from "@/components/LoadingScreen";
 
 type AppState =
@@ -33,6 +33,9 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
   const [error, setError] = useState<string>("");
   const [dishesLoading, setDishesLoading] = useState(false);
   const [reveal, setReveal] = useState<{ list: DishPhoto[]; index: number } | null>(null);
+  // Preserves map pan/zoom across opens (PRD §4.4 "back preserves map position") —
+  // only used on re-open, not the first cold explore entry, which centers fresh.
+  const [lastMapView, setLastMapView] = useState<MapView | null>(null);
 
   const fetchDishes = useCallback(async (r: Restaurant) => {
     setDishesLoading(true);
@@ -206,6 +209,8 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
       <MapPicker
         lat={userLat || 37.7749}
         lng={userLng || -122.4194}
+        initialView={lastMapView}
+        onViewChange={setLastMapView}
         onSelectRestaurant={handleSelectRestaurant}
         onClose={() => setState(restaurant ? "ready" : "error")}
       />

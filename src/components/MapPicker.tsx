@@ -1,10 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { DishPhoto } from "@/lib/types";
+
+export interface MapView {
+  lat: number;
+  lng: number;
+  zoom: number;
+}
 
 interface MapPickerProps {
   lat: number;
   lng: number;
+  initialView?: MapView | null;
+  onViewChange?: (view: MapView) => void;
   onSelectRestaurant: (placeId: string, name: string) => void;
   onClose: () => void;
 }
@@ -23,6 +32,12 @@ interface SelectedPlace {
   rating?: number;
   userRatingsTotal?: number;
   priceLevel?: number;
+  dishes?: DishPhoto[]; // top ~5 from the corpus, for the bottom-sheet strip (PRD §4.4)
+}
+
+interface MapPreview {
+  topPhoto: DishPhoto;
+  dishes: DishPhoto[];
 }
 
 function PriceLevel({ level }: { level: number }) {
@@ -34,9 +49,17 @@ function PriceLevel({ level }: { level: number }) {
   );
 }
 
+/**
+ * Map Explore v2 (PRD §4.4) — instant open on the user's block, pins are
+ * dish-photo thumbnails from the corpus (dot pins for uncrawled restaurants,
+ * which also enqueues them for the Tier 1 crawler), tap → glass bottom sheet
+ * with a swipeable dish strip → "See all dishes" opens the Reveal/grid.
+ */
 export default function MapPicker({
   lat,
   lng,
+  initialView,
+  onViewChange,
   onSelectRestaurant,
   onClose,
 }: MapPickerProps) {
@@ -45,6 +68,7 @@ export default function MapPicker({
   const markersRef = useRef<google.maps.Marker[]>([]);
   const selectedMarkerRef = useRef<google.maps.Marker | null>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const previewsRef = useRef<Map<string, MapPreview>>(new Map());
 
   const [ready, setReady] = useState(false);
   const [showSearchHere, setShowSearchHere] = useState(false);
@@ -58,8 +82,8 @@ export default function MapPicker({
     selectedMarkerRef.current = null;
   }, []);
 
-  // Marker icon styles — refined orange pill
-  const baseIcon = useCallback((): google.maps.Symbol => ({
+  // Dot pin — restaurants with no corpus photos yet (upgrades once crawled).
+  const dotIcon = useCallback((): google.maps.Symbol => ({
     path: window.google.maps.SymbolPath.CIRCLE,
     fillColor: "#ff6b35",
     fillOpacity: 1,
@@ -68,7 +92,7 @@ export default function MapPicker({
     scale: 8.5,
   }), []);
 
-  const selectedIcon = useCallback((): google.maps.Symbol => ({
+  const selectedDotIcon = useCallback((): google.maps.Symbol => ({
     path: window.google.maps.SymbolPath.CIRCLE,
     fillColor: "#ffffff",
     fillOpacity: 1,
@@ -77,62 +101,108 @@ export default function MapPicker({
     scale: 11,
   }), []);
 
+  // Photo-thumbnail pin (PRD §4.4 "pins are dish-photo thumbnails, not dots").
+  const photoIcon = useCallback(
+    (url: string, isSelected: boolean): google.maps.Icon => ({
+      url,
+      scaledSize: new window.google.maps.Size(isSelected ? 56 : 44, isSelected ? 56 : 44),
+      anchor: new window.google.maps.Point(isSelected ? 28 : 22, isSelected ? 28 : 22),
+    }),
+    []
+  );
+
   const setMarkerSelected = useCallback(
-    (marker: google.maps.Marker | null) => {
-      // De-emphasize previous
+    (marker: google.maps.Marker | null, placeId?: string) => {
       if (selectedMarkerRef.current && selectedMarkerRef.current !== marker) {
-        selectedMarkerRef.current.setIcon(baseIcon());
+        const prevId = selectedMarkerRef.current.get("placeId") as string | undefined;
+        const prevPreview = prevId ? previewsRef.current.get(prevId) : undefined;
+        selectedMarkerRef.current.setIcon(prevPreview ? photoIcon(prevPreview.topPhoto.url, false) : dotIcon());
         selectedMarkerRef.current.setZIndex(undefined);
       }
-      // Highlight new
       if (marker) {
-        marker.setIcon(selectedIcon());
+        const preview = placeId ? previewsRef.current.get(placeId) : undefined;
+        marker.setIcon(preview ? photoIcon(preview.topPhoto.url, true) : selectedDotIcon());
         marker.setZIndex(999);
       }
       selectedMarkerRef.current = marker;
     },
-    [baseIcon, selectedIcon]
+    [dotIcon, selectedDotIcon, photoIcon]
   );
 
   const addRestaurantMarker = useCallback(
-    (
-      mapInstance: google.maps.Map,
-      place: google.maps.places.PlaceResult
-    ) => {
-      if (!place.geometry?.location) return null;
+    (mapInstance: google.maps.Map, place: google.maps.places.PlaceResult) => {
+      if (!place.geometry?.location || !place.place_id) return null;
+      const placeId = place.place_id;
+      const preview = previewsRef.current.get(placeId);
 
       const marker = new window.google.maps.Marker({
         map: mapInstance,
         title: place.name,
         position: place.geometry.location,
-        icon: baseIcon(),
+        icon: preview ? photoIcon(preview.topPhoto.url, false) : dotIcon(),
         animation: window.google.maps.Animation.DROP,
       });
+      marker.set("placeId", placeId);
 
       marker.addListener("click", () => {
-        setMarkerSelected(marker);
+        setMarkerSelected(marker, placeId);
+        const currentPreview = previewsRef.current.get(placeId);
         setSelected({
-          placeId: place.place_id || "",
+          placeId,
           name: place.name || "Restaurant",
           vicinity: place.vicinity || place.formatted_address || "",
           rating: place.rating ?? undefined,
           userRatingsTotal: place.user_ratings_total ?? undefined,
           priceLevel: place.price_level ?? undefined,
+          dishes: currentPreview?.dishes,
         });
-        // Smoothly recenter slightly above the pin so the bottom sheet doesn't cover it
         if (place.geometry?.location) {
           mapInstance.panTo(place.geometry.location);
-          // Offset down so the pin sits in the upper portion
-          window.setTimeout(() => {
-            mapInstance.panBy(0, -100);
-          }, 150);
+          window.setTimeout(() => mapInstance.panBy(0, -100), 150);
         }
       });
 
       markersRef.current.push(marker);
       return marker;
     },
-    [baseIcon, setMarkerSelected]
+    [dotIcon, photoIcon, setMarkerSelected]
+  );
+
+  // Viewport prefetch (PRD §4.4 <300ms pin taps): batch-fetch corpus photo
+  // previews for every result before dropping markers, so pins render as
+  // photos immediately rather than dots-then-upgrade. Also the enqueue
+  // signal for uncrawled restaurants happens server-side in this same call.
+  const loadPreviewsAndAddMarkers = useCallback(
+    async (mapInstance: google.maps.Map, results: google.maps.places.PlaceResult[]) => {
+      const restaurants = results
+        .filter((r) => r.place_id && r.geometry?.location)
+        .map((r) => ({
+          placeId: r.place_id!,
+          name: r.name || "",
+          lat: r.geometry!.location!.lat(),
+          lng: r.geometry!.location!.lng(),
+          address: r.vicinity || r.formatted_address || "",
+        }));
+
+      try {
+        const res = await fetch("/api/map-photos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ restaurants }),
+        });
+        if (res.ok) {
+          const data: Record<string, MapPreview> = await res.json();
+          for (const [placeId, preview] of Object.entries(data)) {
+            previewsRef.current.set(placeId, preview);
+          }
+        }
+      } catch {
+        // Fail open — dot pins for everyone, map still fully usable.
+      }
+
+      results.slice(0, 20).forEach((place) => addRestaurantMarker(mapInstance, place));
+    },
+    [addRestaurantMarker]
   );
 
   const searchCurrentArea = useCallback(
@@ -153,35 +223,26 @@ export default function MapPicker({
 
       const service = new window.google.maps.places.PlacesService(mapInstance);
       service.nearbySearch(
-        {
-          location: center,
-          radius: Math.max(300, radius),
-          type: "restaurant",
-        },
+        { location: center, radius: Math.max(300, radius), type: "restaurant" },
         (results, status) => {
           setSearching(false);
-          if (
-            status !== window.google.maps.places.PlacesServiceStatus.OK ||
-            !results
-          ) {
-            return;
-          }
-          results.slice(0, 20).forEach((place) => {
-            addRestaurantMarker(mapInstance, place);
-          });
+          if (status !== window.google.maps.places.PlacesServiceStatus.OK || !results) return;
+          loadPreviewsAndAddMarkers(mapInstance, results);
         }
       );
     },
-    [clearMarkers, addRestaurantMarker]
+    [clearMarkers, loadPreviewsAndAddMarkers]
   );
 
   const initMap = useCallback(() => {
     if (!mapRef.current || !window.google) return;
 
+    const center = initialView ?? { lat, lng };
+    const zoom = initialView?.zoom ?? 15; // 15 = ~1250m radius; shows multiple restaurants vs 16 = ~625m (too tight in suburbs)
+
     const mapInstance = new window.google.maps.Map(mapRef.current, {
-      center: { lat, lng },
-      zoom: 15, // 15 = ~1250m radius; shows multiple restaurants vs 16 = ~625m (too tight in suburbs)
-      // Refined dark style — flatter, more modern
+      center,
+      zoom,
       styles: [
         { elementType: "geometry", stylers: [{ color: "#16161c" }] },
         { elementType: "labels.text.stroke", stylers: [{ color: "#16161c" }] },
@@ -206,16 +267,23 @@ export default function MapPicker({
 
     mapInstanceRef.current = mapInstance;
 
-    // Tap empty map area → dismiss bottom sheet
     mapInstance.addListener("click", () => {
       setSelected(null);
       setMarkerSelected(null);
     });
 
     let moveTimer: ReturnType<typeof setTimeout> | null = null;
+    let viewTimer: ReturnType<typeof setTimeout> | null = null;
     let firstIdle = true;
 
     mapInstance.addListener("idle", () => {
+      const c = mapInstance.getCenter();
+      const z = mapInstance.getZoom();
+      if (c && z !== undefined && onViewChange) {
+        if (viewTimer) clearTimeout(viewTimer);
+        viewTimer = setTimeout(() => onViewChange({ lat: c.lat(), lng: c.lng(), zoom: z }), 300);
+      }
+
       if (firstIdle) {
         firstIdle = false;
         searchCurrentArea(mapInstance);
@@ -229,9 +297,7 @@ export default function MapPicker({
       const searchBox = new window.google.maps.places.SearchBox(searchRef.current);
 
       mapInstance.addListener("bounds_changed", () => {
-        searchBox.setBounds(
-          mapInstance.getBounds() as google.maps.LatLngBounds
-        );
+        searchBox.setBounds(mapInstance.getBounds() as google.maps.LatLngBounds);
       });
 
       searchBox.addListener("places_changed", () => {
@@ -242,19 +308,16 @@ export default function MapPicker({
         setShowSearchHere(false);
         setSelected(null);
         const bounds = new window.google.maps.LatLngBounds();
-
         places.forEach((place) => {
-          addRestaurantMarker(mapInstance, place);
           if (place.geometry?.location) bounds.extend(place.geometry.location);
         });
-
         mapInstance.fitBounds(bounds);
         setTimeout(() => searchCurrentArea(mapInstance), 800);
       });
     }
 
     setReady(true);
-  }, [lat, lng, clearMarkers, addRestaurantMarker, searchCurrentArea, setMarkerSelected]);
+  }, [lat, lng, initialView, onViewChange, clearMarkers, searchCurrentArea, setMarkerSelected]);
 
   useEffect(() => {
     if (window.google?.maps) {
@@ -276,7 +339,10 @@ export default function MapPicker({
     script.async = true;
     script.defer = true;
     document.head.appendChild(script);
-  }, [initMap]);
+    // Only run once on mount — initMap is intentionally not in deps here;
+    // re-running on every initMap identity change would re-attach listeners.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRecenter = useCallback(() => {
     const map = mapInstanceRef.current;
@@ -294,7 +360,6 @@ export default function MapPicker({
         style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}
       >
         <div className="flex items-center gap-2">
-          {/* Back */}
           <button
             onClick={onClose}
             className="w-10 h-10 flex items-center justify-center rounded-full text-white/65 hover:text-white hover:bg-white/8 active:bg-white/15 transition-colors shrink-0"
@@ -305,7 +370,6 @@ export default function MapPicker({
             </svg>
           </button>
 
-          {/* Search input */}
           <div className="relative flex-1">
             <svg
               className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/35 pointer-events-none"
@@ -349,13 +413,10 @@ export default function MapPicker({
       <div className="relative flex-1">
         <div ref={mapRef} className="w-full h-full" />
 
-        {/* Search this area — top floating chip */}
         {ready && showSearchHere && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none fade-up">
             <button
-              onClick={() =>
-                mapInstanceRef.current && searchCurrentArea(mapInstanceRef.current)
-              }
+              onClick={() => mapInstanceRef.current && searchCurrentArea(mapInstanceRef.current)}
               className="pointer-events-auto bg-white text-gray-900 text-[13px] font-bold px-5 py-2.5 rounded-full shadow-2xl active:scale-95 transition-transform flex items-center gap-2"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -366,7 +427,6 @@ export default function MapPicker({
           </div>
         )}
 
-        {/* Searching pill */}
         {searching && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 fade-in">
             <div className="bg-[var(--surface-1)]/95 backdrop-blur text-white/70 text-[12px] font-semibold px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2.5 border border-[var(--border-subtle)]">
@@ -376,7 +436,6 @@ export default function MapPicker({
           </div>
         )}
 
-        {/* Recenter FAB */}
         <button
           onClick={handleRecenter}
           className="absolute bottom-4 right-4 z-10 w-12 h-12 rounded-full glass border border-[var(--border-subtle)] flex items-center justify-center shadow-2xl active:scale-95 transition-transform"
@@ -392,10 +451,9 @@ export default function MapPicker({
           </svg>
         </button>
 
-        {/* Bottom sheet — restaurant preview */}
+        {/* Bottom sheet — restaurant preview + dish strip (PRD §4.4) */}
         {selected && (
           <>
-            {/* Light backdrop dim */}
             <div
               className="absolute inset-0 z-10 pointer-events-none"
               style={{ background: "linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 50%)" }}
@@ -407,18 +465,15 @@ export default function MapPicker({
               <div
                 className="rounded-3xl border border-[var(--border-soft)] p-4 shadow-2xl"
                 style={{
-                  background:
-                    "linear-gradient(180deg, rgba(28,28,32,0.96) 0%, rgba(18,18,22,0.96) 100%)",
+                  background: "linear-gradient(180deg, rgba(28,28,32,0.96) 0%, rgba(18,18,22,0.96) 100%)",
                   backdropFilter: "saturate(180%) blur(24px)",
                   WebkitBackdropFilter: "saturate(180%) blur(24px)",
                 }}
               >
-                {/* Drag handle */}
                 <div className="flex justify-center mb-3">
                   <div className="w-9 h-1 rounded-full bg-white/15" />
                 </div>
 
-                {/* Header row: name + close */}
                 <div className="flex items-start justify-between gap-3 mb-1">
                   <h3 className="text-white text-[18px] font-bold leading-tight tracking-[-0.01em] flex-1 min-w-0">
                     {selected.name}
@@ -437,9 +492,7 @@ export default function MapPicker({
                   </button>
                 </div>
 
-                {/* Stats row */}
-                {(selected.rating !== undefined ||
-                  selected.priceLevel !== undefined) && (
+                {(selected.rating !== undefined || selected.priceLevel !== undefined) && (
                   <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
                     {selected.rating !== undefined && (
                       <div className="flex items-center gap-1">
@@ -458,30 +511,46 @@ export default function MapPicker({
                         )}
                       </div>
                     )}
-                    {selected.rating !== undefined &&
-                      selected.priceLevel !== undefined && (
-                        <span className="text-white/15 text-[10px]">·</span>
-                      )}
-                    {selected.priceLevel !== undefined &&
-                      selected.priceLevel > 0 && (
-                        <PriceLevel level={selected.priceLevel} />
-                      )}
+                    {selected.rating !== undefined && selected.priceLevel !== undefined && (
+                      <span className="text-white/15 text-[10px]">·</span>
+                    )}
+                    {selected.priceLevel !== undefined && selected.priceLevel > 0 && (
+                      <PriceLevel level={selected.priceLevel} />
+                    )}
                   </div>
                 )}
 
-                {/* Address */}
                 {selected.vicinity && (
-                  <p className="text-white/45 text-[12px] mb-3.5 truncate font-medium">
-                    {selected.vicinity}
-                  </p>
+                  <p className="text-white/45 text-[12px] mb-3 truncate font-medium">{selected.vicinity}</p>
                 )}
 
-                {/* CTA */}
+                {/* Swipeable top-5 dish strip (PRD §4.4) — only when corpus has photos */}
+                {selected.dishes && selected.dishes.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar mb-3.5 -mx-0.5 px-0.5">
+                    {selected.dishes.map((d) => (
+                      <div
+                        key={d.id}
+                        className="shrink-0 w-20 h-20 rounded-xl overflow-hidden relative bg-[var(--surface-2)]"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={d.url} alt={d.dishName || ""} className="w-full h-full object-cover" />
+                        {d.dishName && (
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-1.5 py-1">
+                            <p className="text-white text-[9px] font-bold leading-tight line-clamp-2">
+                              {d.dishName}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <button
                   onClick={() => onSelectRestaurant(selected.placeId, selected.name)}
                   className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-bold text-[15px] py-3.5 rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
                 >
-                  See the dishes
+                  See all dishes
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m9 18 6-6-6-6"/>
                   </svg>

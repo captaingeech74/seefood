@@ -25,6 +25,7 @@ export interface CorpusSnapshot {
 
 interface PhotoRow {
   id: number;
+  restaurant_id?: string;
   storage_url: string | null;
   origin_url: string | null;
   source: string;
@@ -87,6 +88,91 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
   const isFresh = ageMs < CORPUS_FRESH_HOURS * 60 * 60 * 1000;
 
   return { photos, popularDishes: [], isFresh };
+}
+
+export interface MapDishPreview {
+  topPhoto: DishPhoto;
+  dishes: DishPhoto[]; // top ~5, tier-ordered, for the bottom-sheet strip
+}
+
+/**
+ * Batch corpus lookup for Map Explore v2 (PRD §4.4) — one query per pin
+ * batch (viewport-sized, not per-marker) so a screenful of pins stays
+ * corpus-fast. Restaurants with no corpus photos are simply absent from the
+ * returned map (dot pin client-side).
+ */
+export async function getMapPhotosForPlaceIds(
+  placeIds: string[]
+): Promise<Map<string, MapDishPreview>> {
+  const result = new Map<string, MapDishPreview>();
+  if (placeIds.length === 0) return result;
+
+  const [{ data: photoRows }, { data: menuItemRows }] = await Promise.all([
+    supabase
+      .from("photos")
+      .select("*")
+      .in("restaurant_id", placeIds)
+      .order("tier", { ascending: true })
+      .order("id", { ascending: true }),
+    supabase.from("menu_items").select("id,name,description,restaurant_id").in("restaurant_id", placeIds),
+  ]);
+  if (!photoRows) return result;
+
+  const menuItemsById = new Map<number, MenuItemRow>((menuItemRows ?? []).map((m: MenuItemRow) => [m.id, m]));
+
+  const byRestaurant = new Map<string, DishPhoto[]>();
+  for (const p of photoRows as (PhotoRow & { restaurant_id: string })[]) {
+    const menuItem = p.menu_item_id ? menuItemsById.get(p.menu_item_id) : undefined;
+    const photo: DishPhoto = {
+      id: `corpus-${p.id}`,
+      url: p.storage_url ?? p.origin_url ?? "",
+      dishName: menuItem?.name ?? p.gemini_label ?? null,
+      dishDescription: menuItem?.description ?? null,
+      isMenuMatch: !!menuItem,
+      source: p.source as DishPhoto["source"],
+      attribution: p.attribution as DishPhoto["attribution"],
+      tier: (p.tier ?? (menuItem ? 1 : p.gemini_label ? 2 : 3)) as 1 | 2 | 3,
+      width: p.width ?? 800,
+      height: p.height ?? 600,
+    };
+    const list = byRestaurant.get(p.restaurant_id) ?? [];
+    list.push(photo);
+    byRestaurant.set(p.restaurant_id, list);
+  }
+
+  for (const [placeId, photos] of byRestaurant) {
+    if (photos.length === 0) continue;
+    result.set(placeId, { topPhoto: photos[0], dishes: photos.slice(0, 5) });
+  }
+  return result;
+}
+
+/**
+ * PRD §4.4 — "viewport visits enqueue them for crawling: the map teaches the
+ * crawler where to go." Lightweight signal only: insert-if-absent with
+ * status='queued' so an already-active/crawled restaurant is never reset.
+ * The Tier 1 crawler can pick up status='queued' rows in a future pass.
+ */
+export async function enqueueForCrawl(place: {
+  placeId: string;
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+}): Promise<void> {
+  await supabase
+    .from("restaurants")
+    .upsert(
+      {
+        place_id: place.placeId,
+        name: place.name,
+        lat: place.lat,
+        lng: place.lng,
+        address: place.address,
+        status: "queued",
+      },
+      { onConflict: "place_id", ignoreDuplicates: true }
+    );
 }
 
 /** "Richie's Real American Diner", "32150 Temecula Pkwy, Temecula, CA" → "richies-real-american-diner-temecula" */

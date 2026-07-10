@@ -45,10 +45,23 @@ export default function RestaurantHeader({
         </span>
       </div>
 
-      {/* Restaurant name */}
-      <h1 className="text-[23px] font-bold text-white leading-[1.15] tracking-[-0.015em] truncate">
-        {restaurant.name}
-      </h1>
+      {/* Restaurant name — tappable, opens Map Explore pre-centered (PRD §4.1) */}
+      <button
+        onClick={onChangeRestaurant}
+        className="flex items-center gap-1.5 max-w-full active:opacity-60 transition-opacity"
+        aria-label="You're at this restaurant — tap to explore the map"
+      >
+        <h1 className="text-[23px] font-bold text-white leading-[1.15] tracking-[-0.015em] truncate">
+          {restaurant.name}
+        </h1>
+        <svg
+          width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+          className="text-white/35 shrink-0 mt-0.5"
+        >
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
+      </button>
 
       {/* Stats row */}
       {(hasRating || hasPrice || typeof isOpen === "boolean") && (
