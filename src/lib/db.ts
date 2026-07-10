@@ -117,10 +117,17 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
     .eq("place_id", placeId)
     .maybeSingle();
 
-  const baseSlug = existing?.slug ?? slugifyRestaurant(restaurant.name, restaurant.address);
+  // Strip cache-busting suffixes like " [bench-2026-07-10]" that scripts/
+  // benchmark.mjs appends to the `name` query param to force a fresh live
+  // fetch — that param feeds straight into persisted name/slug generation
+  // with no separation, so without this guard every benchmark run
+  // permanently baked its run-tag into the restaurant's stored name.
+  const cleanName = restaurant.name.replace(/\s*\[bench-[^\]]*\]\s*$/i, "").trim();
+
+  const baseSlug = existing?.slug ?? slugifyRestaurant(cleanName, restaurant.address);
   const row = {
     place_id: placeId,
-    name: restaurant.name,
+    name: cleanName,
     lat: restaurant.lat,
     lng: restaurant.lng,
     address: restaurant.address,
