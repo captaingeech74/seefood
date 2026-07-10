@@ -45,22 +45,29 @@ export default function RestaurantHeader({
         </span>
       </div>
 
-      {/* Restaurant name — tappable, opens Map Explore pre-centered (PRD §4.1) */}
+      {/* Restaurant name — tappable, opens Map Explore pre-centered (PRD §4.1).
+          Pill background + filled chevron badge make the affordance obvious
+          at a glance, not just a text label with a faint arrow next to it. */}
       <button
         onClick={onChangeRestaurant}
-        className="flex items-center gap-1.5 max-w-full active:opacity-60 transition-opacity"
+        className="group flex items-center gap-2 max-w-full -ml-2 pl-2 pr-2.5 py-1 rounded-xl active:scale-[0.98] active:bg-white/8 transition-all"
         aria-label="You're at this restaurant — tap to explore the map"
       >
         <h1 className="text-[23px] font-bold text-white leading-[1.15] tracking-[-0.015em] truncate">
           {restaurant.name}
         </h1>
-        <svg
-          width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-          className="text-white/35 shrink-0 mt-0.5"
+        <span
+          className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+          style={{ background: "var(--accent-soft)" }}
         >
-          <path d="m6 9 6 6 6-6"/>
-        </svg>
+          <svg
+            width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+            style={{ color: "var(--accent)" }}
+          >
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </span>
       </button>
 
       {/* Stats row */}
@@ -101,31 +108,33 @@ export default function RestaurantHeader({
         {restaurant.address}
       </p>
 
-      {/* Change Restaurant — full-width prominent row, easy to find and tap */}
+      {/* Change Restaurant — a real button now (was a thin text row Kyle flagged
+          as too small), bigger tap target and clearer button-shaped affordance. */}
       <button
         onClick={onChangeRestaurant}
-        className="w-full flex items-center justify-between mt-3 pt-3 border-t border-white/8 active:opacity-60 transition-opacity"
+        className="w-full flex items-center justify-between mt-3 px-4 py-3.5 rounded-2xl active:scale-[0.98] transition-all"
+        style={{ background: "var(--surface-2)" }}
         aria-label="Change restaurant"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <svg
-            width="14" height="14" viewBox="0 0 24 24" fill="none"
+            width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
             style={{ color: "var(--accent)" }}
           >
             <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
             <circle cx="12" cy="10" r="3"/>
           </svg>
-          <span className="text-[13px] text-white/45 font-medium">
+          <span className="text-[14px] text-white/55 font-medium">
             Not the right place?
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-[13px] font-bold" style={{ color: "var(--accent)" }}>
+          <span className="text-[14px] font-bold" style={{ color: "var(--accent)" }}>
             Change restaurant
           </span>
           <svg
-            width="13" height="13" viewBox="0 0 24 24" fill="none"
+            width="14" height="14" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
             style={{ color: "var(--accent)" }}
           >

@@ -18,23 +18,69 @@ const SOURCE_LABELS: Record<DishPhoto["source"], string> = {
   chownow: "ChowNow", olo: "Olo", popmenu: "PopMenu", menu_ocr: "Menu",
 };
 
-/** PRD §4.3 — full-bleed immersive vertical swipe, replaces the old Lightbox entirely. */
+const SWIPE_THRESHOLD = 60; // px of finger travel to commit a navigation
+const ANIM_MS = 300;
+
+/**
+ * PRD §4.3 — full-bleed immersive vertical swipe, replaces the old Lightbox
+ * entirely. A real 3-slot sliding track (prev/current/next stacked and
+ * translated together) rather than a swap-in-place image, so the motion
+ * reads like Instagram/TikTok — the next photo visibly slides up from below
+ * (or down from above) instead of popping.
+ */
 export default function Reveal({ photos, startIndex, restaurant, onClose }: RevealProps) {
   const [index, setIndex] = useState(startIndex);
-  const [dragY, setDragY] = useState(0);
+  const [dragY, setDragY] = useState(0); // live px offset — finger-follow while dragging, animated target while settling
   const [isDragging, setIsDragging] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [isResetting, setIsResetting] = useState(false); // true for the single no-transition frame after a commit
   const [detailOpen, setDetailOpen] = useState(false);
+  const [hasSwiped, setHasSwiped] = useState(false);
   const startYRef = useRef(0);
 
   const photo = photos[index];
-
-  const goNext = useCallback(
-    () => setIndex((i) => Math.min(photos.length - 1, i + 1)),
-    [photos.length]
-  );
-  const goPrev = useCallback(() => setIndex((i) => Math.max(0, i - 1)), []);
+  const prevPhoto = index > 0 ? photos[index - 1] : null;
+  const nextPhoto = index < photos.length - 1 ? photos[index + 1] : null;
 
   const close = useCallback(() => onClose(index), [onClose, index]);
+
+  // Animates the track to a target offset, then commits the index change on
+  // a frame where the transition is disabled — so the swap from "next slide
+  // slid into center" to "that slide is now current, offset reset to 0" is
+  // visually seamless instead of a snap-back flash.
+  const animateTo = useCallback((targetOffset: number, nextIdx: number) => {
+    setIsAnimating(true);
+    setDragY(targetOffset);
+    window.setTimeout(() => {
+      setIsResetting(true);
+      setIndex(nextIdx);
+      setDragY(0);
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          setIsResetting(false);
+          setIsAnimating(false);
+        })
+      );
+    }, ANIM_MS);
+  }, []);
+
+  const snapBack = useCallback(() => {
+    setIsAnimating(true);
+    setDragY(0);
+    window.setTimeout(() => setIsAnimating(false), ANIM_MS);
+  }, []);
+
+  const goNext = useCallback(() => {
+    if (isAnimating || index >= photos.length - 1) return;
+    setHasSwiped(true);
+    animateTo(-window.innerHeight, index + 1);
+  }, [isAnimating, index, photos.length, animateTo]);
+
+  const goPrev = useCallback(() => {
+    if (isAnimating || index <= 0) return;
+    setHasSwiped(true);
+    animateTo(window.innerHeight, index - 1);
+  }, [isAnimating, index, animateTo]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -53,6 +99,7 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
   }, []);
 
   const onTouchStart = (e: React.TouchEvent) => {
+    if (isAnimating) return;
     startYRef.current = e.touches[0].clientY;
     setIsDragging(true);
   };
@@ -64,13 +111,19 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
     if (!isDragging) return;
     setIsDragging(false);
     const dy = e.changedTouches[0].clientY - startYRef.current;
-    if (dy < -60) goNext();
-    else if (dy > 60) {
+    if (dy < -SWIPE_THRESHOLD && index < photos.length - 1) {
+      setHasSwiped(true);
+      animateTo(-window.innerHeight, index + 1);
+    } else if (dy > SWIPE_THRESHOLD) {
       // Swipe down: previous dish, or dismiss if already at the top (PRD §4.3).
       if (index === 0) close();
-      else goPrev();
+      else {
+        setHasSwiped(true);
+        animateTo(window.innerHeight, index - 1);
+      }
+    } else {
+      snapBack();
     }
-    setDragY(0);
   };
 
   // Same-dish photo grouping for Dish Detail — exact dish-name match across
@@ -81,6 +134,14 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
     const key = photo.dishName.toLowerCase().trim();
     return photos.filter((p) => p.dishName?.toLowerCase().trim() === key);
   }, [photo, photos]);
+
+  // "SeeFood" moment (Kyle's idea): when a dish has photos from BOTH
+  // management and real diners, let people compare the ad shot to what
+  // actually showed up on their table — split into two labeled carousels
+  // instead of one flat strip. Falls back to the flat strip otherwise.
+  const managementPhotos = useMemo(() => sameDishPhotos.filter((p) => p.attribution === "owner"), [sameDishPhotos]);
+  const dinerPhotos = useMemo(() => sameDishPhotos.filter((p) => p.attribution === "user"), [sameDishPhotos]);
+  const canCompare = managementPhotos.length > 0 && dinerPhotos.length > 0;
 
   const [sharing, setSharing] = useState(false);
   const handleShare = async () => {
@@ -95,15 +156,31 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
 
   if (!photo) return null;
 
+  const trackTransition = isDragging || isResetting ? "none" : `transform ${ANIM_MS}ms var(--ease-spring)`;
+
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/97 fade-in"
+      className="fixed inset-0 z-[100] bg-black/97 fade-in overflow-hidden"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       role="dialog"
       aria-modal="true"
     >
+      {/* Sliding track — prev/current/next stacked, translated together */}
+      {prevPhoto && (
+        <Slide photo={prevPhoto} style={{ transform: `translateY(calc(-100% + ${dragY}px))`, transition: trackTransition }} />
+      )}
+      <Slide
+        photo={photo}
+        interactive
+        onTap={() => setDetailOpen((v) => !v)}
+        style={{ transform: `translateY(${dragY}px)`, transition: trackTransition }}
+      />
+      {nextPhoto && (
+        <Slide photo={nextPhoto} style={{ transform: `translateY(calc(100% + ${dragY}px))`, transition: trackTransition }} />
+      )}
+
       {/* Top bar — counter + close */}
       <div
         className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-4 py-3"
@@ -122,25 +199,6 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
           </svg>
         </button>
       </div>
-
-      {/* Image — tap opens Dish Detail */}
-      <button
-        className="absolute inset-0 flex items-center justify-center w-full"
-        onClick={() => setDetailOpen((v) => !v)}
-        aria-label="Toggle dish detail"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={photo.url}
-          alt={photo.dishName || "Restaurant photo"}
-          className="max-w-full max-h-full object-contain select-none scale-in"
-          style={{
-            transform: isDragging ? `translateY(${dragY * 0.4}px)` : undefined,
-            transition: isDragging ? "none" : "transform 280ms var(--ease-spring)",
-          }}
-          draggable={false}
-        />
-      </button>
 
       {/* Bottom overlay — dish name + provenance badge (hidden while detail is open) */}
       {!detailOpen && (
@@ -169,9 +227,20 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
             <p className="text-white/50 text-[14px] font-medium italic mb-1">No dish identified</p>
           )}
 
-          <p className="text-white/30 text-[11px] font-medium pointer-events-auto">
-            Tap photo for details · Swipe up for next
-          </p>
+          <div className="flex items-center gap-1.5 pointer-events-auto">
+            {!hasSwiped && nextPhoto && (
+              <svg
+                width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                className="text-white/40 animate-bounce"
+              >
+                <path d="M12 5v14M5 12l7 7 7-7"/>
+              </svg>
+            )}
+            <p className="text-white/30 text-[11px] font-medium">
+              Tap photo for details · Swipe up for next
+            </p>
+          </div>
         </div>
       )}
 
@@ -195,28 +264,32 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
             <p className="text-white/60 text-[13px] leading-relaxed mb-4">{photo.dishDescription}</p>
           )}
 
-          {sameDishPhotos.length > 1 && (
-            <div className="mb-4">
-              <p className="text-[10px] uppercase font-bold text-white/35 mb-2" style={{ letterSpacing: "0.14em" }}>
-                More photos of this dish
+          {canCompare ? (
+            <div className="mb-4 space-y-3">
+              <p className="text-[10px] uppercase font-bold text-white/35" style={{ letterSpacing: "0.14em" }}>
+                See the food — management vs. real diners
               </p>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                {sameDishPhotos.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      const i = photos.indexOf(p);
-                      if (i >= 0) setIndex(i);
-                    }}
-                    className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2"
-                    style={{ borderColor: p.id === photo.id ? "var(--accent)" : "transparent" }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.url} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
+              <PhotoStrip label="From management" photos={managementPhotos} activeId={photo.id} onPick={(p) => {
+                const i = photos.indexOf(p);
+                if (i >= 0) setIndex(i);
+              }} />
+              <PhotoStrip label="From real diners" photos={dinerPhotos} activeId={photo.id} onPick={(p) => {
+                const i = photos.indexOf(p);
+                if (i >= 0) setIndex(i);
+              }} accent />
             </div>
+          ) : (
+            sameDishPhotos.length > 1 && (
+              <div className="mb-4">
+                <p className="text-[10px] uppercase font-bold text-white/35 mb-2" style={{ letterSpacing: "0.14em" }}>
+                  More photos of this dish
+                </p>
+                <PhotoStrip photos={sameDishPhotos} activeId={photo.id} onPick={(p) => {
+                  const i = photos.indexOf(p);
+                  if (i >= 0) setIndex(i);
+                }} />
+              </div>
+            )
           )}
 
           <div className="flex items-center justify-between">
@@ -246,6 +319,79 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function Slide({
+  photo,
+  interactive = false,
+  onTap,
+  style,
+}: {
+  photo: DishPhoto;
+  interactive?: boolean;
+  onTap?: () => void;
+  style: React.CSSProperties;
+}) {
+  const img = (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={photo.url}
+      alt={photo.dishName || "Restaurant photo"}
+      className="max-w-full max-h-full object-contain select-none"
+      draggable={false}
+    />
+  );
+  return (
+    <div className="absolute inset-0 flex items-center justify-center" style={style}>
+      {interactive ? (
+        <button className="absolute inset-0 flex items-center justify-center w-full" onClick={onTap} aria-label="Toggle dish detail">
+          {img}
+        </button>
+      ) : (
+        img
+      )}
+    </div>
+  );
+}
+
+function PhotoStrip({
+  label,
+  photos,
+  activeId,
+  onPick,
+  accent = false,
+}: {
+  label?: string;
+  photos: DishPhoto[];
+  activeId: string;
+  onPick: (p: DishPhoto) => void;
+  accent?: boolean;
+}) {
+  return (
+    <div>
+      {label && (
+        <p
+          className="text-[10px] font-bold uppercase mb-1.5"
+          style={{ letterSpacing: "0.1em", color: accent ? "var(--accent)" : "rgba(255,255,255,0.4)" }}
+        >
+          {label}
+        </p>
+      )}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+        {photos.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => onPick(p)}
+            className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2"
+            style={{ borderColor: p.id === activeId ? "var(--accent)" : "transparent" }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={p.url} alt="" className="w-full h-full object-cover" />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

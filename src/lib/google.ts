@@ -268,6 +268,8 @@ interface GeminiResult {
   isMenuMatch: boolean;
   isFood: boolean;
   isMenuPhoto: boolean;
+  /** Original analysisUrls index of an earlier near-duplicate photo, or null. */
+  duplicateOfIndex: number | null;
 }
 
 // A name is unusable if it looks cut off mid-thought — trailing conjunctions,
@@ -300,6 +302,7 @@ async function analyzePhotosWithGeminiBatch(
     isMenuMatch: false,
     isFood: true,
     isMenuPhoto: false,
+    duplicateOfIndex: null,
   };
   if (analysisUrls.length === 0) return [];
 
@@ -332,8 +335,10 @@ If isOrderable is true for a photo:
 
 If isOrderable is false, set "name" and "description" to null.
 
+Also decide "duplicateOfPhotoNumber": if this photo is a near-identical or duplicate shot of an EARLIER photo in this set (the same physical plate/moment — e.g. Google assigned two photo IDs to what's really one upload), return that earlier photo's number; otherwise null. Two different photos of the same dish type taken by different people are NOT duplicates — only flag true same-shot duplicates.
+
 Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one per photo in order, no markdown fences, no explanation:
-[{"isFood": boolean, "isOrderable": boolean, "isMenuPhoto": boolean, "name": string|null, "description": string|null}, ...]`;
+[{"isFood": boolean, "isOrderable": boolean, "isMenuPhoto": boolean, "name": string|null, "description": string|null, "duplicateOfPhotoNumber": number|null}, ...]`;
 
   const parts: unknown[] = [{ text: promptIntro }];
   validIndices.forEach((idx, n) => {
@@ -387,6 +392,7 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
         isMenuPhoto?: boolean;
         name?: string | null;
         description?: string | null;
+        duplicateOfPhotoNumber?: number | null;
       }>;
       try {
         parsed = JSON.parse(rawText);
@@ -400,7 +406,13 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
       const out: GeminiResult[] = analysisUrls.map(() => fallback);
       validIndices.forEach((originalIdx, n) => {
         const entry = parsed[n];
-        out[originalIdx] = resolveGeminiEntry(entry, menuItems, popularDishes, hasMenu);
+        const result = resolveGeminiEntry(entry, menuItems, popularDishes, hasMenu);
+        const dupNum = entry?.duplicateOfPhotoNumber;
+        result.duplicateOfIndex =
+          typeof dupNum === "number" && dupNum >= 1 && dupNum <= validIndices.length && validIndices[dupNum - 1] !== originalIdx
+            ? validIndices[dupNum - 1]
+            : null;
+        out[originalIdx] = result;
       });
       return out;
     } catch (e) {
@@ -418,7 +430,7 @@ function resolveGeminiEntry(
   popularDishes: string[],
   hasMenu: boolean
 ): GeminiResult {
-  const fallback: GeminiResult = { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false };
+  const fallback: GeminiResult = { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false, duplicateOfIndex: null };
   if (!entry) return fallback;
   if (!entry.isFood || !entry.isOrderable || !entry.name) {
     return {
@@ -427,12 +439,13 @@ function resolveGeminiEntry(
       isMenuMatch: false,
       isFood: !!entry.isFood,
       isMenuPhoto: !!entry.isMenuPhoto,
+      duplicateOfIndex: null,
     };
   }
 
   const name = entry.name.trim();
   if (isTruncatedOrInvalid(name)) {
-    return { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false };
+    return { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false, duplicateOfIndex: null };
   }
 
   // Match against menu reference list — exact first, then one-way fuzzy.
@@ -461,7 +474,106 @@ function resolveGeminiEntry(
     isMenuMatch: !!(matchedItem || matchedPopular),
     isFood: true,
     isMenuPhoto: false,
+    duplicateOfIndex: null,
   };
+}
+
+// ── Pre-labeled photo quality check ───────────────────────────────────────────
+// Pre-labeled owner photos (Menufy/DoorDash/schema.org) bypass the "would you
+// order it" Gemini filter entirely — they arrive with a trusted dish name, so
+// there was never a check for whether the IMAGE itself is a real photo of the
+// served dish vs. a marketing graphic (logo/text overlay, multi-dish collage
+// built for an ad). Confirmed live July 2026: Richie's hero was exactly this —
+// a "BBQ Family Paks" promotional graphic. Deliberately conservative per
+// founder direction: letting an ad through is far cheaper than hiding a real
+// food photo, so only unambiguous marketing graphics get flagged.
+
+interface PreLabeledQualityResult {
+  isPromotional: boolean;
+  duplicateOfIndex: number | null; // index within `photos` of an earlier duplicate, or null
+}
+
+async function assessPreLabeledPhotos(
+  photos: DishPhoto[],
+  restaurantName: string
+): Promise<PreLabeledQualityResult[]> {
+  const fallback: PreLabeledQualityResult = { isPromotional: false, duplicateOfIndex: null };
+  if (photos.length === 0) return [];
+
+  const images = await Promise.all(photos.map((p) => fetchImageAsBase64(p.url)));
+  const validIndices = images.map((img, i) => (img ? i : -1)).filter((i) => i >= 0);
+  if (validIndices.length === 0) return photos.map(() => fallback);
+
+  const promptIntro = `You are reviewing ${validIndices.length} photos "${restaurantName}" itself uploaded to its ordering menu, numbered in order (Photo 1, Photo 2, ...). Each is already labeled with a real dish name from the menu — you do NOT need to identify the dish.
+
+For EACH photo, decide "isPromotional": true ONLY if the image is clearly a marketing graphic rather than a photo of the actual served dish — e.g. it has visible overlaid text, prices, or logos, is a collage of multiple unrelated dishes arranged for advertising, or is obviously a stock/template graphic. A single real plated dish, drink, or dessert is NEVER promotional, even if professionally lit or styled — when in doubt, set isPromotional to false. Wrongly letting an ad through is far better than wrongly hiding a real food photo.
+
+Also decide "duplicateOfPhotoNumber": if this photo is a near-identical or duplicate shot of an EARLIER photo in this set (the same physical dish/plate/moment — not just a similar dish), return that earlier photo's number; otherwise null.
+
+Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one per photo in order, no markdown fences, no explanation:
+[{"isPromotional": boolean, "duplicateOfPhotoNumber": number|null}, ...]`;
+
+  const parts: unknown[] = [{ text: promptIntro }];
+  validIndices.forEach((idx, n) => {
+    const img = images[idx]!;
+    parts.push({ text: `Photo ${n + 1}:` });
+    parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+  });
+
+  const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
+  const requestBody = JSON.stringify({
+    contents: [{ parts }],
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 512 + validIndices.length * 60,
+      responseMimeType: "application/json",
+    },
+  });
+
+  for (const model of MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${VISION_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody,
+          signal: AbortSignal.timeout(30000),
+        }
+      );
+      if (!res.ok) {
+        if (res.status === 403) break;
+        continue;
+      }
+
+      const json = await res.json();
+      const rawText: string = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+
+      let parsed: Array<{ isPromotional?: boolean; duplicateOfPhotoNumber?: number | null }>;
+      try {
+        parsed = JSON.parse(rawText);
+        if (!Array.isArray(parsed)) throw new Error("not an array");
+      } catch {
+        console.error(`[Pre-labeled quality] ${model} returned invalid JSON:`, rawText.slice(0, 300));
+        continue;
+      }
+
+      const out: PreLabeledQualityResult[] = photos.map(() => fallback);
+      validIndices.forEach((originalIdx, n) => {
+        const entry = parsed[n];
+        const dupNum = entry?.duplicateOfPhotoNumber;
+        const dupOriginalIdx =
+          typeof dupNum === "number" && dupNum >= 1 && dupNum <= validIndices.length && validIndices[dupNum - 1] !== originalIdx
+            ? validIndices[dupNum - 1]
+            : null;
+        out[originalIdx] = { isPromotional: !!entry?.isPromotional, duplicateOfIndex: dupOriginalIdx };
+      });
+      return out;
+    } catch (e) {
+      console.error(`[Pre-labeled quality] ${model} request failed:`, e);
+    }
+  }
+  return photos.map(() => fallback);
 }
 
 // ── Menu-photo OCR ─────────────────────────────────────────────────────────────
@@ -544,8 +656,11 @@ function mergeDescription(shortName: string, fullName: string, description?: str
 }
 
 // ── Priority scoring ──────────────────────────────────────────────────────────
-// Pre-labeled photos (DoorDash, website schema.org) bypass Gemini and score 200.
-// Gemini-analyzed photos use this function.
+// Gemini-analyzed (raw Google) photos use this function directly. Pre-labeled
+// photos (Menufy/DoorDash/schema.org) skip name/description re-derivation
+// (their name is already trusted) but now go through a separate quality pass
+// (assessPreLabeledPhotos) before being scored at a flat PRE_LABELED_SCORE —
+// see finalizeWithGemini.
 
 function computePriorityScore(
   dishName: string | null,
@@ -750,12 +865,12 @@ export async function finalizeWithGemini(
   const { placeId, restaurantName, preLabeledPhotos, googleCandidates, googleAnalysisUrls, googleDisplayUrls, popularDishes } = c;
   const allMenuItems = [...c.allMenuItems];
 
-  const geminiResults = await analyzePhotosWithGeminiBatch(
-    googleAnalysisUrls,
-    allMenuItems,
-    popularDishes,
-    restaurantName
-  );
+  // Run both batched Gemini passes together — independent photo sets, same
+  // $0 infrastructure, no reason to serialize them.
+  const [geminiResults, preLabeledQuality] = await Promise.all([
+    analyzePhotosWithGeminiBatch(googleAnalysisUrls, allMenuItems, popularDishes, restaurantName),
+    assessPreLabeledPhotos(preLabeledPhotos, restaurantName),
+  ]);
 
   // OCR any photos flagged as pictures of the menu itself. These items arrive too
   // late to help name photos in *this* request, but get persisted to the corpus
@@ -774,8 +889,9 @@ export async function finalizeWithGemini(
 
   const geminiPhotos: { photo: DishPhoto; score: number }[] = [];
   googleCandidates.forEach((photo, i) => {
-    const result = geminiResults[i] ?? { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false };
+    const result = geminiResults[i] ?? { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false, duplicateOfIndex: null };
     if (!result.isFood || result.isMenuPhoto) return; // drop non-food and menu-board photos
+    if (result.duplicateOfIndex !== null) return; // near-identical shot of an earlier photo — drop it, not the original
     const attrText = photo.html_attributions.join(" ").toLowerCase();
     const isOwner =
       attrText.includes("owner") ||
@@ -800,7 +916,19 @@ export async function finalizeWithGemini(
   });
 
   geminiPhotos.sort((a, b) => b.score - a.score);
-  const scoredPreLabeled = preLabeledPhotos.map((photo) => ({ photo, score: 200 }));
+
+  // Filter promotional/ad-style graphics and near-duplicates out of the
+  // pre-labeled set entirely, and rescore the survivors down from an
+  // unconditional 200 to PRE_LABELED_SCORE — high enough to land solidly in
+  // tier 1 ("on the menu"), but no longer guaranteed to outrank every real
+  // patron photo, so management photos are the fallback, not the default
+  // star (founder decision, PRD hero-tile debate — see DECISIONS.md).
+  const PRE_LABELED_SCORE = 60;
+  const scoredPreLabeled = preLabeledPhotos
+    .map((photo, i) => ({ photo, quality: preLabeledQuality[i] }))
+    .filter(({ quality }) => !quality?.isPromotional && quality?.duplicateOfIndex === null)
+    .map(({ photo }) => ({ photo: { ...photo, tier: scoreToTier(PRE_LABELED_SCORE) }, score: PRE_LABELED_SCORE }));
+
   const all = [...scoredPreLabeled, ...geminiPhotos];
 
   return { photos: all.map((e) => e.photo), menuItems: allMenuItems };

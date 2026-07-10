@@ -414,12 +414,12 @@ export default function MapPicker({
         <div ref={mapRef} className="w-full h-full" />
 
         {ready && showSearchHere && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none fade-up">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none fade-up">
             <button
               onClick={() => mapInstanceRef.current && searchCurrentArea(mapInstanceRef.current)}
-              className="pointer-events-auto bg-white text-gray-900 text-[13px] font-bold px-5 py-2.5 rounded-full shadow-2xl active:scale-95 transition-transform flex items-center gap-2"
+              className="pointer-events-auto bg-white text-gray-900 text-[15px] font-bold px-7 py-3.5 rounded-full shadow-2xl active:scale-95 transition-transform flex items-center gap-2.5"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>
               </svg>
               Search this area
@@ -438,14 +438,14 @@ export default function MapPicker({
 
         <button
           onClick={handleRecenter}
-          className="absolute bottom-4 right-4 z-10 w-12 h-12 rounded-full glass border border-[var(--border-subtle)] flex items-center justify-center shadow-2xl active:scale-95 transition-transform"
+          className="absolute bottom-5 right-4 z-10 w-14 h-14 rounded-full glass border border-[var(--border-subtle)] flex items-center justify-center shadow-2xl active:scale-95 transition-transform"
           style={{
             transform: selected ? "translateY(-100%)" : "translateY(0)",
             transition: "transform 380ms var(--ease-spring)",
           }}
           aria-label="Recenter on my location"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-white/85">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-white/85">
             <circle cx="12" cy="12" r="3"/>
             <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
           </svg>

@@ -7,9 +7,12 @@ import { getCorpusSnapshot, persistPipelineResult } from "@/lib/db";
 export const maxDuration = 60;
 
 // Streamed as newline-delimited JSON: {"dishes": DishPhoto[], "popularDishes"?: string[], "done": boolean}.
-// Corpus-fresh restaurants get one line. Corpus misses get two: pre-labeled +
-// raw (unlabeled) Google photos first — PRD §4.5 "show best available source
+// Corpus-fresh restaurants get one line. Corpus misses get two: raw
+// (unlabeled) Google photos first — PRD §4.5 "show best available source
 // immediately, backfill" — then the final Gemini-labeled, sorted result.
+// Pre-labeled owner photos (Menufy/DoorDash/schema.org) no longer appear in
+// stage 1: they now go through the same ad-photo/duplicate quality pass as
+// everything else before being shown, so they only land in the final line.
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const placeId = searchParams.get("placeId");
@@ -47,7 +50,7 @@ export async function GET(req: NextRequest) {
           return;
         }
         write({
-          dishes: [...candidates.preLabeledPhotos, ...candidates.rawGooglePhotos].slice(0, 20),
+          dishes: candidates.rawGooglePhotos.slice(0, 20),
           done: false,
         });
 

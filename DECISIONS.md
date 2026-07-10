@@ -15,8 +15,10 @@ Update this file whenever a significant decision is made, reversed, or a variabl
 > **`PRD.md`** (authoritative; wins all conflicts). Rationale: **`PRODUCT_REVIEW.md`**.
 >
 > Key v2 decisions (founder-approved):
-> - **The Reveal** (full-screen dish-first vertical feed) is the default view; an improved
->   grid remains one tap away via a persistent toggle in the main UI.
+> - **Top Dishes grid is the landing view** (founder decision, July 2026): users first see a
+>   grid of the restaurant's best dishes and pick where to start. **Tapping any tile enters
+>   the Reveal** — full-bleed immersive vertical swipe starting from that dish. The Reveal
+>   replaces the old Lightbox; there is no grid⇄feed toggle. (PRD §4.2–4.3.)
 > - **Map Explore is a first-class surface** (dish-photo-thumbnail pins, instant open on
 >   the user's block) — SeeFood is also for browsing restaurants you're not standing in.
 > - **No prices in the UI** (capture into corpus when free; never display in early versions).
@@ -1039,3 +1041,69 @@ check whether the site's own data-embedding format changed before assuming
 an anti-bot wall. Two of three DoorDash "bugs" this session were pure format
 drift (XML escaping, then the Pages→App Router migration), not adversarial
 blocking at all.
+
+---
+
+## Phase 2 walk-test feedback round 1 (July 2026) — hero tile, ad-photo filtering, dedup
+
+Kyle's first live walk-test (Richie's, Uncle Bob's) surfaced real bugs, not
+just polish:
+
+**Hero tile debated and kept (founder decision).** Kyle asked whether the
+hero-tile concept was fundamentally wrong, since Richie's hero photo was a
+"BBQ Family Paks" marketing graphic (logo, text overlay, multiple items
+arranged as an ad) — the opposite of "real food, accurately represented."
+Root cause found before deciding: pre-labeled owner photos (Menufy/DoorDash/
+schema.org) were scored a flat 200 in `computePriorityScore`'s effective
+range — unconditionally higher than any Google/patron photo (max ~108) — so
+*any* restaurant with a management photo got it as hero regardless of
+quality. Recommendation: keep the hero mechanic (core to the "magic moment,"
+already a July 2026 founder call) and fix the selection logic instead of
+removing it — reserve "restaurant explicitly pins a specific hero photo" as
+a future paid claimed-page feature. **Kyle agreed.** Implemented as:
+- Promotional/ad-style images filtered out of consideration entirely (not
+  just demoted) — see below.
+- Non-promotional pre-labeled owner photos rescored from flat 200 down to
+  ~60 (same ballpark as a plain menu-matched patron photo, per
+  `computePriorityScore`'s existing 50/100+ bands) so a genuinely great
+  patron photo of a popular dish can win hero, and management photos are the
+  fallback when patron coverage is thin — matching Kyle's framing: "it
+  should probably be the fallback case when we don't have enough quality
+  user photos," not the default star.
+
+**Ad/promotional photo filtering — explicit err-on-the-side-of-inclusion
+directive.** Kyle: "I am concerned that we might end up filtering out photos
+that are just food and are useful... should error on the side of some ad
+pics get in, not some food pics get removed." The Gemini `isPromotional`
+classifier (new) is prompted conservatively: only flag unambiguous marketing
+graphics (visible logo/text overlay, multiple unrelated dishes arranged as a
+collage, obvious ad copy) — a real plated single dish, even a very
+professional-looking one, must NOT be flagged. This only applies to
+pre-labeled owner photos (Menufy/DoorDash/schema.org), which previously
+bypassed all quality filtering entirely (raw Google photos already go
+through a "would you order it" Gemini filter; pre-labeled ones did not).
+
+**Near-duplicate photos — root cause was NOT the DB-level dedup bug fixed
+earlier today.** That fix (unique index + upsert on `origin_url`) only
+catches the *same row inserted twice*. What Kyle saw (Uncle Bob's "Burger
+and Fries Combo" / "Burger and Fries" showing the identical photo twice;
+Richie's "12oz"/"16oz PRIME RIB DINNER" sharing what looks like the same
+stock photo) is *different source URLs pointing at visually near-identical
+content* — Google sometimes assigns two photo_references to what's
+effectively the same upload, and restaurants' own ordering platforms
+sometimes reuse the same or a near-identical shot across related menu
+items. URL-based dedup structurally cannot catch this. Fix: both Gemini
+batch passes (the existing Google-photo naming call, and the new pre-labeled
+quality call) now also return `duplicateOfPhotoNumber` — Gemini already sees
+every candidate photo in one batched multimodal call per PRD §5.4, so this
+reuses existing $0 infrastructure rather than adding perceptual-hashing
+infra or a new paid API. Entries flagged as a duplicate of an earlier photo
+in the same batch are dropped before scoring.
+
+**Tradeoff accepted, not hidden:** pre-labeled/owner photos used to appear
+in the *first* streamed response (stage 1, before Gemini runs) since they
+arrived pre-verified. They now wait for the same Gemini quality/dedup pass
+as everything else, so they only appear in the final (stage 2) response —
+a few seconds slower to first-appear on a cold miss, in exchange for never
+showing an ad graphic or a duplicate. Warm/corpus-hit restaurants are
+unaffected (still <1s, no live Gemini call at all).
