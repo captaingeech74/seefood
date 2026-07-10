@@ -882,3 +882,44 @@ resolves Temecula-area restaurants; revisit if/when the crawler expands beyond
 California or a specific restaurant isn't in the state sitemap.
 6 fixture-based tests added (`src/lib/__tests__/doordashSitemap.test.ts`) covering the
 catering-tiebreak bug, city disambiguation, and the two confirmed-absent restaurants.
+
+---
+
+## DoorDash CDN sitemaps checked for leaked menu/dish data — none found (July 2026)
+
+Per Kyle's request, checked `sitemap-business_menu-doordash-index.xml` and
+`sitemap-dish-doordash-index.xml` (both listed in robots.txt, both on the unprotected
+`cdn.doordash.com` host) for any structured menu/dish data leak. Neither leaks anything:
+- `business_menu` (5 shards, ~6k URLs each): real `/business/{slug}/menu` **links**, a
+  different ID namespace from `/store/`, still requiring a page fetch — not embedded data.
+- `dish` (4 regional shards): same pattern as the earlier cuisine sitemap — generic
+  `/dish/{category}-near-me/` landing pages (alcohol, appetizer, breakfast-&-brunch...),
+  not per-restaurant dish data.
+Honest conclusion: no bonanza here. The store-level sitemap (previous entry) remains the
+only genuinely useful discovery channel DoorDash's CDN exposes.
+
+## Grubhub sitemap investigated — no restaurant-level index exists (July 2026)
+
+Checked whether the DoorDash sitemap technique generalizes to Grubhub before further
+diagnosing its 0/25 benchmark hit rate, per Kyle's instruction.
+- `www.grubhub.com/robots.txt` is reachable directly (Grubhub has **no Cloudflare wall
+  at all** — confirmed via plain `curl` from this sandbox, no crawler needed) but lists
+  no `Sitemap:` directive.
+- Found real infrastructure via search: `sitemap-city-{city}-{state}-browse.xml.gz`
+  (confirmed live for `temecula-ca`) — but these are cuisine-category browse pages
+  (`/delivery/ca-temecula/pizza`, `/delivery/ca-temecula/sushi`, ~70 categories), not
+  restaurant listings. Tried the parallel `-restaurant`/`-store` naming guesses; all 404.
+  **No restaurant-level sitemap exists for Grubhub.**
+- Root-caused the actual 0% hit rate instead: Grubhub's search results page is a pure
+  client-rendered SPA. Confirmed via plain fetch (13.5KB shell, zero restaurant links,
+  zero `__NEXT_DATA__`) *and* via Scrapfly with `render_js=true` (200, real 39KB
+  content, still zero restaurant links — the SPA hadn't finished hydrating/fetching
+  results within Scrapfly's default render wait). This is not a bot-block (Grubhub has
+  none) — our `render_js=false` config for Grubhub was simply never executing the JS
+  that populates results, so it was destined to find nothing regardless of query.
+- Did not chase a Scrapfly `wait_for_selector`/longer-wait tune blindly (that's exactly
+  the guess-and-check Kyle asked to stop doing) — Grubhub needs either careful Scrapfly
+  wait tuning or, more consistent with the DoorDash pattern, Camoufox in the crawler
+  (Grubhub needs zero anti-bot bypass, so Camoufox there should be simpler than
+  DoorDash's case, not harder). Deferred to the crawler alongside DoorDash rather than
+  spending more Scrapfly credits guessing on the live path.

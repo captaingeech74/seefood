@@ -29,6 +29,43 @@ function cachePath(state: string): string {
   return join(CACHE_DIR, `sitemap-${state}-stores.xml`);
 }
 
+const STORE_INDEX_URL = "https://cdn.doordash.com/sitemaps/sitemaps/sitemap-store-doordash-index.xml";
+
+/** Fetches the live list of state/region codes DoorDash publishes a store sitemap for. */
+export async function listStoreSitemapRegions(): Promise<string[]> {
+  const res = await fetch(STORE_INDEX_URL, { signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`DoorDash store sitemap index fetch failed: HTTP ${res.status}`);
+  const xml = await res.text();
+  const matches = [...xml.matchAll(/sitemap-doordash-([a-z0-9_]+)-stores/g)];
+  return [...new Set(matches.map((m) => m[1]))];
+}
+
+/**
+ * Downloads every region's store sitemap to the local disk cache (does NOT
+ * touch Supabase — Kyle's instruction: preload the local cache, persist to
+ * the corpus only per-restaurant matches as they're actually crawled, never
+ * bulk-write raw sitemap URLs to the database). Safe to re-run — each region
+ * respects its own 24h cache TTL, so a re-run only re-downloads stale ones.
+ */
+export async function preloadAllStoreSitemaps(
+  onProgress?: (region: string, index: number, total: number, urlCount: number) => void
+): Promise<{ region: string; urlCount: number }[]> {
+  const regions = await listStoreSitemapRegions();
+  const results: { region: string; urlCount: number }[] = [];
+  for (let i = 0; i < regions.length; i++) {
+    const region = regions[i];
+    try {
+      const urls = await loadStoreSitemap(region);
+      results.push({ region, urlCount: urls.length });
+      onProgress?.(region, i + 1, regions.length, urls.length);
+    } catch (e) {
+      onProgress?.(region, i + 1, regions.length, -1);
+      console.error(`  [doordash sitemap] ${region} failed:`, e);
+    }
+  }
+  return results;
+}
+
 /** Downloads (or reuses a fresh disk cache of) a state's store sitemap, returns real /store/ URLs only. */
 export async function loadStoreSitemap(state: string): Promise<string[]> {
   mkdirSync(CACHE_DIR, { recursive: true });

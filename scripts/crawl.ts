@@ -7,6 +7,10 @@
  *   npm run crawl -- --place ChIJ... --name "Richie's Diner" --lat 33.48 --lng -117.09
  *   npm run crawl -- --zone temecula
  *   npm run crawl -- --zone temecula --refresh-stale
+ *   npm run crawl -- --preload-doordash-sitemaps   (downloads every DoorDash
+ *     region's store sitemap to the local disk cache only — nothing written
+ *     to the corpus. Run this once so later crawls never wait on a cold
+ *     sitemap download; each region is cached ~18MB/24h.)
  *
  * One command, resumable (safe to Ctrl-C — each restaurant commits to the
  * corpus immediately), polite rate limit (~1 restaurant/min default).
@@ -220,6 +224,20 @@ async function main() {
 
   const args = parseArgs(process.argv.slice(2));
   const refreshStale = !!args["refresh-stale"];
+
+  if (args["preload-doordash-sitemaps"]) {
+    const { preloadAllStoreSitemaps } = await import("../src/crawler/doordashSitemap");
+    console.log("Preloading DoorDash store sitemaps for every published region (local disk cache only — nothing written to the corpus)...\n");
+    const results = await preloadAllStoreSitemaps((region, i, total, urlCount) => {
+      const status = urlCount < 0 ? "FAILED" : `${urlCount.toLocaleString()} store URLs`;
+      console.log(`[${i}/${total}] ${region}: ${status}`);
+    });
+    const totalUrls = results.reduce((sum, r) => sum + (r.urlCount > 0 ? r.urlCount : 0), 0);
+    const failed = results.filter((r) => r.urlCount < 0);
+    console.log(`\nDone. ${results.length - failed.length}/${results.length} regions cached, ${totalUrls.toLocaleString()} total store URLs.`);
+    if (failed.length > 0) console.log(`Failed: ${failed.map((r) => r.region).join(", ")}`);
+    return;
+  }
 
   const pythonEnv = ensurePythonEnv();
   if (!pythonEnv.ready) {
