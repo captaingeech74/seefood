@@ -566,6 +566,13 @@ function computePriorityScore(
   return 10;
 }
 
+/** Confidence pyramid (PRD §4.2): score → grid tier. Mirrors computePriorityScore's bands. */
+function scoreToTier(score: number): 1 | 2 | 3 {
+  if (score >= 50) return 1; // menu-matched or pre-labeled
+  if (score >= 10) return 2; // confident AI-identified
+  return 3;                  // food visible, no confident label
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function deduplicateMenuItems(items: MenuItemData[]): MenuItemData[] {
@@ -690,6 +697,7 @@ export async function fetchStreamingCandidates(
       isMenuMatch: true,
       source: item.source ?? "schema_org",
       attribution: "owner",
+      tier: 1,
       width: 800,
       height: 600,
     });
@@ -717,6 +725,7 @@ export async function fetchStreamingCandidates(
     isMenuMatch: false,
     source: "google",
     attribution: "user",
+    tier: 3, // unlabeled placeholder; upgraded once stage 2 (Gemini) resolves it
     width: photo.width,
     height: photo.height,
   }));
@@ -782,6 +791,7 @@ export async function finalizeWithGemini(
         isMenuMatch: result.isMenuMatch,
         source: "google",
         attribution: isOwner ? "owner" : "user",
+        tier: scoreToTier(score),
         width: photo.width,
         height: photo.height,
       },

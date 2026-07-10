@@ -30,6 +30,7 @@ interface PhotoRow {
   source: string;
   attribution: string;
   is_orderable: boolean;
+  tier: number | null;
   width: number | null;
   height: number | null;
   gemini_label: string | null;
@@ -52,7 +53,12 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
   if (!restaurant) return null;
 
   const [{ data: photoRows }, { data: menuItemRows }] = await Promise.all([
-    supabase.from("photos").select("*").eq("restaurant_id", placeId),
+    supabase
+      .from("photos")
+      .select("*")
+      .eq("restaurant_id", placeId)
+      .order("tier", { ascending: true })
+      .order("id", { ascending: true }),
     supabase.from("menu_items").select("id,name,description").eq("restaurant_id", placeId),
   ]);
   if (!photoRows || photoRows.length === 0) return null;
@@ -71,6 +77,7 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
       isMenuMatch: !!menuItem,
       source: p.source as DishPhoto["source"],
       attribution: p.attribution as DishPhoto["attribution"],
+      tier: (p.tier ?? (menuItem ? 1 : p.gemini_label ? 2 : 3)) as 1 | 2 | 3,
       width: p.width ?? 800,
       height: p.height ?? 600,
     };
@@ -133,6 +140,7 @@ export async function savePhotos(
     source: string;
     attribution: string;
     isOrderable: boolean;
+    tier: number;
     width: number;
     height: number;
     geminiLabel?: string | null;
@@ -147,12 +155,19 @@ export async function savePhotos(
     source: p.source,
     attribution: p.attribution,
     is_orderable: p.isOrderable,
+    tier: p.tier,
     width: p.width,
     height: p.height,
     gemini_label: p.geminiLabel ?? null,
     menu_item_id: p.menuItemId ?? null,
   }));
-  const { error } = await supabase.from("photos").insert(rows);
+  // Upsert on (restaurant_id, origin_url), not insert: every repeat crawl/live
+  // re-persist of an already-seen restaurant used to append a full duplicate
+  // copy of every photo (see db/schema.sql migration note). The unique index
+  // there makes this the only safe way to write.
+  const { error } = await supabase
+    .from("photos")
+    .upsert(rows, { onConflict: "restaurant_id,origin_url" });
   if (error) console.error("[corpus] savePhotos failed:", error.message);
 }
 
@@ -190,6 +205,7 @@ export async function persistPipelineResult(input: {
       source: p.source,
       attribution: p.attribution,
       isOrderable: true, // non-food already filtered out upstream
+      tier: p.tier,
       width: p.width,
       height: p.height,
       geminiLabel: p.dishName,

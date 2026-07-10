@@ -252,6 +252,7 @@ async function main() {
               source,
               attribution: "owner",
               isOrderable: true,
+              tier: 1, // DoorDash/Grubhub items are pre-labeled name+photo pairs — menu-matched by construction
               width: 800,
               height: 600,
               geminiLabel: i.name,

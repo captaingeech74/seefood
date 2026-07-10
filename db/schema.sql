@@ -62,6 +62,21 @@ create table if not exists source_runs (
 -- exists from an earlier deploy, drop it:
 drop table if exists search_api_usage;
 
+-- Dedupe existing duplicate photo rows (savePhotos used a blind insert with no
+-- uniqueness guard — every re-persist of an already-crawled restaurant
+-- appended a full new copy of every photo. Confirmed live July 2026: Richie's
+-- had 1000 rows for 221 unique photos, BJ's 244 rows for 222 unique. This is
+-- what caused visibly duplicated dish photos in the grid, since the read path
+-- had no ORDER BY and sliced an arbitrary, duplicate-weighted 20 rows. Keep
+-- the lowest id (earliest, most likely to have a real menu_item_id link) per
+-- (restaurant_id, origin_url) group; idempotent, safe to re-run.
+delete from photos a using photos b
+  where a.id > b.id
+    and a.restaurant_id = b.restaurant_id
+    and a.origin_url = b.origin_url;
+
+create unique index if not exists uq_photos_restaurant_origin on photos(restaurant_id, origin_url);
+
 create index if not exists idx_menu_items_restaurant on menu_items(restaurant_id);
 create index if not exists idx_photos_restaurant on photos(restaurant_id);
 create index if not exists idx_photos_menu_item on photos(menu_item_id);

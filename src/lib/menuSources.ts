@@ -19,6 +19,7 @@
  */
 
 import { MenuItemData } from "./types";
+import { hasScrapflyBudget } from "./scrapflyUsage";
 
 export async function fetchMenuFromUrl(url: string): Promise<MenuItemData[]> {
   try {
@@ -330,6 +331,10 @@ async function fetchMenufyViaScrapfly(
   url: string,
   apiKey: string
 ): Promise<MenuItemData[]> {
+  if (!(await hasScrapflyBudget())) {
+    console.warn("[Menufy Scrapfly] skipped — free-tier budget cap reached");
+    return [];
+  }
   try {
     const scrapUrl =
       `https://api.scrapfly.io/scrape` +
@@ -491,6 +496,10 @@ async function fetchOrderingPlatformViaScrapfly(
 ): Promise<MenuItemData[]> {
   const scrapflyKey = process.env.SCRAPFLY_KEY;
   if (!scrapflyKey || platform === "toast") return [];
+  if (!(await hasScrapflyBudget())) {
+    console.warn(`[${platform} Scrapfly] skipped — free-tier budget cap reached`);
+    return [];
+  }
   try {
     const scrapUrl =
       `https://api.scrapfly.io/scrape` +

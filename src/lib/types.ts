@@ -37,6 +37,9 @@ export interface DishPhoto {
   source: DataSource;
   /** who contributed it — "owner" = restaurant/management, "user" = customer */
   attribution: "user" | "owner";
+  /** confidence pyramid (PRD §4.2/§4.3): 1 = menu-matched/pre-labeled (hero-eligible),
+   *  2 = confident AI-identified, 3 = low-confidence — collapsed under "More photos". */
+  tier: 1 | 2 | 3;
   width: number;
   height: number;
 }

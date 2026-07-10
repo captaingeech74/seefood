@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchMenuFromUrl } from "@/lib/menuSources";
 import { getDoorDashStoreUrl } from "@/lib/db";
+import { getScrapflyUsage } from "@/lib/scrapflyUsage";
 
 export const maxDuration = 60;
 
@@ -84,6 +85,23 @@ export async function GET(req: NextRequest) {
     };
   } catch (e) {
     results.doordash = { note: "Corpus-only.", error: String(e) };
+  }
+
+  // ── Scrapfly free-tier budget (1,000 calls/mo) — real numbers from Scrapfly's
+  // own account API, plus whether the self-enforced hard cap is currently active.
+  try {
+    const usage = await getScrapflyUsage();
+    results.scrapfly_usage = usage
+      ? {
+          used: usage.current,
+          limit: usage.limit,
+          remaining: usage.remaining,
+          period_ends: usage.periodEnd,
+          hard_cap_active: usage.capActive,
+        }
+      : { error: "SCRAPFLY_KEY missing or account API unreachable" };
+  } catch (e) {
+    results.scrapfly_usage = { error: String(e) };
   }
 
   return NextResponse.json(results, {
