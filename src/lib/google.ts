@@ -799,9 +799,16 @@ export async function fetchStreamingCandidates(
   const allMenuItems = deduplicateMenuItems(websiteMenuItems);
   const popularDishes = extractPopularDishes(reviews as GoogleReview[]);
 
-  // Pre-labeled photos (bypass Gemini) — schema.org MenuItem.image, Grubhub/Menufy photos.
+  // Pre-labeled photos — schema.org MenuItem.image, Grubhub/Menufy photos. Now
+  // go through assessPreLabeledPhotos (a batched Gemini call, see below) for
+  // ad-photo/duplicate filtering, so cap how many get sent through it — large
+  // menus (Richie's Menufy listing alone is 221 items) would otherwise mean
+  // fetching+analyzing hundreds of images in one request. The UI only ever
+  // shows ~20-30 photos anyway (grid cap), so this loses nothing real.
+  const MAX_PRE_LABELED_CANDIDATES = 40;
   const preLabeledPhotos: DishPhoto[] = [];
   for (const item of websiteMenuItems) {
+    if (preLabeledPhotos.length >= MAX_PRE_LABELED_CANDIDATES) break;
     if (!item.imageUrl) continue;
     const { shortName, fullName } = toMenuStyleName(item.name);
     preLabeledPhotos.push({
