@@ -14,3 +14,4 @@ crawler/.venv/
 # downloaded DoorDash sitemap cache (~18MB/state, refetched every 24h)
 crawler/.cache/
 ORCHESTRATOR_HANDOFF.md
+.DS_Store

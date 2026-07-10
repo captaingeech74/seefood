@@ -4,12 +4,15 @@
  *
  * NOT cached — always runs fresh for debugging.
  *
- * DoorDash is intentionally NOT tested here: its Scrapfly ASP challenge costs
- * 51–75+ credits per attempt, and this endpoint is hit often during debugging.
- * DoorDash is corpus-only (Tier 1 local crawler) — see DECISIONS.md.
+ * DoorDash and Grubhub are intentionally NOT live-tested here: DoorDash's
+ * Scrapfly ASP challenge costs 51–75+ credits per attempt, and Grubhub's
+ * Scrapfly path has a confirmed 0% success rate (its search page is a pure
+ * client-rendered SPA that never finishes hydrating within Scrapfly's
+ * render_js wait — see DECISIONS.md). Both are corpus-only now (Tier 1
+ * local crawler, Camoufox) — calling either here just burns credits on a
+ * known outcome.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { fetchMenuFromGrubhub } from "@/lib/google";
 import { fetchMenuFromUrl } from "@/lib/menuSources";
 import { getDoorDashStoreUrl } from "@/lib/db";
 
@@ -18,9 +21,6 @@ export const maxDuration = 60;
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const placeId = searchParams.get("placeId") ?? "";
-  const name    = searchParams.get("name") ?? "";
-  const lat     = parseFloat(searchParams.get("lat") ?? "0");
-  const lng     = parseFloat(searchParams.get("lng") ?? "0");
 
   const API_KEY = process.env.GOOGLE_MAPS_API_KEY!.trim();
 
@@ -55,20 +55,13 @@ export async function GET(req: NextRequest) {
     results.website = { error: String(e) };
   }
 
-  // ── Source: Grubhub ──────────────────────────────────────────────────────────
-  if (lat && lng) {
-    try {
-      const items = await fetchMenuFromGrubhub(name, lat, lng);
-      results.grubhub = {
-        ok: items.length > 0,
-        item_count: items.length,
-        sample: items.slice(0, 3).map((i) => i.name),
-        scrapfly_configured: !!process.env.SCRAPFLY_KEY,
-      };
-    } catch (e) {
-      results.grubhub = { error: String(e) };
-    }
-  }
+  // ── Source: Grubhub — status only, never actually fetched here ──────────────
+  // Corpus-only (Tier 1 crawler, Camoufox): the Scrapfly path has a confirmed
+  // 0% success rate (SPA never hydrates within Scrapfly's render wait), so
+  // calling it here would only spend credits to confirm what's already known.
+  results.grubhub = {
+    note: "Corpus-only — not fetched here, Scrapfly path has a confirmed 0% success rate. Coverage comes from the Tier 1 local crawler (Camoufox).",
+  };
 
   // ── Source: Menufy (explicit, via website + 2-hop follower) ─────────────────
   results.menufy = {

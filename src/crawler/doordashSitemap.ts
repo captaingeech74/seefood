@@ -66,6 +66,25 @@ export async function preloadAllStoreSitemaps(
   return results;
 }
 
+function unescapeXml(s: string): string {
+  return s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+}
+
+/**
+ * Pure parse of a sitemap XML document into real /store/ URLs, XML-unescaped.
+ * <loc> content is XML-escaped (e.g. "&amp;" for "&" in store slugs like
+ * "bj's-restaurant-&-brewhouse-..."). Unescaping matters because these URLs
+ * get used for an actual HTTP fetch — the literal string "&amp;" in a path
+ * segment is not the same URL DoorDash serves, and 404s/falls through to an
+ * empty page (confirmed live: sitemap found the exact right BJ's slug, store
+ * page fetch returned ok, but parsed 0 menu items — the unescaped bug).
+ * Excludes /convenience/store/ (retail, not restaurants).
+ */
+export function extractStoreUrlsFromSitemapXml(xml: string): string[] {
+  const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => unescapeXml(m[1]));
+  return urls.filter((u) => /\/store\/[^/]+\/?$/.test(u) && !u.includes("/convenience/"));
+}
+
 /** Downloads (or reuses a fresh disk cache of) a state's store sitemap, returns real /store/ URLs only. */
 export async function loadStoreSitemap(state: string): Promise<string[]> {
   mkdirSync(CACHE_DIR, { recursive: true });
@@ -81,10 +100,7 @@ export async function loadStoreSitemap(state: string): Promise<string[]> {
     writeFileSync(path, xml);
   }
 
-  const urls = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-  // Exclude /convenience/store/ (retail, not restaurants) and anything not
-  // matching the plain /store/ pattern.
-  return urls.filter((u) => /\/store\/[^/]+\/?$/.test(u) && !u.includes("/convenience/"));
+  return extractStoreUrlsFromSitemapXml(xml);
 }
 
 function normalizeWords(s: string): string[] {

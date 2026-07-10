@@ -157,7 +157,14 @@ async function main() {
     }
 
     const items = parseNextDataMenuItems(storeResult.html, extractDoorDashItems);
-    console.log(`  [doordash] ${items.length} items from ${storeUrl}`);
+    if (items.length === 0) {
+      const hasNextData = storeResult.html.includes('id="__NEXT_DATA__"');
+      console.log(
+        `  [doordash] 0 items from ${storeUrl} — html_length=${storeResult.html.length} has_next_data=${hasNextData}`
+      );
+    } else {
+      console.log(`  [doordash] ${items.length} items from ${storeUrl}`);
+    }
     return items.map((i) => ({ ...i, source: "doordash" as const }));
   }
 

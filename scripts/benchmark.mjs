@@ -18,14 +18,16 @@ const restaurants = JSON.parse(
 // per run to force a fresh full-pipeline execution instead of a 24h cache hit.
 const RUN_TAG = new Date().toISOString().slice(0, 10);
 
-// DoorDash excluded — corpus-only, never live-tested (Scrapfly credit cost).
-const SOURCES = ["website", "grubhub", "menufy"];
+// DoorDash and Grubhub excluded — both corpus-only now (Tier 1 crawler,
+// Camoufox), never live-tested here. DoorDash's Scrapfly ASP challenge costs
+// 51-75+ credits/attempt; Grubhub's Scrapfly path has a confirmed 0% success
+// rate (SPA never hydrates within Scrapfly's render wait). See DECISIONS.md.
+const SOURCES = ["website", "menufy"];
 
 function isHit(source, result) {
   if (!result) return false;
   switch (source) {
     case "website": return (result.parsed_menu_items ?? 0) > 0;
-    case "grubhub": return !!result.ok;
     case "menufy": return !!result.detected && (result.item_count ?? 0) > 0;
     default: return false;
   }
@@ -35,7 +37,6 @@ function itemCount(source, result) {
   if (!result) return 0;
   switch (source) {
     case "website": return result.parsed_menu_items ?? 0;
-    case "grubhub": return result.item_count ?? 0;
     case "menufy": return result.item_count ?? 0;
     default: return 0;
   }

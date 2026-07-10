@@ -951,3 +951,48 @@ confirming the underlying pipeline was fine — only the benchmark's own JSON pa
 broken. Lesson: whenever a response-shape change (`res.json()` → streaming) lands, grep
 every consumer of that endpoint, not just the production UI — `benchmark.mjs` was hit
 because scripts don't get the same TypeScript-consumer visibility as component code.
+
+## Two real bugs found while reviewing Kyle's first live crawler run (July 2026)
+
+Kyle ran the national sitemap preload (663,805 store URLs cached across 102
+regions — US states, Canada, Australia, NZ, Japan, Puerto Rico) and a full
+BJ's crawl. Preload was clean. The BJ's crawl surfaced two genuine bugs, not
+capability gaps:
+
+**1. DoorDash sitemap URLs weren't XML-unescaped.** `loadStoreSitemap`
+extracted `<loc>` content with a raw regex and returned it as-is. Sitemap XML
+escapes "&" as "&amp;" — so BJ's real slug (`bj's-restaurant-&-brewhouse-...`)
+came back as `bj's-restaurant-&amp;-brewhouse-...`. Discovery worked
+perfectly (found the exact right store, correctly rejected the catering
+sub-listing) but the crawler then fetched the literal `&amp;` URL, which
+DoorDash 404s/falls through on — explaining "found via sitemap: [right URL]"
+immediately followed by "0 items from [that URL]". Fixed by extracting the
+XML-parsing logic into a pure `extractStoreUrlsFromSitemapXml` function that
+unescapes `&amp; &lt; &gt; &quot; &apos;` before filtering, with a fixture
+test reproducing the exact BJ's case. The existing sitemap-matcher tests had
+baked the bug into their fixtures (asserting an `&amp;`-encoded URL as the
+"correct" answer) — updated those too.
+
+**2. Every crawler run (and every `/api/debug-sources` call) was burning a
+Scrapfly credit on Grubhub for a source with a confirmed 0% success rate.**
+The live pipeline (`getGooglePhotosAndReviews`, reused by both the crawler
+and the live serverless path) unconditionally called the old Scrapfly-based
+`fetchMenuFromGrubhub` — the exact function the July 2026 SPA-rendering
+diagnosis (see above) had already proven never succeeds. The crawler's new
+Camoufox-based `crawlGrubhub` was correctly added alongside it but never
+replaced it, so Grubhub was being attempted twice per restaurant: once via
+Scrapfly (guaranteed failure, real credit cost) and once via Camoufox (the
+actual working path). Removed the Scrapfly-based Grubhub call from the live
+pipeline entirely — same treatment DoorDash already got for the same reason
+(cost with a proven-zero success rate). Grubhub is now corpus-only via the
+crawler's Camoufox path, exactly like DoorDash. Deleted the now-fully-dead
+`fetchWithAntiBot`, `fetchDeliveryStorePage`, `fetchMenuFromGrubhub`,
+`fetchMenuFromDoorDash`, `fetchDoorDashDirect`, and `parseDoorDashSearchSlugs`
+(the last three were already dead before this session — DoorDash's
+search-based discovery was fully superseded by the sitemap approach and
+nothing called them anymore). `benchmark.mjs` and `/api/debug-sources` updated
+to match: Grubhub is now excluded from live-tested SOURCES the same way
+DoorDash already was.
+
+Both fixes are corpus-side (crawler + shared pipeline) — pending a fresh
+crawler run to confirm real DoorDash items now come back for BJ's.

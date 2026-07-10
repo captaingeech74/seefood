@@ -36,83 +36,6 @@ interface GooglePlace {
 // the field does not exist on Google's API (confirmed: 400 "cannot find matching
 // fields for path 'menuItems'"). Do not re-add without Google actually shipping it.
 
-// ── Anti-bot fetch helper ─────────────────────────────────────────────────────
-// Routes through Scrapfly (SCRAPFLY_KEY env var) when set.
-// Scrapfly with asp=true uses residential IP rotation + fingerprint spoofing —
-// the industry-leading approach for bypassing DoorDash, Grubhub, and similar
-// platforms that block datacenter IPs at the ASN level.
-//
-// Free tier: 1,000 API calls/month at scrapfly.io — sufficient for ~500 unique
-// restaurant lookups/month given 24h response caching (2 calls per lookup).
-//
-// Falls back to a direct browser-fingerprinted fetch when no key is set.
-// Direct works for lightly-protected sites (Grubhub); fails for DoorDash.
-
-const BROWSER_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  "Accept-Language": "en-US,en;q=0.9",
-  "Accept-Encoding": "gzip, deflate, br",
-  "upgrade-insecure-requests": "1",
-};
-
-async function fetchWithAntiBot(
-  url: string,
-  referer: string,
-  timeoutMs = 12000
-): Promise<string | null> {
-  const scrapflyKey = process.env.SCRAPFLY_KEY;
-
-  if (scrapflyKey) {
-    // Scrapfly asp=true: Anti Scraping Protection — residential IPs + challenge solving.
-    // render_js=false: DoorDash and Grubhub are Next.js SSR; __NEXT_DATA__ is in HTML.
-    // cost_budget=100: DoorDash's ASP challenge alone costs 51–75+ credits (observed
-    // via ERR::SCRAPE::COST_BUDGET_LIMIT, rising across repeated probes — a hard,
-    // expensive target). At that rate, DoorDash consumes the entire 1,000-credit free
-    // tier in ~10-13 lookups/month; Grubhub is far cheaper and unaffected by this cap.
-    // See DECISIONS.md "Phase 0 fixes" for the cost finding — flagged for Kyle, not
-    // a blank check to keep raising this further.
-    const apiUrl =
-      `https://api.scrapfly.io/scrape` +
-      `?key=${scrapflyKey}` +
-      `&url=${encodeURIComponent(url)}` +
-      `&asp=true&render_js=false&country=us&cost_budget=100`;
-    try {
-      const res = await fetch(apiUrl, { signal: AbortSignal.timeout(timeoutMs + 5000) });
-      if (!res.ok) {
-        console.error(`[Scrapfly] HTTP ${res.status} for ${url}`);
-        return null;
-      }
-      const data = await res.json();
-      if (data.result?.status_code === 200 && data.result?.content) {
-        console.log(`[Scrapfly] ✓ ${url}`);
-        return data.result.content as string;
-      }
-      console.error(`[Scrapfly] upstream status ${data.result?.status_code} for ${url}`);
-      return null;
-    } catch (e) {
-      console.error("[Scrapfly] exception:", e);
-      return null;
-    }
-  }
-
-  // Direct fallback with full browser fingerprint (blocked by DoorDash, may work for Grubhub)
-  try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(timeoutMs),
-      headers: { ...BROWSER_HEADERS, Referer: referer },
-    });
-    if (!res.ok) {
-      console.log(`[fetchWithAntiBot] ${res.status} for ${url} (no Scrapfly key)`);
-      return null;
-    }
-    return await res.text();
-  } catch {
-    return null;
-  }
-}
-
 // ── Shared __NEXT_DATA__ slug/URL helpers ─────────────────────────────────────
 
 /** Score URLs by how many words from the restaurant name appear in the URL. */
@@ -140,63 +63,19 @@ function deduplicateItems(items: MenuItemData[]): MenuItemData[] {
   });
 }
 
-// ── Source 4: DoorDash ────────────────────────────────────────────────────────
-// Pre-labeled photos bypass Gemini (score 200, always shown first).
-// Corpus-only (Tier 1 crawler) — see DECISIONS.md. Discovery (finding the store
-// URL for a restaurant) lives in scripts/crawl.ts, not here: Google Custom
-// Search JSON API is permanently closed to new customers (confirmed July 2026,
-// hard 403 even with a clean project + enabled API), so discovery is now
-// sitemap-first with a Camoufox-driven interactive search fallback.
+// ── Source 4: DoorDash + Grubhub ──────────────────────────────────────────────
+// Both are corpus-only (Tier 1 crawler, Python/Camoufox) — see DECISIONS.md.
+// DoorDash: Scrapfly's ASP challenge costs 51-75+ credits/attempt. Grubhub:
+// Scrapfly's render_js wait never finishes hydrating the search page's SPA
+// (confirmed 0% success rate). Discovery + fetching for both live entirely in
+// scripts/crawl.ts; this file only keeps the parsers so there is exactly one
+// parser per source, shared between the crawler and (for DoorDash) corpus reads.
+// Google Custom Search JSON API is permanently closed to new customers
+// (confirmed July 2026, hard 403 even with a clean project + enabled API), so
+// DoorDash discovery is sitemap-first with a Camoufox-driven interactive
+// search fallback — see src/crawler/doordashSitemap.ts.
 
-export async function fetchMenuFromDoorDash(restaurantName: string): Promise<MenuItemData[]> {
-  return fetchDoorDashDirect(restaurantName);
-}
-
-/**
- * Pure parse of a DoorDash search-results page: extract store slugs and pick
- * the best match by name overlap. Exported so the Tier 1 crawler (which fetches
- * this HTML itself via Python/Camoufox, not fetchWithAntiBot) reuses the exact
- * same parsing logic as the live path — never two copies of a parser.
- */
-export function parseDoorDashSearchSlugs(html: string, restaurantName: string): string | null {
-  const slugs = [...new Set(
-    [...html.matchAll(/["'](\/store\/([a-z0-9][a-z0-9-]{3,70})\/)/gi)].map((m) => m[2])
-  )].filter((s) => !["pickup", "search", "home", "dasher"].some((x) => s.startsWith(x)));
-  return scoreByNameMatch(slugs, restaurantName);
-}
-
-async function fetchDoorDashDirect(restaurantName: string): Promise<MenuItemData[]> {
-  try {
-    const q = encodeURIComponent(restaurantName);
-    const html = await fetchWithAntiBot(
-      `https://www.doordash.com/search/?q=${q}`,
-      "https://www.doordash.com/"
-    );
-    if (!html) return [];
-
-    const bestSlug = parseDoorDashSearchSlugs(html, restaurantName);
-    if (!bestSlug) {
-      console.log(`[DoorDash] no slugs found for "${restaurantName}"`);
-      return [];
-    }
-    console.log(`[DoorDash] "${restaurantName}" → slug: ${bestSlug}`);
-    return fetchDeliveryStorePage(
-      `https://www.doordash.com/store/${bestSlug}/`,
-      "https://www.doordash.com/",
-      extractDoorDashItems
-    );
-  } catch (e) {
-    console.error("[DoorDash direct] failed:", e);
-    return [];
-  }
-}
-
-// ── Source 5: Grubhub ─────────────────────────────────────────────────────────
-// Free, no API keys — Grubhub has less aggressive bot protection than DoorDash.
-// Same pre-labeled pattern: menu items with photos bypass Gemini entirely.
-// With SCRAPFLY_KEY set this becomes very reliable; without it, best-effort.
-
-/** Pure parse of a Grubhub search-results page — same reuse rationale as parseDoorDashSearchSlugs. */
+/** Pure parse of a Grubhub search-results page. */
 export function parseGrubhubSearchUrl(html: string, restaurantName: string): string | null {
   const urls = [...new Set(
     [...html.matchAll(/["'](\/restaurant\/([^"'?#]+)\/(\d{5,})\/?)["']/gi)]
@@ -205,38 +84,12 @@ export function parseGrubhubSearchUrl(html: string, restaurantName: string): str
   return scoreByNameMatch(urls, restaurantName);
 }
 
-export async function fetchMenuFromGrubhub(
-  restaurantName: string,
-  lat: number,
-  lng: number
-): Promise<MenuItemData[]> {
-  try {
-    const q = encodeURIComponent(restaurantName);
-    const html = await fetchWithAntiBot(
-      `https://www.grubhub.com/search?queryText=${q}&latitude=${lat}&longitude=${lng}&orderMethod=delivery`,
-      "https://www.grubhub.com/"
-    );
-    if (!html) return [];
-
-    const bestUrl = parseGrubhubSearchUrl(html, restaurantName);
-    if (!bestUrl) {
-      console.log(`[Grubhub] no results for "${restaurantName}"`);
-      return [];
-    }
-    console.log(`[Grubhub] "${restaurantName}" → ${bestUrl}`);
-    return fetchDeliveryStorePage(bestUrl, "https://www.grubhub.com/", extractGrubhubItems);
-  } catch (e) {
-    console.error("[Grubhub] failed:", e);
-    return [];
-  }
-}
-
 // ── Shared store page fetcher ─────────────────────────────────────────────────
 
 /**
  * Pure parse of a delivery platform store page's __NEXT_DATA__ blob. Exported
- * so the Tier 1 crawler (which fetches this HTML itself, not via fetchWithAntiBot)
- * reuses the exact same parser as the live path.
+ * so the Tier 1 crawler (which fetches this HTML itself via Python/Camoufox)
+ * reuses the exact same parser as any other consumer.
  */
 export function parseNextDataMenuItems(
   html: string,
@@ -251,27 +104,6 @@ export function parseNextDataMenuItems(
     return [];
   }
   return deduplicateItems(items);
-}
-
-/**
- * Fetch a delivery platform store page and extract menu items from __NEXT_DATA__.
- * Shared by DoorDash and Grubhub; takes a platform-specific item extractor.
- */
-async function fetchDeliveryStorePage(
-  url: string,
-  referer: string,
-  extractor: (obj: unknown, out: MenuItemData[]) => void
-): Promise<MenuItemData[]> {
-  try {
-    const html = await fetchWithAntiBot(url, referer, 15000);
-    if (!html) return [];
-    const deduped = parseNextDataMenuItems(html, extractor);
-    console.log(`[store page] ${url}: ${deduped.length} menu items`);
-    return deduped;
-  } catch (e) {
-    console.error(`[store page] failed for ${url}:`, e);
-    return [];
-  }
 }
 
 /** Recursively walks DoorDash __NEXT_DATA__ looking for menu item objects. */
@@ -756,20 +588,19 @@ export async function fetchStreamingCandidates(
   if (!data.result) return null;
 
   const { photos = [], reviews = [] } = data.result;
-  const lat: number | undefined = data.result.geometry?.location?.lat;
-  const lng: number | undefined = data.result.geometry?.location?.lng;
   const websiteUrl: string | undefined = data.result.website;
 
-  const [websiteMenuItems, grubhubItems] = await Promise.all([
-    websiteUrl ? fetchMenuFromUrl(websiteUrl) : Promise.resolve([]),
-    lat && lng ? fetchMenuFromGrubhub(restaurantName, lat, lng) : Promise.resolve([]),
-  ]);
+  // Grubhub is corpus-only (Tier 1 crawler, Camoufox) — its Scrapfly path
+  // never succeeded here: confirmed root cause is a pure client-rendered SPA
+  // that Scrapfly's render_js wait never finishes hydrating (see
+  // DECISIONS.md). Calling it live spent a Scrapfly credit on a 0% hit rate
+  // every single time — same waste pattern DoorDash was pulled from this
+  // path for. The Scrapfly-based fetch helper was removed entirely.
+  const websiteMenuItems = websiteUrl ? await fetchMenuFromUrl(websiteUrl) : [];
 
-  console.log(
-    `[pipeline] "${restaurantName}" — website:${websiteMenuItems.length} grubhub:${grubhubItems.length}`
-  );
+  console.log(`[pipeline] "${restaurantName}" — website:${websiteMenuItems.length}`);
 
-  const allMenuItems = deduplicateMenuItems([...websiteMenuItems, ...grubhubItems]);
+  const allMenuItems = deduplicateMenuItems(websiteMenuItems);
   const popularDishes = extractPopularDishes(reviews as GoogleReview[]);
 
   // Pre-labeled photos (bypass Gemini) — schema.org MenuItem.image, Grubhub/Menufy photos.
@@ -789,22 +620,6 @@ export async function fetchStreamingCandidates(
       height: 600,
     });
   }
-  for (const item of grubhubItems) {
-    if (!item.imageUrl) continue;
-    const { shortName, fullName } = toMenuStyleName(item.name);
-    preLabeledPhotos.push({
-      id: `grubhub-${item.imageUrl.slice(-24)}`,
-      url: item.imageUrl,
-      dishName: shortName,
-      dishDescription: mergeDescription(shortName, fullName, item.description),
-      isMenuMatch: true,
-      source: "grubhub",
-      attribution: "owner",
-      width: 800,
-      height: 600,
-    });
-  }
-
   const allGooglePhotos = photos as GooglePhoto[];
   const nonPortrait = allGooglePhotos.filter((p) => p.height <= p.width);
   const portrait    = allGooglePhotos.filter((p) => p.height >  p.width);
