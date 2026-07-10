@@ -305,9 +305,9 @@ function walkMenufyApiNode(obj: unknown, out: MenuItemData[]): void {
     o.name.trim().length > 1 &&
     (typeof o.price === "number" || typeof o.price === "string")
   ) {
-    const item: MenuItemData = { name: o.name.trim(), source: "menufy" };
+    const item: MenuItemData = { name: decodeHtmlEntities(o.name), source: "menufy" };
     const desc = (o.description as string | undefined)?.trim();
-    if (desc) item.description = desc.substring(0, 300);
+    if (desc) item.description = decodeHtmlEntities(desc).substring(0, 300);
     const img = o.imageUrl ?? o.image ?? o.photo;
     if (typeof img === "string" && img.startsWith("http")) {
       item.imageUrl = upscaleHungerRushUrl(img);
@@ -393,18 +393,31 @@ export function parseMenufyItemCards(html: string): MenuItemData[] {
   return deduplicateMenuItems(items);
 }
 
+/**
+ * Decode the small set of HTML entities that show up in scraped dish names —
+ * some sources (Menufy's JSON API included) hand back literal entity text
+ * even outside of raw HTML, e.g. "&nbsp;Chicken-like Fried Steak" rendered
+ * verbatim in the grid. &amp; must run last so it doesn't re-decode entities
+ * produced by the other replacements.
+ */
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Extract a named attribute value from an HTML attribute string. */
 function extractHtmlAttr(attrs: string, name: string): string | null {
   const re = new RegExp(`\\b${name}="([^"]*)"`, "i");
   const m = attrs.match(re);
   if (!m) return null;
-  return m[1]
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
+  return decodeHtmlEntities(m[1]);
 }
 
 /**
@@ -560,9 +573,9 @@ function walkGenericMenuNode(obj: unknown, source: OrderingPlatform, out: MenuIt
 
   const hasPrice = typeof price === "number" || (typeof price === "string" && !isNaN(parseFloat(price)));
   if (typeof name === "string" && name.trim().length > 1 && name.trim().length < 80 && hasPrice) {
-    const item: MenuItemData = { name: name.trim(), source };
+    const item: MenuItemData = { name: decodeHtmlEntities(name), source };
     if (typeof description === "string" && description.trim()) {
-      item.description = description.trim().substring(0, 300);
+      item.description = decodeHtmlEntities(description).substring(0, 300);
     }
     if (typeof image === "string" && image.startsWith("http")) item.imageUrl = image;
     item.price = typeof price === "number" ? price : parseFloat(price as string);
@@ -601,9 +614,9 @@ function walkSchemaNode(node: unknown): MenuItemData[] {
   const type = String(obj["@type"] ?? "").toLowerCase();
 
   if (type === "menuitem" && typeof obj.name === "string" && obj.name.trim()) {
-    const item: MenuItemData = { name: obj.name.trim(), source: "schema_org" };
+    const item: MenuItemData = { name: decodeHtmlEntities(obj.name), source: "schema_org" };
     if (typeof obj.description === "string" && obj.description.trim()) {
-      item.description = obj.description.trim().substring(0, 300);
+      item.description = decodeHtmlEntities(obj.description).substring(0, 300);
     }
     const img = obj.image;
     if (typeof img === "string" && img.startsWith("http")) {
