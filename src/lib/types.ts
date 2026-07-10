@@ -55,6 +55,8 @@ export interface Restaurant {
   reviewCount?: number;
   priceLevel?: number; // 0–4
   isOpen?: boolean;
+  /** Stable shareable URL slug (PRD §4.4, `/r/[slug]`). */
+  slug?: string;
 }
 
 export interface DishesResponse {

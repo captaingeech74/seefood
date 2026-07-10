@@ -89,18 +89,79 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
   return { photos, popularDishes: [], isFresh };
 }
 
+/** "Richie's Real American Diner", "32150 Temecula Pkwy, Temecula, CA" → "richies-real-american-diner-temecula" */
+export function slugifyRestaurant(name: string, address: string): string {
+  const city = address.split(",")[1]?.trim() ?? "";
+  const base = `${name} ${city}`
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "") // strip accents
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+  return base.slice(0, 80);
+}
+
+/**
+ * Stable restaurant slug (PRD §4.4 shareable URLs, `/r/richies-diner-temecula`).
+ * Computed deterministically from name+city so it never changes across
+ * re-crawls; only assigned once (existing slug is preserved) and only
+ * touched again if a collision forces a suffixed retry.
+ */
 export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
-  await supabase.from("restaurants").upsert(
-    {
-      place_id: restaurant.placeId ?? restaurant.id,
-      name: restaurant.name,
-      lat: restaurant.lat,
-      lng: restaurant.lng,
-      address: restaurant.address,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "place_id" }
-  );
+  const placeId = restaurant.placeId ?? restaurant.id;
+  const { data: existing } = await supabase
+    .from("restaurants")
+    .select("slug")
+    .eq("place_id", placeId)
+    .maybeSingle();
+
+  const baseSlug = existing?.slug ?? slugifyRestaurant(restaurant.name, restaurant.address);
+  const row = {
+    place_id: placeId,
+    name: restaurant.name,
+    lat: restaurant.lat,
+    lng: restaurant.lng,
+    address: restaurant.address,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase
+    .from("restaurants")
+    .upsert({ ...row, slug: baseSlug }, { onConflict: "place_id" });
+
+  // Unique violation on slug (23505) means a different restaurant already
+  // owns that exact name+city slug — retry once with the place_id suffixed
+  // on, which is guaranteed unique.
+  if (error?.code === "23505") {
+    const suffixed = `${baseSlug}-${placeId.slice(-6).toLowerCase()}`;
+    await supabase.from("restaurants").upsert({ ...row, slug: suffixed }, { onConflict: "place_id" });
+  } else if (error) {
+    console.error("[corpus] upsertRestaurant failed:", error.message);
+  }
+}
+
+/** Resolve a shareable slug (PRD §4.4 `/r/[slug]`) back to its place_id. */
+export async function getPlaceIdBySlug(slug: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("restaurants")
+    .select("place_id")
+    .eq("slug", slug)
+    .maybeSingle();
+  return data?.place_id ?? null;
+}
+
+/**
+ * Slug for a restaurant, for building shareable URLs client-side. Falls back
+ * to the deterministic (unsuffixed) slug if the restaurant hasn't been
+ * persisted to the corpus yet — /api/dishes persists it moments later using
+ * the identical slugify logic, so this stays consistent almost always; a
+ * name+city collision is the only case where the assigned slug later differs.
+ */
+export async function getSlugForPlaceId(placeId: string, name: string, address: string): Promise<string> {
+  const { data } = await supabase.from("restaurants").select("slug").eq("place_id", placeId).maybeSingle();
+  return data?.slug ?? slugifyRestaurant(name, address);
 }
 
 /** Persist menu items, returns a name→id map for linking photos to items. */

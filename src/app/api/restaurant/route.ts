@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findNearbyRestaurant, getRestaurantDetails } from "@/lib/google";
+import { getSlugForPlaceId } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -31,7 +32,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(restaurant);
+    const slug = await getSlugForPlaceId(
+      restaurant.placeId ?? restaurant.id,
+      restaurant.name,
+      restaurant.address
+    ).catch(() => undefined);
+
+    return NextResponse.json({ ...restaurant, slug });
   } catch (e) {
     console.error("Restaurant API error:", e);
     return NextResponse.json(
