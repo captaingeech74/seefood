@@ -352,6 +352,29 @@ export async function persistPipelineResult(input: {
 
   const nameToId = await saveMenuItems(placeId, menuItems);
 
+  // Google's photo_reference tokens aren't stable across separate Place
+  // Details calls — repeat crawls/live re-persists of the same restaurant
+  // return a fresh top-10 sample under NEW tokens, even for visually
+  // identical photos. The origin_url-based upsert dedup can't catch this
+  // (different URL each time), and the Gemini duplicate-detection pass only
+  // compares photos *within* a single session's batch, never against what a
+  // prior session already wrote — confirmed live: Uncle Bob's accumulated
+  // the same burger-and-fries photo under 3 different tokens across 3
+  // sessions (July 7, July 10 01:37, July 10 22:27), each internally clean
+  // but never compared to the others. Since every live-pipeline run always
+  // re-samples Google's photos wholesale (not incrementally), replacing
+  // rather than accumulating is the correct semantic: clear old
+  // Google-sourced rows before writing this run's fresh, already-deduped
+  // batch. Pre-labeled sources (Menufy/DoorDash/schema.org) keep stable
+  // per-item URLs across scrapes, so they're unaffected and still just
+  // upsert normally.
+  const { error: clearError } = await supabase
+    .from("photos")
+    .delete()
+    .eq("restaurant_id", placeId)
+    .eq("source", "google");
+  if (clearError) console.error("[corpus] clearing stale google photos failed:", clearError.message);
+
   await savePhotos(
     placeId,
     photos.map((p) => ({
