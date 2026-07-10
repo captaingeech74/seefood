@@ -105,7 +105,7 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
 async function main() {
   // Dynamic imports — deferred until after loadEnvLocal() has populated
   // process.env, since these modules read env vars at module-load time.
-  const { extractDoorDashItems, parseNextDataMenuItems, getGooglePhotosAndReviews } =
+  const { extractDoorDashItems, extractGrubhubItems, parseGrubhubSearchUrl, parseNextDataMenuItems, getGooglePhotosAndReviews } =
     await import("../src/lib/google");
   const { persistPipelineResult, saveMenuItems, savePhotos, logSourceRun, getCorpusSnapshot, getDoorDashStoreUrl, saveDoorDashStoreUrl } =
     await import("../src/lib/db");
@@ -161,6 +161,37 @@ async function main() {
     return items.map((i) => ({ ...i, source: "doordash" as const }));
   }
 
+  // Grubhub root cause (confirmed live, see DECISIONS.md): zero bot protection,
+  // but the search results page is a pure client-rendered SPA — the live
+  // path's Scrapfly render_js=false config never executes the JS that
+  // populates results, so it always finds nothing regardless of query. Unlike
+  // DoorDash, Grubhub needs no anti-bot bypass at all, just real JS execution
+  // — Camoufox (a real browser) should handle this more reliably than tuning
+  // Scrapfly's render wait blindly. First live test of this path.
+  async function crawlGrubhub(target: CrawlTarget): Promise<MenuItemData[]> {
+    const searchUrl = `https://www.grubhub.com/search?queryText=${encodeURIComponent(target.name)}&latitude=${target.lat}&longitude=${target.lng}&orderMethod=delivery`;
+    const searchResult = pythonFetch(searchUrl, { render: true, referer: "https://www.grubhub.com/" });
+    console.log(`  [grubhub] search → status=${searchResult.status} ok=${searchResult.ok}` + (!searchResult.ok ? ` error=${searchResult.error ?? "n/a"}` : ""));
+    if (!searchResult.ok || !searchResult.html) return [];
+
+    const storeUrl = parseGrubhubSearchUrl(searchResult.html, target.name);
+    if (!storeUrl) {
+      console.log(`  [grubhub] no matching restaurant found for "${target.name}"`);
+      return [];
+    }
+    console.log(`  [grubhub] found: ${storeUrl}`);
+
+    const storeResult = pythonFetch(storeUrl, { render: true, referer: "https://www.grubhub.com/" });
+    if (!storeResult.ok || !storeResult.html) {
+      console.log(`  [grubhub] store page fetch failed: ${storeResult.error ?? storeResult.status}`);
+      return [];
+    }
+
+    const items = parseNextDataMenuItems(storeResult.html, extractGrubhubItems);
+    console.log(`  [grubhub] ${items.length} items from ${storeUrl}`);
+    return items.map((i) => ({ ...i, source: "grubhub" as const }));
+  }
+
   async function crawlOne(target: CrawlTarget, refreshStale: boolean): Promise<void> {
     if (!refreshStale) {
       const existing = await getCorpusSnapshot(target.placeId).catch(() => null);
@@ -178,17 +209,43 @@ async function main() {
     const { photos, menuItems } = await getGooglePhotosAndReviews(target.placeId, target.name);
     console.log(`  [pipeline] ${photos.length} photos, ${menuItems.length} menu items`);
 
-    // DoorDash — Python-only, crawler-exclusive.
-    const doorDashStart = Date.now();
-    const doorDashItems = await crawlDoorDash(target);
-    await logSourceRun({
-      placeId: target.placeId,
-      source: "doordash",
-      ok: doorDashItems.length > 0,
-      itemCount: doorDashItems.length,
-      photoCount: doorDashItems.filter((i) => i.imageUrl).length,
-      latencyMs: Date.now() - doorDashStart,
-    }).catch(() => {});
+    async function crawlAndPersist(source: "doordash" | "grubhub", crawlFn: () => Promise<MenuItemData[]>) {
+      const sourceStart = Date.now();
+      const items = await crawlFn();
+      await logSourceRun({
+        placeId: target.placeId,
+        source,
+        ok: items.length > 0,
+        itemCount: items.length,
+        photoCount: items.filter((i) => i.imageUrl).length,
+        latencyMs: Date.now() - sourceStart,
+      }).catch(() => {});
+
+      if (items.length > 0) {
+        const nameToId = await saveMenuItems(target.placeId, items);
+        await savePhotos(
+          target.placeId,
+          items
+            .filter((i) => i.imageUrl)
+            .map((i) => ({
+              originUrl: i.imageUrl!,
+              source,
+              attribution: "owner",
+              isOrderable: true,
+              width: 800,
+              height: 600,
+              geminiLabel: i.name,
+              menuItemId: nameToId.get(i.name),
+            }))
+        );
+      }
+      return items;
+    }
+
+    // DoorDash + Grubhub — Python/Camoufox, crawler-exclusive (see DECISIONS.md
+    // for why each is banned/broken on the live Scrapfly path).
+    await crawlAndPersist("doordash", () => crawlDoorDash(target));
+    await crawlAndPersist("grubhub", () => crawlGrubhub(target));
 
     await persistPipelineResult({
       placeId: target.placeId,
@@ -199,25 +256,6 @@ async function main() {
       photos,
       menuItems,
     });
-
-    if (doorDashItems.length > 0) {
-      const nameToId = await saveMenuItems(target.placeId, doorDashItems);
-      await savePhotos(
-        target.placeId,
-        doorDashItems
-          .filter((i) => i.imageUrl)
-          .map((i) => ({
-            originUrl: i.imageUrl!,
-            source: "doordash",
-            attribution: "owner",
-            isOrderable: true,
-            width: 800,
-            height: 600,
-            geminiLabel: i.name,
-            menuItemId: nameToId.get(i.name),
-          }))
-      );
-    }
 
     console.log(`✓ ${target.name} done in ${((Date.now() - start) / 1000).toFixed(1)}s`);
   }
