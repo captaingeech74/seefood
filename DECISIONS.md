@@ -923,3 +923,31 @@ diagnosing its 0/25 benchmark hit rate, per Kyle's instruction.
   (Grubhub needs zero anti-bot bypass, so Camoufox there should be simpler than
   DoorDash's case, not harder). Deferred to the crawler alongside DoorDash rather than
   spending more Scrapfly credits guessing on the live path.
+
+## Benchmark harness bug: NDJSON stream broke `res.json()`, made "0/25 magic-capable" a false reading (July 2026)
+
+`/api/dishes` was converted to stream newline-delimited JSON (one line on a corpus-fresh
+hit, two lines — pre-labeled/raw then final Gemini-labeled — on a cache miss) in the
+"Stream first photos before Gemini completes" change, but `scripts/benchmark.mjs`'s
+`fetchJson` still called `res.json()` on the raw body. `JSON.parse` throws on multi-line
+NDJSON; the throw was swallowed by `fetchJson`'s catch block, silently returning
+`json: null` for every restaurant that took the two-line cache-miss path (i.e. almost
+all of them on a cache-busted benchmark run). Result: a scoreboard run that logged
+`photos=0 matched=0` across all 25 restaurants and "Magic-capable: 0/25" — not a real
+regression, a broken harness silently returning nothing.
+
+Also found and fixed a second bug in the same script: the "magic-capable" formula was
+`menu_matched_count + photo_count >= 5`, which double-counts menu-matched dishes (they're
+already included in `photo_count`). Corrected to count photos with a real `dishName`
+(`isMenuMatch` dishes plus Gemini-identified-but-not-menu-matched dishes) — this is what
+"named dish photo" actually means per `DishGallery`'s own bucketing.
+
+Fix: added `fetchNdjson`, which reads the full response text, splits on newlines, and
+`JSON.parse`s only the last non-empty line (always the final, fully-scored result
+regardless of whether the restaurant took the one-line or two-line path). Re-ran after
+the fix: real numbers match the pre-existing 2026-07-07 baseline's magic-capable count
+(20/25 both times) with a meaningfully higher avg photos/restaurant (6.16 → 11.2),
+confirming the underlying pipeline was fine — only the benchmark's own JSON parsing was
+broken. Lesson: whenever a response-shape change (`res.json()` → streaming) lands, grep
+every consumer of that endpoint, not just the production UI — `benchmark.mjs` was hit
+because scripts don't get the same TypeScript-consumer visibility as component code.

@@ -57,6 +57,27 @@ async function fetchJson(url, timeoutMs = 45000) {
   }
 }
 
+// /api/dishes streams newline-delimited JSON: one line on a corpus-fresh hit,
+// two lines (pre-labeled/raw, then final Gemini-labeled) on a cache miss.
+// The last non-empty line is always the final, fully-scored result.
+async function fetchNdjson(url, timeoutMs = 45000) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  const start = Date.now();
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    const text = await res.text();
+    const latency_ms = Date.now() - start;
+    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    const json = lines.length > 0 ? JSON.parse(lines[lines.length - 1]) : null;
+    return { ok: res.ok, json, latency_ms };
+  } catch (e) {
+    return { ok: false, json: null, latency_ms: Date.now() - start, error: String(e) };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function main() {
   console.log(`SeeFood benchmark — ${restaurants.length} restaurants against ${BASE_URL} (run: ${RUN_TAG})\n`);
 
@@ -69,7 +90,7 @@ async function main() {
     const debugUrl = `${BASE_URL}/api/debug-sources?placeId=${r.placeId}&name=${encodeURIComponent(r.name)}&lat=${r.lat}&lng=${r.lng}`;
     const dishesUrl = `${BASE_URL}/api/dishes?placeId=${r.placeId}&name=${encodeURIComponent(r.name + " [bench-" + RUN_TAG + "]")}`;
 
-    const [debugRes, dishesRes] = await Promise.all([fetchJson(debugUrl), fetchJson(dishesUrl, 60000)]);
+    const [debugRes, dishesRes] = await Promise.all([fetchJson(debugUrl), fetchNdjson(dishesUrl, 60000)]);
 
     const sourceResults = {};
     for (const source of SOURCES) {
@@ -87,6 +108,7 @@ async function main() {
 
     const dishes = dishesRes.json?.dishes ?? [];
     const menuMatched = dishes.filter((d) => d.isMenuMatch).length;
+    const named = dishes.filter((d) => !!d.dishName).length;
 
     perRestaurant.push({
       name: r.name,
@@ -95,6 +117,7 @@ async function main() {
       sources: sourceResults,
       photo_count: dishes.length,
       menu_matched_count: menuMatched,
+      named_count: named,
       debug_latency_ms: debugRes.latency_ms,
       dishes_latency_ms: dishesRes.latency_ms,
     });
@@ -119,7 +142,7 @@ async function main() {
 
   const avgPhotos = (perRestaurant.reduce((a, r) => a + r.photo_count, 0) / restaurants.length).toFixed(1);
   const avgMatched = (perRestaurant.reduce((a, r) => a + r.menu_matched_count, 0) / restaurants.length).toFixed(1);
-  const magicCapable = perRestaurant.filter((r) => r.menu_matched_count + r.photo_count >= 5).length;
+  const magicCapable = perRestaurant.filter((r) => r.named_count >= 5).length;
   console.log(`\nAvg photos/restaurant: ${avgPhotos}   Avg menu-matched/restaurant: ${avgMatched}`);
   console.log(`"Magic-capable" (≥5 named dish photos): ${magicCapable}/${restaurants.length}`);
 
