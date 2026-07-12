@@ -260,6 +260,30 @@ async function fetchImageAsBase64(
   }
 }
 
+/**
+ * Deterministic backstop for near-duplicate detection: Gemini's cross-photo
+ * judgment is necessarily probabilistic and confirmed live to occasionally
+ * miss an actual duplicate pair. Byte-identical images (Google re-serving
+ * the same upload under a different photo_reference token is common) are
+ * caught for free here — we already have the base64 data in memory for the
+ * Gemini call, no extra fetch or cost. Returns originalIdx → earlier
+ * originalIdx it's byte-identical to.
+ */
+function findExactImageDuplicates(
+  images: ({ data: string; mimeType: string } | null)[],
+  validIndices: number[]
+): Map<number, number> {
+  const seen = new Map<string, number>();
+  const duplicates = new Map<number, number>();
+  for (const idx of validIndices) {
+    const data = images[idx]!.data;
+    const earlier = seen.get(data);
+    if (earlier !== undefined) duplicates.set(idx, earlier);
+    else seen.set(data, idx);
+  }
+  return duplicates;
+}
+
 // ── Gemini vision analysis ────────────────────────────────────────────────────
 
 interface GeminiResult {
@@ -350,12 +374,18 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
   const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
   const requestBody = JSON.stringify({
     contents: [{ parts }],
-    // Thinking tokens count against maxOutputTokens; scale the ceiling with photo
-    // count so a full batch doesn't get truncated mid-array.
     generationConfig: {
       temperature: 0,
       maxOutputTokens: 1024 + validIndices.length * 300,
       responseMimeType: "application/json",
+      // Thinking disabled — food identification + duplicate-spotting don't need
+      // chain-of-thought, and leaving this unset let the model spend an
+      // unbounded amount of hidden "thinking" time per call. Confirmed live:
+      // this exact call was the dominant cost in a 23s stage-2 (PRD target is
+      // <4s cold-miss) once the duplicate-detection instruction made the
+      // per-photo judgment harder. This was a documented Phase 0 tunable that
+      // never actually made it into generationConfig.
+      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 
@@ -403,15 +433,17 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
       }
 
       // Map back from "valid photo" positions to the original analysisUrls indices.
+      const exactDuplicates = findExactImageDuplicates(images, validIndices);
       const out: GeminiResult[] = analysisUrls.map(() => fallback);
       validIndices.forEach((originalIdx, n) => {
         const entry = parsed[n];
         const result = resolveGeminiEntry(entry, menuItems, popularDishes, hasMenu);
         const dupNum = entry?.duplicateOfPhotoNumber;
         result.duplicateOfIndex =
-          typeof dupNum === "number" && dupNum >= 1 && dupNum <= validIndices.length && validIndices[dupNum - 1] !== originalIdx
+          exactDuplicates.get(originalIdx) ??
+          (typeof dupNum === "number" && dupNum >= 1 && dupNum <= validIndices.length && validIndices[dupNum - 1] !== originalIdx
             ? validIndices[dupNum - 1]
-            : null;
+            : null);
         out[originalIdx] = result;
       });
       return out;
@@ -527,6 +559,7 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
       temperature: 0,
       maxOutputTokens: 512 + validIndices.length * 60,
       responseMimeType: "application/json",
+      thinkingConfig: { thinkingBudget: 0 }, // see analyzePhotosWithGeminiBatch — same latency fix
     },
   });
 
@@ -558,14 +591,16 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
         continue;
       }
 
+      const exactDuplicates = findExactImageDuplicates(images, validIndices);
       const out: PreLabeledQualityResult[] = photos.map(() => fallback);
       validIndices.forEach((originalIdx, n) => {
         const entry = parsed[n];
         const dupNum = entry?.duplicateOfPhotoNumber;
         const dupOriginalIdx =
-          typeof dupNum === "number" && dupNum >= 1 && dupNum <= validIndices.length && validIndices[dupNum - 1] !== originalIdx
+          exactDuplicates.get(originalIdx) ??
+          (typeof dupNum === "number" && dupNum >= 1 && dupNum <= validIndices.length && validIndices[dupNum - 1] !== originalIdx
             ? validIndices[dupNum - 1]
-            : null;
+            : null);
         out[originalIdx] = { isPromotional: !!entry?.isPromotional, duplicateOfIndex: dupOriginalIdx };
       });
       return out;
@@ -598,7 +633,12 @@ Use the short name as it appears on the menu. Omit prices/descriptions if illegi
         ],
       },
     ],
-    generationConfig: { temperature: 0, maxOutputTokens: 2048, responseMimeType: "application/json" },
+    generationConfig: {
+      temperature: 0,
+      maxOutputTokens: 2048,
+      responseMimeType: "application/json",
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   });
 
   for (const model of ["gemini-2.5-flash", "gemini-2.5-flash-lite"]) {
@@ -827,7 +867,13 @@ export async function fetchStreamingCandidates(
   const allGooglePhotos = photos as GooglePhoto[];
   const nonPortrait = allGooglePhotos.filter((p) => p.height <= p.width);
   const portrait    = allGooglePhotos.filter((p) => p.height >  p.width);
-  const googleCandidates = [...nonPortrait, ...portrait].slice(0, 10);
+  // Was capped at 10 — for sparse-photo restaurants (small local spots,
+  // some chain locations) that left very little raw material once
+  // isFood/isOrderable/duplicate filtering ran, confirmed live as part of
+  // "not that many photos" feedback. Google's Place Details can return up
+  // to ~20; take what's there. thinkingBudget:0 on the Gemini call keeps
+  // latency roughly linear in candidate count rather than blowing up.
+  const googleCandidates = [...nonPortrait, ...portrait].slice(0, 20);
 
   const googleAnalysisUrls = googleCandidates.map(
     (p) => `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photo_reference}&key=${API_KEY}`

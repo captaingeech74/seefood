@@ -206,18 +206,20 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
           className="absolute bottom-0 inset-x-0 z-10 px-5 pt-14 bg-gradient-to-t from-black via-black/75 to-transparent pointer-events-none"
           style={{ paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}
         >
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <span
-              className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
-              style={{
-                background: photo.isMenuMatch ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.08)",
-                color: photo.isMenuMatch ? "var(--success)" : "rgba(255,255,255,0.55)",
-                letterSpacing: "0.1em",
-              }}
-            >
-              {provenanceLabel(photo)}
-            </span>
-          </div>
+          {photo.dishName && (
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span
+                className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
+                style={{
+                  background: photo.isMenuMatch ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.08)",
+                  color: photo.isMenuMatch ? "var(--success)" : "rgba(255,255,255,0.55)",
+                  letterSpacing: "0.1em",
+                }}
+              >
+                {provenanceLabel(photo)}
+              </span>
+            </div>
+          )}
 
           {photo.dishName ? (
             <h2 className="text-white text-[22px] font-bold leading-tight tracking-tight mb-1">

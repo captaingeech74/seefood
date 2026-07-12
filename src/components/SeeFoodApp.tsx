@@ -32,6 +32,9 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
   const [userLng, setUserLng] = useState<number>(0);
   const [error, setError] = useState<string>("");
   const [dishesLoading, setDishesLoading] = useState(false);
+  // True once the stage-2 (Gemini-labeled) result has landed — gates whether
+  // TopDishesGrid shows the flat streaming view or the real hero/tier layout.
+  const [dishesFinal, setDishesFinal] = useState(false);
   const [reveal, setReveal] = useState<{ list: DishPhoto[]; index: number } | null>(null);
   // Preserves map pan/zoom across opens (PRD §4.4 "back preserves map position") —
   // only used on re-open, not the first cold explore entry, which centers fresh.
@@ -39,6 +42,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
 
   const fetchDishes = useCallback(async (r: Restaurant) => {
     setDishesLoading(true);
+    setDishesFinal(false);
     setDishes([]);
     setPopularDishes([]);
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -53,8 +57,12 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
       const res = await fetch(`/api/dishes?${params}`);
       if (!res.body) throw new Error("No response body");
 
-      // Server streams newline-delimited JSON: pre-labeled + raw photos first
-      // (no blocking skeleton — PRD §4.5), then the final Gemini-labeled result.
+      // Server streams newline-delimited JSON: raw unlabeled photos first (no
+      // blocking skeleton — PRD §4.5), then the final Gemini-labeled result.
+      // `chunk.done` distinguishes the two — the grid renders a flat,
+      // unfiltered stream during stage 1 (nothing is confidently tiered yet,
+      // so hiding anything behind "More photos" would just look broken) and
+      // switches to the real hero/tier layout once stage 2 lands.
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -72,6 +80,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
           const chunk = JSON.parse(line);
           setDishes(chunk.dishes ?? []);
           if (chunk.popularDishes) setPopularDishes(chunk.popularDishes);
+          if (chunk.done) setDishesFinal(true);
           if (first) {
             setState("ready");
             setDishesLoading(false);
@@ -81,8 +90,10 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
       }
     } catch {
       setDishes([]);
+      setDishesFinal(true);
     } finally {
       setDishesLoading(false);
+      setDishesFinal(true);
       setState("ready");
     }
   }, []);
@@ -229,6 +240,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
       <TopDishesGrid
         dishes={dishes}
         loading={state === "loading_dishes" || dishesLoading}
+        finalized={dishesFinal}
         onOpenReveal={(list, index) => setReveal({ list, index })}
       />
 

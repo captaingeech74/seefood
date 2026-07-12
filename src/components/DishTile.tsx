@@ -76,8 +76,10 @@ export default function DishTile({
         </div>
       )}
 
-      {/* Provenance badge — top-left */}
-      {loaded && (
+      {/* Provenance badge — top-left. Only once a dish is actually
+          identified; showing "Spotted here" on an unlabeled loading
+          placeholder claimed a provenance that wasn't real yet. */}
+      {loaded && hasName && (
         <div className="absolute top-2 left-2 pointer-events-none">
           <div
             className={`text-[8px] font-extrabold uppercase px-1.5 py-[3px] rounded-md leading-none ${
