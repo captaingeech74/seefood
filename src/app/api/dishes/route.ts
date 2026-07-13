@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
           return;
         }
         write({
-          dishes: candidates.rawGooglePhotos.slice(0, 20),
+          dishes: candidates.rawPhotoPlaceholders.slice(0, 20),
           done: false,
         });
 

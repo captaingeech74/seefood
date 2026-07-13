@@ -21,7 +21,61 @@
 import { MenuItemData } from "./types";
 import { hasScrapflyBudget } from "./scrapflyUsage";
 
-export async function fetchMenuFromUrl(url: string): Promise<MenuItemData[]> {
+export interface WebsiteExtractResult {
+  items: MenuItemData[];
+  /** Generic food-photo candidates scraped from the page(s) visited — no
+   * trusted name attached, so these get fed through the same Gemini
+   * identification pass as raw Google photos (see google.ts). */
+  photoUrls: string[];
+}
+
+/** Detection chain run against a single already-fetched page. */
+async function extractFromPage(url: string, html: string): Promise<WebsiteExtractResult> {
+  // ── Platform 1: Menufy / HungerRush ───────────────────────────────────────
+  if (html.includes("api.menufy.com")) {
+    const items = await parseMenufySite(url, html);
+    if (items.length > 0) return { items, photoUrls: [] };
+  }
+
+  // ── Platform 1b: Menufy via order link ───────────────────────────────────
+  // Some restaurants (e.g. Richie's Diner) have their marketing site separate
+  // from their Menufy ordering site, sometimes chained through an intermediate
+  // "/order" redirect page. Follow up to 3 hops.
+  const menufyViaSideLink = await checkLinksForMenufy(url, html, 3);
+  if (menufyViaSideLink.length > 0) return { items: menufyViaSideLink, photoUrls: [] };
+
+  // ── Platform 3: Named ordering platforms (Toast, Square, Clover, ChowNow, Olo, PopMenu)
+  // Real-world finding (July 2026, live restaurants): these sites almost never
+  // embed menu JSON in the raw HTML of the marketing page. Toast restaurants
+  // typically just *link* to a separate toasttab.com ordering page (same 2-hop
+  // pattern as Menufy). Square/ChowNow/Clover/Olo/PopMenu render their menu
+  // entirely client-side (JS SPA) — nothing useful in the raw HTML at all.
+  const platform = detectOrderingPlatform(html);
+  if (platform) {
+    let items = extractEmbeddedJsonMenuItems(html, platform);
+
+    if (items.length === 0) {
+      const platformUrl = findOrderingPlatformLink(html, url, platform) ?? url;
+
+      // Toast's ASP challenge costs ~51 Scrapfly credits/attempt — the same
+      // expensive tier that got DoorDash banned from the live path (see
+      // DECISIONS.md). Never spend Scrapfly credits on Toast; it's crawler-only.
+      if (platform !== "toast" && process.env.SCRAPFLY_KEY) {
+        items = await fetchOrderingPlatformViaScrapfly(platformUrl, platform);
+      }
+    }
+
+    if (items.length > 0) return { items, photoUrls: [] };
+  }
+
+  // ── Platform 2: Schema.org LD+JSON ────────────────────────────────────────
+  // Universal fallback — these platforms often also emit schema.org for SEO
+  // even when their own embedded JSON isn't present in the raw (unrendered) HTML.
+  const items = parseSchemaOrgMenuItems(html);
+  return { items, photoUrls: extractGenericPageImages(html, url) };
+}
+
+export async function fetchMenuFromUrl(url: string): Promise<WebsiteExtractResult> {
   try {
     const res = await fetch(url, {
       signal: AbortSignal.timeout(6000),
@@ -32,55 +86,113 @@ export async function fetchMenuFromUrl(url: string): Promise<MenuItemData[]> {
     });
     if (!res.ok) {
       console.log(`[fetchMenuFromUrl] ${url} → HTTP ${res.status}`);
-      return [];
+      return { items: [], photoUrls: [] };
     }
     const html = await res.text();
+    const primary = await extractFromPage(url, html);
 
-    // ── Platform 1: Menufy / HungerRush ───────────────────────────────────────
-    if (html.includes("api.menufy.com")) {
-      const items = await parseMenufySite(url, html);
-      if (items.length > 0) return items;
-    }
-
-    // ── Platform 1b: Menufy via order link ───────────────────────────────────
-    // Some restaurants (e.g. Richie's Diner) have their marketing site separate
-    // from their Menufy ordering site, sometimes chained through an intermediate
-    // "/order" redirect page. Follow up to 3 hops.
-    const menufyViaSideLink = await checkLinksForMenufy(url, html, 3);
-    if (menufyViaSideLink.length > 0) return menufyViaSideLink;
-
-    // ── Platform 3: Named ordering platforms (Toast, Square, Clover, ChowNow, Olo, PopMenu)
-    // Real-world finding (July 2026, live restaurants): these sites almost never
-    // embed menu JSON in the raw HTML of the marketing page. Toast restaurants
-    // typically just *link* to a separate toasttab.com ordering page (same 2-hop
-    // pattern as Menufy). Square/ChowNow/Clover/Olo/PopMenu render their menu
-    // entirely client-side (JS SPA) — nothing useful in the raw HTML at all.
-    const platform = detectOrderingPlatform(html);
-    if (platform) {
-      let items = extractEmbeddedJsonMenuItems(html, platform);
-
-      if (items.length === 0) {
-        const platformUrl = findOrderingPlatformLink(html, url, platform) ?? url;
-
-        // Toast's ASP challenge costs ~51 Scrapfly credits/attempt — the same
-        // expensive tier that got DoorDash banned from the live path (see
-        // DECISIONS.md). Never spend Scrapfly credits on Toast; it's crawler-only.
-        if (platform !== "toast" && process.env.SCRAPFLY_KEY) {
-          items = await fetchOrderingPlatformViaScrapfly(platformUrl, platform);
+    // The Place Details `website` field is often the marketing/location
+    // landing page, not the actual menu page — confirmed live (Bluewater
+    // Grill: the location page has only a logo + hero banner, while its
+    // real /temecula-menu page has dozens of real MenuItem entries across
+    // several schema.org Menu blocks). If nothing structured came off the
+    // primary page, follow a generic "menu" link and try again there too —
+    // this is a hard fallback (not platform-specific), so it applies broadly
+    // to any independent restaurant site, not just known platforms.
+    if (primary.items.length === 0) {
+      const menuLink = findGenericMenuPageLink(html, url);
+      if (menuLink && menuLink !== url) {
+        try {
+          const menuRes = await fetch(menuLink, {
+            signal: AbortSignal.timeout(6000),
+            headers: {
+              "User-Agent": "Mozilla/5.0 (compatible; SeeFood/1.0)",
+              Accept: "text/html,application/xhtml+xml",
+            },
+          });
+          if (menuRes.ok) {
+            const menuHtml = await menuRes.text();
+            const fromMenuPage = await extractFromPage(menuLink, menuHtml);
+            return {
+              items: fromMenuPage.items,
+              photoUrls: [...primary.photoUrls, ...fromMenuPage.photoUrls].slice(0, 20),
+            };
+          }
+        } catch (e) {
+          console.error(`[fetchMenuFromUrl] menu-link follow ${menuLink} failed:`, e);
         }
       }
-
-      if (items.length > 0) return items;
     }
 
-    // ── Platform 2: Schema.org LD+JSON ────────────────────────────────────────
-    // Universal fallback — these platforms often also emit schema.org for SEO
-    // even when their own embedded JSON isn't present in the raw (unrendered) HTML.
-    return parseSchemaOrgMenuItems(html);
+    return primary;
   } catch (e) {
     console.error(`[fetchMenuFromUrl] ${url} failed:`, e);
-    return [];
+    return { items: [], photoUrls: [] };
   }
+}
+
+/**
+ * Generic (non-platform-specific) "find the menu page" fallback — looks for
+ * an anchor whose href or link text mentions "menu", same-origin only.
+ * Deliberately permissive: a wrong guess just means the follow-up page also
+ * yields nothing (fail-open), so a false positive costs one wasted fetch.
+ */
+function findGenericMenuPageLink(html: string, baseUrl: string): string | null {
+  let origin = "";
+  try { origin = new URL(baseUrl).origin; } catch { return null; }
+
+  const anchorPattern = /<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  const candidates: string[] = [];
+  while ((m = anchorPattern.exec(html)) !== null) {
+    const href = m[1];
+    const text = m[2].replace(/<[^>]+>/g, "").trim().toLowerCase();
+    if (!href || href.startsWith("#") || href.startsWith("javascript") || href.startsWith("mailto") || href.startsWith("tel")) continue;
+    const hrefLower = href.toLowerCase();
+    if (!hrefLower.includes("menu") && text !== "menu" && !text.includes("our menu") && !text.includes("view menu")) continue;
+    if (/mobile-menu|nav-menu|menu-toggle|menu-icon/.test(hrefLower)) continue;
+    try {
+      const resolved = new URL(href, baseUrl);
+      if (resolved.origin !== origin) continue;
+      candidates.push(resolved.href);
+    } catch {
+      continue;
+    }
+  }
+  return candidates[0] ?? null;
+}
+
+const IMAGE_URL_RE = /<img[^>]+src="([^"]+)"/gi;
+const NON_FOOD_IMAGE_HINTS = /logo|icon|favicon|sprite|avatar|placeholder|\.svg(\?|$)|social|facebook|instagram|twitter|tripadvisor|yelp|pixel|analytics|badge|button/i;
+
+/**
+ * Scrape plausible food-photo URLs directly off a page's <img> tags — the
+ * fallback for restaurant sites whose schema.org MenuItem entries have no
+ * `image` (common: menu text is structured, photos aren't), so structured
+ * parsing alone still leaves the corpus photo-starved even though real
+ * photography exists on the same page. These have no trusted dish name, so
+ * they're treated like raw Google candidates and go through the same Gemini
+ * identification pass (google.ts), not the pre-labeled/trusted path.
+ */
+function extractGenericPageImages(html: string, baseUrl: string): string[] {
+  const urls: string[] = [];
+  const seen = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = IMAGE_URL_RE.exec(html)) !== null) {
+    const src = m[1];
+    if (!src || NON_FOOD_IMAGE_HINTS.test(src)) continue;
+    if (!/\.(jpe?g|png|webp)(\?|$)/i.test(src)) continue;
+    try {
+      const resolved = new URL(src, baseUrl).href;
+      if (seen.has(resolved)) continue;
+      seen.add(resolved);
+      urls.push(resolved);
+    } catch {
+      continue;
+    }
+    if (urls.length >= 15) break;
+  }
+  return urls;
 }
 
 // ── Menufy / HungerRush ───────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { Restaurant, DishPhoto, MenuItemData } from "./types";
+import { Restaurant, DishPhoto, MenuItemData, DataSource } from "./types";
 import { extractPopularDishes } from "./reviewParser";
 import { fetchMenuFromUrl } from "./menuSources";
 
@@ -801,14 +801,30 @@ export async function getRestaurantDetails(
 // callers (crawler, benchmark, debug-sources) just call getGooglePhotosAndReviews,
 // which runs both stages back to back.
 
+/**
+ * A photo that needs full Gemini identification (no trusted name yet) —
+ * either a raw Google Places photo, or a generic image scraped off the
+ * restaurant's own website (PRD §5.3: aggregation). Both go through the
+ * exact same batched Gemini pass in finalizeWithGemini; unifying them here
+ * means website photos get real identification, duplicate-detection, and
+ * the instant stage-1 placeholder treatment for free instead of a second
+ * parallel code path.
+ */
+interface RawPhotoCandidate {
+  analysisUrl: string; // fetched for the Gemini call
+  displayUrl: string;  // shown to the user
+  source: DataSource;
+  attribution: "user" | "owner";
+  width: number;
+  height: number;
+}
+
 export interface StreamingCandidates {
   placeId: string;
   restaurantName: string;
   preLabeledPhotos: DishPhoto[];
-  rawGooglePhotos: DishPhoto[]; // unlabeled placeholders — shown instantly, replaced by stage 2
-  googleCandidates: GooglePhoto[];
-  googleAnalysisUrls: string[];
-  googleDisplayUrls: string[];
+  rawPhotoPlaceholders: DishPhoto[]; // unlabeled placeholders — shown instantly, replaced by stage 2
+  photoCandidates: RawPhotoCandidate[];
   allMenuItems: MenuItemData[];
   popularDishes: string[];
 }
@@ -832,9 +848,10 @@ export async function fetchStreamingCandidates(
   // DECISIONS.md). Calling it live spent a Scrapfly credit on a 0% hit rate
   // every single time — same waste pattern DoorDash was pulled from this
   // path for. The Scrapfly-based fetch helper was removed entirely.
-  const websiteMenuItems = websiteUrl ? await fetchMenuFromUrl(websiteUrl) : [];
+  const website = websiteUrl ? await fetchMenuFromUrl(websiteUrl) : { items: [], photoUrls: [] };
+  const websiteMenuItems = website.items;
 
-  console.log(`[pipeline] "${restaurantName}" — website:${websiteMenuItems.length}`);
+  console.log(`[pipeline] "${restaurantName}" — website:${websiteMenuItems.length} photos:${website.photoUrls.length}`);
 
   const allMenuItems = deduplicateMenuItems(websiteMenuItems);
   const popularDishes = extractPopularDishes(reviews as GoogleReview[]);
@@ -864,6 +881,7 @@ export async function fetchStreamingCandidates(
       height: 600,
     });
   }
+
   const allGooglePhotos = photos as GooglePhoto[];
   const nonPortrait = allGooglePhotos.filter((p) => p.height <= p.width);
   const portrait    = allGooglePhotos.filter((p) => p.height >  p.width);
@@ -875,37 +893,65 @@ export async function fetchStreamingCandidates(
   // latency roughly linear in candidate count rather than blowing up.
   const googleCandidates = [...nonPortrait, ...portrait].slice(0, 20);
 
-  const googleAnalysisUrls = googleCandidates.map(
-    (p) => `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${p.photo_reference}&key=${API_KEY}`
-  );
-  const googleDisplayUrls = googleCandidates.map(
-    (p) => `/api/photo?ref=${encodeURIComponent(p.photo_reference)}&maxwidth=800`
-  );
+  const googlePhotoCandidates: RawPhotoCandidate[] = googleCandidates.map((photo) => {
+    const attrText = photo.html_attributions.join(" ").toLowerCase();
+    const isOwner =
+      attrText.includes("owner") ||
+      attrText.includes("the official") ||
+      (!attrText.includes("maps.google.com/maps/contrib") && attrText.length > 0);
+    return {
+      analysisUrl: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${photo.photo_reference}&key=${API_KEY}`,
+      displayUrl: `/api/photo?ref=${encodeURIComponent(photo.photo_reference)}&maxwidth=800`,
+      source: "google",
+      attribution: isOwner ? "owner" : "user",
+      width: photo.width,
+      height: photo.height,
+    };
+  });
+
+  // Generic photos scraped off the restaurant's own website (PRD §5.3
+  // aggregation) — no trusted dish name, so these need the same full
+  // identification as Google photos, not the pre-labeled/trusted path.
+  // Confirmed live (Bluewater Grill, 2.6k reviews): Google's Place Details
+  // caps at exactly 10 photos regardless of billing tier or API version
+  // (verified against both the legacy and New Places APIs), and the
+  // restaurant's own real menu page had real food photography schema.org
+  // never surfaced because MenuItem.image was null for every item. This is
+  // the aggregation lever that actually moves the needle for well-reviewed,
+  // popular restaurants whose website isn't on a known ordering platform.
+  const websitePhotoCandidates: RawPhotoCandidate[] = website.photoUrls.map((url) => ({
+    analysisUrl: url,
+    displayUrl: url,
+    source: "schema_org",
+    attribution: "owner",
+    width: 800,
+    height: 600,
+  }));
+
+  const photoCandidates = [...googlePhotoCandidates, ...websitePhotoCandidates];
 
   // Raw, unlabeled placeholders — shown to the user immediately (PRD §4.5:
   // "Cold miss: show best available source immediately, backfill") while stage 2
   // (Gemini) is still running.
-  const rawGooglePhotos: DishPhoto[] = googleCandidates.map((photo, i) => ({
-    id: `google-${placeId}-${i}`,
-    url: googleDisplayUrls[i],
+  const rawPhotoPlaceholders: DishPhoto[] = photoCandidates.map((c, i) => ({
+    id: `raw-${placeId}-${i}`,
+    url: c.displayUrl,
     dishName: null,
     dishDescription: null,
     isMenuMatch: false,
-    source: "google",
-    attribution: "user",
+    source: c.source,
+    attribution: c.attribution,
     tier: 3, // unlabeled placeholder; upgraded once stage 2 (Gemini) resolves it
-    width: photo.width,
-    height: photo.height,
+    width: c.width,
+    height: c.height,
   }));
 
   return {
     placeId,
     restaurantName,
     preLabeledPhotos,
-    rawGooglePhotos,
-    googleCandidates,
-    googleAnalysisUrls,
-    googleDisplayUrls,
+    rawPhotoPlaceholders,
+    photoCandidates,
     allMenuItems,
     popularDishes,
   };
@@ -915,13 +961,14 @@ export async function fetchStreamingCandidates(
 export async function finalizeWithGemini(
   c: StreamingCandidates
 ): Promise<{ photos: DishPhoto[]; menuItems: MenuItemData[] }> {
-  const { placeId, restaurantName, preLabeledPhotos, googleCandidates, googleAnalysisUrls, googleDisplayUrls, popularDishes } = c;
+  const { placeId, restaurantName, preLabeledPhotos, photoCandidates, popularDishes } = c;
   const allMenuItems = [...c.allMenuItems];
+  const analysisUrls = photoCandidates.map((cand) => cand.analysisUrl);
 
   // Run both batched Gemini passes together — independent photo sets, same
   // $0 infrastructure, no reason to serialize them.
   const [geminiResults, preLabeledQuality] = await Promise.all([
-    analyzePhotosWithGeminiBatch(googleAnalysisUrls, allMenuItems, popularDishes, restaurantName),
+    analyzePhotosWithGeminiBatch(analysisUrls, allMenuItems, popularDishes, restaurantName),
     assessPreLabeledPhotos(preLabeledPhotos, restaurantName),
   ]);
 
@@ -933,7 +980,7 @@ export async function finalizeWithGemini(
     .filter((i) => i >= 0);
   const ocrItems = (
     await Promise.all(
-      menuPhotoIndices.map((i) => ocrMenuPhoto(googleAnalysisUrls[i], restaurantName))
+      menuPhotoIndices.map((i) => ocrMenuPhoto(analysisUrls[i], restaurantName))
     )
   ).flat();
   if (ocrItems.length > 0) {
@@ -941,28 +988,23 @@ export async function finalizeWithGemini(
   }
 
   const geminiPhotos: { photo: DishPhoto; score: number }[] = [];
-  googleCandidates.forEach((photo, i) => {
+  photoCandidates.forEach((candidate, i) => {
     const result = geminiResults[i] ?? { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false, duplicateOfIndex: null };
     if (!result.isFood || result.isMenuPhoto) return; // drop non-food and menu-board photos
     if (result.duplicateOfIndex !== null) return; // near-identical shot of an earlier photo — drop it, not the original
-    const attrText = photo.html_attributions.join(" ").toLowerCase();
-    const isOwner =
-      attrText.includes("owner") ||
-      attrText.includes("the official") ||
-      (!attrText.includes("maps.google.com/maps/contrib") && attrText.length > 0);
     const score = computePriorityScore(result.dishName, result.isMenuMatch, popularDishes);
     geminiPhotos.push({
       photo: {
-        id: `google-${placeId}-${i}`,
-        url: googleDisplayUrls[i],
+        id: `raw-${placeId}-${i}`,
+        url: candidate.displayUrl,
         dishName: result.dishName,
         dishDescription: result.dishDescription,
         isMenuMatch: result.isMenuMatch,
-        source: "google",
-        attribution: isOwner ? "owner" : "user",
+        source: candidate.source,
+        attribution: candidate.attribution,
         tier: scoreToTier(score),
-        width: photo.width,
-        height: photo.height,
+        width: candidate.width,
+        height: candidate.height,
       },
       score,
     });

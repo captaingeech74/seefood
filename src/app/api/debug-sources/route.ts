@@ -49,8 +49,9 @@ export async function GET(req: NextRequest) {
       (results.website as Record<string, unknown>).website_ok = wr.ok;
 
       const parsed = await fetchMenuFromUrl(websiteUrl);
-      (results.website as Record<string, unknown>).parsed_menu_items = parsed.length;
-      (results.website as Record<string, unknown>).parsed_sample = parsed.slice(0, 3).map((i) => i.name);
+      (results.website as Record<string, unknown>).parsed_menu_items = parsed.items.length;
+      (results.website as Record<string, unknown>).parsed_sample = parsed.items.slice(0, 3).map((i) => i.name);
+      (results.website as Record<string, unknown>).generic_photo_count = parsed.photoUrls.length;
     }
   } catch (e) {
     results.website = { error: String(e) };
