@@ -100,8 +100,13 @@ export async function fetchMenuFromUrl(url: string): Promise<WebsiteExtractResul
     // this is a hard fallback (not platform-specific), so it applies broadly
     // to any independent restaurant site, not just known platforms.
     if (primary.items.length === 0) {
-      const menuLink = findGenericMenuPageLink(html, url);
-      if (menuLink && menuLink !== url) {
+      // Generic nav links (e.g. "/menu/") are often a locations chooser, not
+      // a specific location's real menu — try every distinct candidate and
+      // keep whichever actually yields structured items, rather than
+      // trusting the first/shortest link found.
+      const menuLinks = findGenericMenuPageLinks(html, url).filter((l) => l !== url);
+      let best: WebsiteExtractResult | null = null;
+      for (const menuLink of menuLinks) {
         try {
           const menuRes = await fetch(menuLink, {
             signal: AbortSignal.timeout(6000),
@@ -110,17 +115,25 @@ export async function fetchMenuFromUrl(url: string): Promise<WebsiteExtractResul
               Accept: "text/html,application/xhtml+xml",
             },
           });
-          if (menuRes.ok) {
-            const menuHtml = await menuRes.text();
-            const fromMenuPage = await extractFromPage(menuLink, menuHtml);
-            return {
-              items: fromMenuPage.items,
-              photoUrls: [...primary.photoUrls, ...fromMenuPage.photoUrls].slice(0, 20),
-            };
+          if (!menuRes.ok) continue;
+          const menuHtml = await menuRes.text();
+          const fromMenuPage = await extractFromPage(menuLink, menuHtml);
+          if (fromMenuPage.items.length > 0) {
+            best = fromMenuPage;
+            break; // first candidate with real structured data wins
+          }
+          if (!best || fromMenuPage.photoUrls.length > best.photoUrls.length) {
+            best = fromMenuPage; // no items anywhere yet — keep the one with the most photos
           }
         } catch (e) {
           console.error(`[fetchMenuFromUrl] menu-link follow ${menuLink} failed:`, e);
         }
+      }
+      if (best) {
+        return {
+          items: best.items,
+          photoUrls: [...primary.photoUrls, ...best.photoUrls].slice(0, 20),
+        };
       }
     }
 
@@ -137,13 +150,22 @@ export async function fetchMenuFromUrl(url: string): Promise<WebsiteExtractResul
  * Deliberately permissive: a wrong guess just means the follow-up page also
  * yields nothing (fail-open), so a false positive costs one wasted fetch.
  */
-function findGenericMenuPageLink(html: string, baseUrl: string): string | null {
+function findGenericMenuPageLinks(html: string, baseUrl: string): string[] {
   let origin = "";
-  try { origin = new URL(baseUrl).origin; } catch { return null; }
+  try { origin = new URL(baseUrl).origin; } catch { return []; }
 
   const anchorPattern = /<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
   let m: RegExpExecArray | null;
+  // Generic nav links like "/menu/" are usually a locations chooser, not a
+  // specific location's actual menu — confirmed live (Bluewater Grill: "/menu/"
+  // is an Organization-level page with zero MenuItem schema, while the real
+  // content sits at the more specific "/temecula-menu" button link further
+  // down the page). Try every distinct candidate rather than just the first
+  // and let the caller keep whichever actually yields structured data —
+  // ranking by link specificity (path length) is a reasonable prior but not
+  // reliable enough to trust alone.
   const candidates: string[] = [];
+  const seenPaths = new Set<string>();
   while ((m = anchorPattern.exec(html)) !== null) {
     const href = m[1];
     const text = m[2].replace(/<[^>]+>/g, "").trim().toLowerCase();
@@ -154,12 +176,16 @@ function findGenericMenuPageLink(html: string, baseUrl: string): string | null {
     try {
       const resolved = new URL(href, baseUrl);
       if (resolved.origin !== origin) continue;
-      candidates.push(resolved.href);
+      const pathKey = resolved.pathname; // dedupe by path, ignore #fragments
+      if (seenPaths.has(pathKey)) continue;
+      seenPaths.add(pathKey);
+      candidates.push(resolved.origin + resolved.pathname);
     } catch {
       continue;
     }
   }
-  return candidates[0] ?? null;
+  // Longer/more specific paths first (heuristic prior; caller still tries all).
+  return candidates.sort((a, b) => b.length - a.length).slice(0, 3);
 }
 
 const IMAGE_URL_RE = /<img[^>]+src="([^"]+)"/gi;
