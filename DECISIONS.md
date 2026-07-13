@@ -1107,3 +1107,56 @@ as everything else, so they only appear in the final (stage 2) response —
 a few seconds slower to first-appear on a cold miss, in exchange for never
 showing an ad graphic or a duplicate. Warm/corpus-hit restaurants are
 unaffected (still <1s, no live Gemini call at all).
+
+---
+
+## Photo-starved popular restaurants: Google's 10-photo cap confirmed hard, website aggregation is the real lever (July 2026)
+
+Kyle: Bluewater Grill (2.6k reviews, genuinely popular, real website) only
+surfaced 6 photos live. Investigated with real data rather than guessing:
+
+- **Google Places photo cap confirmed at exactly 10**, tested against BOTH
+  the legacy `maps/api/place/details/json` endpoint and Places API (New)
+  (`places.googleapis.com/v1/places/{id}`) with the same field mask —
+  identical 10 photos, same order, from both. This is a real platform
+  ceiling on this billing tier, not a bug in our request or a config issue.
+  Raising our own candidate slice (done same week, 10→20) cannot work
+  around a source that only ever returns 10 in the first place.
+- **The `website` field Google hands us is often the marketing/location
+  landing page, not the real menu page.** Bluewater's location page had
+  almost no food photography (logo + one hero banner) and only
+  `FoodEstablishment` schema.org (address/phone/hours, zero MenuItem
+  entries) — schema.org parsing legitimately found nothing there. But
+  `bluewatergrill.com/temecula-menu`, one click away and never fetched
+  before this fix, has 151 real MenuItem entries across several schema.org
+  `Menu` blocks (Appetizers, Drinks, Happy Hour, seasonal specials) *and*
+  real food photography in its raw `<img>` tags.
+- Fix (source-agnostic, applies to any independent restaurant site, not
+  just this one): `fetchMenuFromUrl` now falls back to a generic
+  "find and follow a menu link" step when the primary page yields no
+  structured items. First attempt naively grabbed the *first* link
+  containing "menu" — for Bluewater that was a generic `/menu/` nav link
+  (an Organization-level locations-chooser page, zero MenuItem schema),
+  not the specific `/temecula-menu` button further down. Fixed to try every
+  distinct candidate link (deduped by path, longest/most-specific first as
+  a prior) and keep whichever actually yields structured data.
+- New `extractGenericPageImages` scrapes plausible food photos directly off
+  `<img>` tags (filtered for logo/icon/social/pixel noise) from whichever
+  page(s) were visited — these have no trusted name, so they're merged into
+  google.ts's `photoCandidates` pool and go through the exact same Gemini
+  identification + ad-detection + duplicate-detection pass as raw Google
+  photos, not a second parallel path.
+- **Result, verified live:** Bluewater Grill went from 6 photos to 13 (zero
+  duplicates), mixing real Google patron photos matched against the site's
+  151-item reference list (turning previously-unmatched Google photos into
+  confident `isMenuMatch` hits) with genuine website-sourced photos
+  ("Alaskan King Crab Legs," "Fish Tacos," "San Francisco Cioppino," etc.).
+- **Honest gap to Kyle's "20 photo minimum" ask:** not fully closed for
+  every restaurant by this fix alone. The two remaining levers are both
+  already-known, deliberate constraints: DoorDash/Grubhub are corpus-only
+  (Tier 1 crawler, needs Kyle's Mac — a very popular restaurant like this
+  one is likely to have real coverage there), and Google's own photo count
+  is a hard external ceiling we can't raise from the live serverless path
+  without a different Google billing arrangement (a $0-posture question,
+  not a code fix). Full Temecula saturation via the crawler (Phase 3) is
+  what closes the remaining gap for restaurants like this one.
