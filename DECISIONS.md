@@ -1252,3 +1252,42 @@ HTML — which has nothing in it for a pure SPA. Now those fallbacks also
 run against the rendered HTML when a render happened, giving these
 platforms a real (if best-effort) path to contribute photos even without
 structured menu extraction.
+
+---
+
+## ⚑ STANDING OBLIGATION — report Track B nightly-crawl health every session (July 2026)
+
+Kyle, after Track B (Mac launchd nightly crawler) shipped: *"log a task for
+developers to periodically tabulate the performance stats of the scheduled
+job, and report them to me alongside the output of other working sessions
+/ interactions that I have with them. I just don't want to forget that this
+exists and runs, and I want to stay aware of how it is doing to address any
+issues. developers should proactively assess its utility and report
+suggestions to me to fix/upgrade/kill, and why."*
+
+This is a **recurring, standing instruction** — not a one-time task to
+check off. Every future session (human or AI agent) working in this repo,
+regardless of what else it's doing, should check Track B's health and
+report it to Kyle unprompted, as part of that session's normal summary —
+don't wait to be asked, and don't let a session end without at least a
+one-line status if it's been a while since the last check.
+
+**What to check** (the Mac's own `logs/nightly-crawl-*.log` files aren't
+visible from a cloud/serverless session — use the corpus instead, which is):
+- `source_runs` rows where `source IN ('doordash','grubhub')`, most recent
+  first — is it actually running on schedule? Success rate (`ok=true`
+  fraction)? Typical `item_count`/`photo_count` per attempt? Any recurring
+  `error` patterns?
+- `restaurants` table: how much of the Temecula backlog (`status='queued'`)
+  has been drained since the last check vs still waiting — is the queue
+  shrinking, or growing faster than either track can process it?
+- Cross-check against Track A's own `source_runs`/corpus activity so you're
+  not crediting Track B for gains Track A actually made.
+
+**What to report to Kyle:** a short tabulation, not raw logs or a wall of
+numbers — e.g. "Track B ran N of the last M nights, ~X% success, avg Y
+items/restaurant, queue at Z remaining." If it looks broken, stalled,
+silently failing, or just not worth the residential-IP complexity anymore
+(e.g. if DoorDash/Grubhub hit rates stay near zero after a fair trial),
+say so plainly and recommend fix / upgrade / kill with the reasoning —
+this job should never be allowed to just quietly rot unexamined.
