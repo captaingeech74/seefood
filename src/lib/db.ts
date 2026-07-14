@@ -494,19 +494,32 @@ export async function persistPipelineResult(input: {
   // prior session already wrote — confirmed live: Uncle Bob's accumulated
   // the same burger-and-fries photo under 3 different tokens across 3
   // sessions (July 7, July 10 01:37, July 10 22:27), each internally clean
-  // but never compared to the others. Since every live-pipeline run always
-  // re-samples Google's photos wholesale (not incrementally), replacing
-  // rather than accumulating is the correct semantic: clear old
-  // Google-sourced rows before writing this run's fresh, already-deduped
-  // batch. Pre-labeled sources (Menufy/DoorDash/schema.org) keep stable
-  // per-item URLs across scrapes, so they're unaffected and still just
-  // upsert normally.
+  // but never compared to the others.
+  //
+  // `photos` here is the FULL, freshly-recomputed set for this run (Google +
+  // website-scraped + pre-labeled all go through fetchStreamingCandidates /
+  // finalizeWithGemini from scratch every time) — so replacing everything,
+  // not just source='google', is the correct semantic. A prior version of
+  // this function only cleared source='google' rows, on the theory that
+  // pre-labeled/website sources have stable URLs and would just upsert in
+  // place; that missed the case where a photo's URL is stable but Gemini's
+  // *verdict* on it changes (e.g. a stricter filter now excludes it) — the
+  // stale row then survives forever since it's never re-inserted to trigger
+  // the upsert. Confirmed live July 2026: Cross Creek Golf Club kept showing
+  // a golf-course photo (source='schema_org') after the isOrderable/
+  // isPromotional filter fix shipped, because that fix correctly stopped
+  // re-emitting it but nothing deleted the old row.
+  //
+  // Excludes source='user_upload': those come from diners via the "Take
+  // Photo of Dish" feature, are never recomputed by this pipeline, and
+  // deleting them here would silently wipe a diner's contribution (plus its
+  // accumulated love_count) on every crawl/re-persist.
   const { error: clearError } = await supabase
     .from("photos")
     .delete()
     .eq("restaurant_id", placeId)
-    .eq("source", "google");
-  if (clearError) console.error("[corpus] clearing stale google photos failed:", clearError.message);
+    .neq("source", "user_upload");
+  if (clearError) console.error("[corpus] clearing stale photos failed:", clearError.message);
 
   await savePhotos(
     placeId,
