@@ -43,6 +43,17 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
   const [hasSwiped, setHasSwiped] = useState(false);
   const [variantIndex, setVariantIndex] = useState(0);
   const [uploadedPhotos, setUploadedPhotos] = useState<DishPhoto[]>([]);
+  // Once true, the swipe-right-only hint upgrades to show both directions —
+  // persisted in localStorage so it stays learned across dishes and future
+  // visits, not just the current photo (Kyle: "once they have swiped right
+  // one time, it should change to also show they can go left as well now").
+  const [discoveredHSwipe, setDiscoveredHSwipe] = useState(() => {
+    try {
+      return typeof window !== "undefined" && localStorage.getItem("seefood-discovered-hswipe") === "1";
+    } catch {
+      return false;
+    }
+  });
 
   const startXRef = useRef(0);
   const startYRef = useRef(0);
@@ -105,6 +116,8 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
   const animateVariantTo = useCallback((targetOffset: number, nextIdx: number) => {
     setIsHAnimating(true);
     setDragX(targetOffset);
+    setDiscoveredHSwipe(true);
+    try { localStorage.setItem("seefood-discovered-hswipe", "1"); } catch {}
     window.setTimeout(() => {
       setIsHResetting(true);
       setVariantIndex(nextIdx);
@@ -327,6 +340,27 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
         <Slide photo={nextPhoto} style={{ transform: `translateY(calc(100% + ${dragY}px))`, transition: trackTransition }} />
       )}
 
+      {/* Same-dish swipe hint — right-only until the user has discovered the
+          gesture once (globally, via localStorage), then both edges light up. */}
+      {!detailOpen && !isDragging && nextVariant && (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none swipe-hint-right">
+          <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
+              <path d="m9 6 6 6-6 6" />
+            </svg>
+          </div>
+        </div>
+      )}
+      {!detailOpen && !isDragging && discoveredHSwipe && prevVariant && (
+        <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none swipe-hint-left">
+          <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
+              <path d="m15 6-6 6 6 6" />
+            </svg>
+          </div>
+        </div>
+      )}
+
       {/* Top bar — counter + close */}
       <div
         className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-4 py-3"
@@ -403,7 +437,8 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
               </svg>
             )}
             <p className="text-white/30 text-[11px] font-medium">
-              Tap for details · Swipe ↕ for next dish{variants.length > 1 ? " · ↔ more photos" : ""}
+              Tap for details · Swipe ↕ for next dish
+              {variants.length > 1 ? ` · Swipe ${discoveredHSwipe ? "↔" : "→"} more photos` : ""}
             </p>
           </div>
         </div>
@@ -463,18 +498,60 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
             </span>
           </div>
 
-          <button
-            onClick={handleTakePhotoClick}
-            disabled={uploading}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-[14px] font-bold mb-3 active:scale-[0.98] transition-all disabled:opacity-50"
-            style={{ background: "var(--surface-2)", color: "rgba(255,255,255,0.85)" }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/>
-              <circle cx="12" cy="13" r="4"/>
-            </svg>
-            {uploading ? "Uploading…" : "Take Photo of Dish"}
-          </button>
+          <div className="grid grid-cols-3 gap-2.5 mb-1">
+            <button
+              onClick={handleTakePhotoClick}
+              disabled={uploading}
+              className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border active:scale-[0.96] transition-all disabled:opacity-50"
+              style={{ background: "var(--surface-2)", borderColor: "rgba(255,255,255,0.1)" }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-white/85">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              <span className="text-[11.5px] font-bold text-white/85 text-center leading-tight">
+                {uploading ? "Uploading…" : "Take Photo"}
+              </span>
+            </button>
+
+            <button
+              onClick={handleLove}
+              className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border active:scale-[0.96] transition-all"
+              style={{
+                background: loved ? "rgba(251,191,36,0.14)" : "var(--surface-2)",
+                borderColor: loved ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.1)",
+              }}
+            >
+              <svg
+                width="20" height="20" viewBox="0 0 24 24"
+                fill={loved ? "var(--gold)" : "none"}
+                stroke="currentColor" strokeWidth="2"
+                strokeLinecap="round" strokeLinejoin="round"
+                style={{
+                  color: loved ? "var(--gold)" : "rgba(255,255,255,0.85)",
+                  transform: loved ? "scale(1.1)" : "scale(1)",
+                  transition: "transform 200ms var(--ease-spring)",
+                }}
+              >
+                <path d="M12 2 14.6 8.6 22 9.5l-5.4 5L18 22l-6-3.5L6 22l1.4-7.5L2 9.5l7.4-.9L12 2z"/>
+              </svg>
+              <span className="text-[11.5px] font-bold text-center leading-tight" style={{ color: loved ? "var(--gold)" : "rgba(255,255,255,0.85)" }}>
+                I Loved This{loveCount > 0 ? ` · ${loveCount}` : ""}
+              </span>
+            </button>
+
+            <button
+              onClick={handleShare}
+              disabled={sharing}
+              className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white active:scale-[0.96] transition-all disabled:opacity-50"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <path d="m8.6 13.5 6.8 3.9M15.4 6.6 8.6 10.5"/>
+              </svg>
+              <span className="text-[11.5px] font-bold text-center leading-tight">Share</span>
+            </button>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -483,38 +560,6 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
             className="hidden"
             onChange={handleFileSelected}
           />
-
-          <div className="flex items-center justify-between gap-3">
-            <button
-              onClick={handleLove}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[13px] font-bold active:scale-95 transition-all"
-              style={{ background: "var(--surface-2)", color: loved ? "var(--gold)" : "rgba(255,255,255,0.75)" }}
-            >
-              <svg
-                width="16" height="16" viewBox="0 0 24 24"
-                fill={loved ? "var(--gold)" : "none"}
-                stroke="currentColor" strokeWidth="2"
-                strokeLinecap="round" strokeLinejoin="round"
-                style={{ transform: loved ? "scale(1.1)" : "scale(1)", transition: "transform 200ms var(--ease-spring)" }}
-              >
-                <path d="M12 2 14.6 8.6 22 9.5l-5.4 5L18 22l-6-3.5L6 22l1.4-7.5L2 9.5l7.4-.9L12 2z"/>
-              </svg>
-              I Loved This
-              <span className="tabular-nums">{loveCount}</span>
-            </button>
-
-            <button
-              onClick={handleShare}
-              disabled={sharing}
-              className="flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-4 py-2.5 rounded-full text-[13px] font-bold active:scale-95 transition-all disabled:opacity-50"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                <path d="m8.6 13.5 6.8 3.9M15.4 6.6 8.6 10.5"/>
-              </svg>
-              Share
-            </button>
-          </div>
         </div>
       )}
     </div>

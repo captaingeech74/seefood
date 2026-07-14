@@ -5,7 +5,7 @@ import { useState } from "react";
 
 /** PRD §4.2/§4.3 provenance badge — one of three labels per dish. */
 export function provenanceLabel(dish: DishPhoto): string {
-  if (dish.isMenuMatch) return "On the menu";
+  if (dish.isMenuMatch) return "Menu Match";
   if (dish.attribution === "owner") return "From management";
   return "Spotted here";
 }
@@ -78,9 +78,18 @@ export default function DishTile({
 
       {/* Provenance badge — top-left. Only once a dish is actually
           identified; showing "Spotted here" on an unlabeled loading
-          placeholder claimed a provenance that wasn't real yet. */}
+          placeholder claimed a provenance that wasn't real yet. On the hero
+          tile, a "Most Popular" tag stacks above it explaining the #1 spot. */}
       {loaded && hasName && (
-        <div className="absolute top-2 left-2 pointer-events-none">
+        <div className="absolute top-2 left-2 flex flex-col items-start gap-1 pointer-events-none">
+          {hero && (
+            <div
+              className="text-[8px] font-extrabold uppercase px-1.5 py-[3px] rounded-md leading-none text-white"
+              style={{ background: "var(--accent)", letterSpacing: "0.06em" }}
+            >
+              Most Popular
+            </div>
+          )}
           <div
             className={`text-[8px] font-extrabold uppercase px-1.5 py-[3px] rounded-md leading-none ${
               dish.isMenuMatch

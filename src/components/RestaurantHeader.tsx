@@ -102,45 +102,47 @@ export default function RestaurantHeader({
         </span>
       </button>
 
-      {/* Address + stats — hidden by default, revealed by the chevron above */}
-      {expanded && (
-        <div className="mt-1.5 fade-in">
-          <p className="text-[12px] text-white/35 truncate font-medium">
-            {restaurant.address}
-          </p>
-
-          {hasStats && (
-            <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
-              {hasRating && (
-                <div className="flex items-center gap-1">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-amber-400">
-                    <path d="M12 2 14.6 8.6 22 9.5l-5.4 5L18 22l-6-3.5L6 22l1.4-7.5L2 9.5l7.4-.9L12 2z"/>
-                  </svg>
-                  <span className="text-white/85 text-[13px] font-bold tabular-nums">
-                    {restaurant.rating!.toFixed(1)}
-                  </span>
-                  {restaurant.reviewCount ? (
-                    <span className="text-white/35 text-[12px] font-medium tabular-nums">
-                      ({formatReviewCount(restaurant.reviewCount)})
-                    </span>
-                  ) : null}
-                </div>
-              )}
-              {hasPrice && hasRating && <span className="text-white/15 text-[10px]">·</span>}
-              {hasPrice && <PriceLevel level={restaurant.priceLevel!} />}
-              {typeof isOpen === "boolean" && (
-                <span
-                  className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                    isOpen ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"
-                  }`}
-                  style={{ letterSpacing: "0.08em" }}
-                >
-                  {isOpen ? "Open Now" : "Closed"}
+      {/* Stats row — always visible (rating, price, open-now). Only the
+          address is hidden by default; Kyle: "you should only hide the
+          address. Pull back out the ratings and dollar signs and if it's
+          open now." */}
+      {hasStats && (
+        <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
+          {hasRating && (
+            <div className="flex items-center gap-1">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="text-amber-400">
+                <path d="M12 2 14.6 8.6 22 9.5l-5.4 5L18 22l-6-3.5L6 22l1.4-7.5L2 9.5l7.4-.9L12 2z"/>
+              </svg>
+              <span className="text-white/85 text-[13px] font-bold tabular-nums">
+                {restaurant.rating!.toFixed(1)}
+              </span>
+              {restaurant.reviewCount ? (
+                <span className="text-white/35 text-[12px] font-medium tabular-nums">
+                  ({formatReviewCount(restaurant.reviewCount)})
                 </span>
-              )}
+              ) : null}
             </div>
           )}
+          {hasPrice && hasRating && <span className="text-white/15 text-[10px]">·</span>}
+          {hasPrice && <PriceLevel level={restaurant.priceLevel!} />}
+          {typeof isOpen === "boolean" && (
+            <span
+              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                isOpen ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"
+              }`}
+              style={{ letterSpacing: "0.08em" }}
+            >
+              {isOpen ? "Open Now" : "Closed"}
+            </span>
+          )}
         </div>
+      )}
+
+      {/* Address — hidden by default, revealed by the chevron above */}
+      {expanded && (
+        <p className="mt-1.5 text-[12px] text-white/35 truncate font-medium fade-in">
+          {restaurant.address}
+        </p>
       )}
     </header>
   );

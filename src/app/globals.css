@@ -136,6 +136,22 @@ img {
   animation: dotPulse 2.4s ease-in-out infinite;
 }
 
+/* Horizontal swipe-hint chevron (Reveal same-dish carousel) */
+@keyframes swipeHintRight {
+  0%, 100% { opacity: 0.55; transform: translateX(0); }
+  50%      { opacity: 1;    transform: translateX(5px); }
+}
+@keyframes swipeHintLeft {
+  0%, 100% { opacity: 0.55; transform: translateX(0); }
+  50%      { opacity: 1;    transform: translateX(-5px); }
+}
+.swipe-hint-right {
+  animation: swipeHintRight 1.6s ease-in-out infinite;
+}
+.swipe-hint-left {
+  animation: swipeHintLeft 1.6s ease-in-out infinite;
+}
+
 /* ─── Utilities ─────────────────────────────────────────────────────── */
 .glass {
   background: rgba(10, 10, 10, 0.72);
