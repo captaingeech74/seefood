@@ -15,3 +15,6 @@ crawler/.venv/
 crawler/.cache/
 ORCHESTRATOR_HANDOFF.md
 .DS_Store
+
+# Track B nightly crawler logs (Kyle's Mac, machine-local)
+logs/

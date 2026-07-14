@@ -7,6 +7,9 @@
  *   npm run crawl -- --place ChIJ... --name "Richie's Diner" --lat 33.48 --lng -117.09
  *   npm run crawl -- --zone temecula
  *   npm run crawl -- --zone temecula --refresh-stale
+ *   npm run crawl -- --zone temecula --limit 60   (default 60 — caps how many
+ *     corpus-backlog restaurants get pulled in alongside the fixed benchmark
+ *     seed; see loadTargets)
  *   npm run crawl -- --preload-doordash-sitemaps   (downloads every DoorDash
  *     region's store sitemap to the local disk cache only — nothing written
  *     to the corpus. Run this once so later crawls never wait on a cold
@@ -84,9 +87,6 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
   }
 
   if (args.zone) {
-    // v1: zone lists come from a committed seed file (benchmark/restaurants.json
-    // for "temecula" today). Full paginated Places-API zone discovery is a
-    // follow-up once this pipeline is proven on the known set.
     const seedPath = join(__dirname, "..", "benchmark", "restaurants.json");
     const seed = JSON.parse(readFileSync(seedPath, "utf-8")) as Array<{
       name: string;
@@ -94,7 +94,29 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
       lat: number;
       lng: number;
     }>;
-    return seed;
+
+    // Beyond the fixed 25-restaurant seed: pull the live corpus backlog —
+    // restaurants Map Explore's viewport-visit enqueue (PRD §4.4) or
+    // scripts/discover-temecula.mjs queued, or that haven't been touched
+    // in a while. Same backlog Track A's Vercel Cron draws from (see
+    // getSaturationBatch), so the two tracks drain the same queue instead
+    // of each only ever seeing their own hardcoded list. 'test_fixture' is
+    // excluded there already — the permanent test restaurant is never
+    // touched by either track.
+    const { getSaturationBatch } = await import("../src/lib/db");
+    const limit = args.limit ? parseInt(String(args.limit), 10) : 60;
+    const backlog = await getSaturationBatch(limit).catch((e) => {
+      console.error("Failed to load corpus backlog, falling back to seed-only:", e);
+      return [];
+    });
+
+    const seedIds = new Set(seed.map((s) => s.placeId));
+    const merged = [...seed];
+    for (const b of backlog) {
+      if (seedIds.has(b.placeId)) continue;
+      merged.push({ name: b.name, placeId: b.placeId, lat: b.lat, lng: b.lng });
+    }
+    return merged;
   }
 
   console.error("Usage: npm run crawl -- --place <id> --name <name> --lat <lat> --lng <lng>");

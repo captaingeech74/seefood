@@ -175,6 +175,62 @@ export async function enqueueForCrawl(place: {
     );
 }
 
+// Menus ~weekly, photos ~monthly per PRD §5.1 freshness policy — coarse
+// single knob for now (matches CORPUS_FRESH_HOURS' level of precision).
+const SATURATION_STALE_DAYS = 7;
+
+export interface SaturationTarget {
+  placeId: string;
+  name: string;
+  lat: number;
+  lng: number;
+  address: string;
+}
+
+/**
+ * Track A (Vercel Cron, website/Google/Gemini saturation — see
+ * /api/cron/saturate-temecula). Picks the next batch of restaurants that
+ * need a live-pipeline pass: never-crawled ('queued', e.g. from Map
+ * Explore's "viewport visits enqueue for crawling" or discover-temecula.mjs)
+ * first, then stale 'active' ones. 'test_fixture' is excluded — that status
+ * exists specifically so the permanent test restaurant is never swept up
+ * here (see scripts/seed-test-restaurant.mjs).
+ */
+export async function getSaturationBatch(limit: number): Promise<SaturationTarget[]> {
+  const staleCutoff = new Date(Date.now() - SATURATION_STALE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: queued } = await supabase
+    .from("restaurants")
+    .select("place_id,name,lat,lng,address")
+    .eq("status", "queued")
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  const targets: SaturationTarget[] = (queued ?? []).map((r) => ({
+    placeId: r.place_id, name: r.name, lat: r.lat, lng: r.lng, address: r.address ?? "",
+  }));
+  if (targets.length >= limit) return targets;
+
+  const { data: stale } = await supabase
+    .from("restaurants")
+    .select("place_id,name,lat,lng,address")
+    .eq("status", "active")
+    .lt("updated_at", staleCutoff)
+    .order("updated_at", { ascending: true })
+    .limit(limit - targets.length);
+
+  for (const r of stale ?? []) {
+    targets.push({ placeId: r.place_id, name: r.name, lat: r.lat, lng: r.lng, address: r.address ?? "" });
+  }
+  return targets;
+}
+
+/** Marks a restaurant as successfully processed by Track A so it drops out of the queue. */
+export async function markSaturated(placeId: string): Promise<void> {
+  const { error } = await supabase.from("restaurants").update({ status: "active" }).eq("place_id", placeId);
+  if (error) console.error("[saturation] markSaturated failed:", error.message);
+}
+
 /** "Richie's Real American Diner", "32150 Temecula Pkwy, Temecula, CA" → "richies-real-american-diner-temecula" */
 export function slugifyRestaurant(name: string, address: string): string {
   const city = address.split(",")[1]?.trim() ?? "";
