@@ -51,6 +51,8 @@ async function extractFromPage(url: string, html: string): Promise<WebsiteExtrac
   // pattern as Menufy). Square/ChowNow/Clover/Olo/PopMenu render their menu
   // entirely client-side (JS SPA) — nothing useful in the raw HTML at all.
   const platform = detectOrderingPlatform(html);
+  let renderedHtml: string | null = null;
+  let renderedUrl = url;
   if (platform) {
     let items = extractEmbeddedJsonMenuItems(html, platform);
 
@@ -61,7 +63,10 @@ async function extractFromPage(url: string, html: string): Promise<WebsiteExtrac
       // expensive tier that got DoorDash banned from the live path (see
       // DECISIONS.md). Never spend Scrapfly credits on Toast; it's crawler-only.
       if (platform !== "toast" && process.env.SCRAPFLY_KEY) {
-        items = await fetchOrderingPlatformViaScrapfly(platformUrl, platform);
+        const rendered = await fetchOrderingPlatformViaScrapfly(platformUrl, platform);
+        items = rendered.items;
+        renderedHtml = rendered.renderedHtml;
+        renderedUrl = platformUrl;
       }
     }
 
@@ -71,8 +76,23 @@ async function extractFromPage(url: string, html: string): Promise<WebsiteExtrac
   // ── Platform 2: Schema.org LD+JSON ────────────────────────────────────────
   // Universal fallback — these platforms often also emit schema.org for SEO
   // even when their own embedded JSON isn't present in the raw (unrendered) HTML.
-  const items = parseSchemaOrgMenuItems(html);
-  return { items, photoUrls: extractGenericPageImages(html, url) };
+  // When a Scrapfly render happened above but still found no structured
+  // items, run this same fallback against the RENDERED HTML too — confirmed
+  // live (Le Coffee Shop): the render succeeds with real post-JS content,
+  // which the raw pre-JS HTML never has, so checking only the raw HTML here
+  // was silently discarding real photos every time a JS SPA platform's
+  // structured extraction came up empty.
+  const rawResult = parseSchemaOrgMenuItems(html);
+  const rawPhotos = extractGenericPageImages(html, url);
+  if (rawResult.length > 0 || !renderedHtml) {
+    return { items: rawResult, photoUrls: rawPhotos };
+  }
+  const renderedResult = parseSchemaOrgMenuItems(renderedHtml);
+  const renderedPhotos = extractGenericPageImages(renderedHtml, renderedUrl);
+  return {
+    items: renderedResult,
+    photoUrls: [...rawPhotos, ...renderedPhotos].slice(0, 20),
+  };
 }
 
 export async function fetchMenuFromUrl(url: string): Promise<WebsiteExtractResult> {
@@ -641,15 +661,24 @@ function findOrderingPlatformLink(html: string, baseUrl: string, platform: Order
  * its ASP challenge costs the same 51+ Scrapfly credits/attempt that got
  * DoorDash banned from the live path; see DECISIONS.md.
  */
+/**
+ * Returns both the parsed items AND the rendered HTML (when the render
+ * succeeded) — confirmed live (Le Coffee Shop, July 2026): the render often
+ * succeeds (200, real post-JS content) while item extraction still finds
+ * nothing, because "renders the JS" and "finds the menu content" are
+ * different problems. Discarding the rendered HTML after a failed item
+ * extraction meant the caller never got a second chance to pull real food
+ * photos or schema.org data out of it via the generic fallbacks.
+ */
 async function fetchOrderingPlatformViaScrapfly(
   url: string,
   platform: OrderingPlatform
-): Promise<MenuItemData[]> {
+): Promise<{ items: MenuItemData[]; renderedHtml: string | null }> {
   const scrapflyKey = process.env.SCRAPFLY_KEY;
-  if (!scrapflyKey || platform === "toast") return [];
+  if (!scrapflyKey || platform === "toast") return { items: [], renderedHtml: null };
   if (!(await hasScrapflyBudget())) {
     console.warn(`[${platform} Scrapfly] skipped — free-tier budget cap reached`);
-    return [];
+    return { items: [], renderedHtml: null };
   }
   try {
     const scrapUrl =
@@ -658,14 +687,14 @@ async function fetchOrderingPlatformViaScrapfly(
       `&url=${encodeURIComponent(url)}` +
       `&asp=true&render_js=true&country=us&cost_budget=30`;
     const res = await fetch(scrapUrl, { signal: AbortSignal.timeout(35000) });
-    if (!res.ok) return [];
+    if (!res.ok) return { items: [], renderedHtml: null };
     const data = await res.json();
     const html = data.result?.content;
-    if (!html) return [];
-    return extractEmbeddedJsonMenuItems(html, platform);
+    if (!html) return { items: [], renderedHtml: null };
+    return { items: extractEmbeddedJsonMenuItems(html, platform), renderedHtml: html };
   } catch (e) {
     console.error(`[${platform} Scrapfly] failed:`, e);
-    return [];
+    return { items: [], renderedHtml: null };
   }
 }
 
