@@ -291,6 +291,10 @@ interface GeminiResult {
   dishDescription: string | null;
   isMenuMatch: boolean;
   isFood: boolean;
+  /** True only when Gemini judged this a real dish/drink someone would order — see finalizeWithGemini's filter. */
+  isOrderable: boolean;
+  /** Marketing graphic (logo/price text/collage), not a photo of the served dish. Conservative — see the prompt. */
+  isPromotional: boolean;
   isMenuPhoto: boolean;
   /** Original analysisUrls index of an earlier near-duplicate photo, or null. */
   duplicateOfIndex: number | null;
@@ -325,6 +329,8 @@ async function analyzePhotosWithGeminiBatch(
     dishDescription: null,
     isMenuMatch: false,
     isFood: true,
+    isOrderable: true, // fail-open: keep the photo unlabeled rather than hide it on a Gemini outage
+    isPromotional: false,
     isMenuPhoto: false,
     duplicateOfIndex: null,
   };
@@ -349,20 +355,22 @@ ${
         .map((name, i) => `${i + 1}. ${name}`)
         .join("\n")}\n\n`
     : ""
-}For EACH photo, first decide: is this something a customer would actually order and be excited to eat — a plated dish, a drink made for them, a dessert? NOT a fridge of assorted bottled/canned drinks, a storefront, an interior/decor shot, a menu board, or a group of unrelated items. Set isOrderable to false for all of those, even if food is technically visible.
+}For EACH photo, first decide: is this something a customer would actually order and be excited to eat — a plated dish, a drink made for them, a dessert? NOT a fridge of assorted bottled/canned drinks, a storefront, an interior/decor shot, a menu board, a golf course or other non-food facility shot, or a group of unrelated items. Set isOrderable to false for all of those, even if food is technically visible.
+
+Also decide "isPromotional": true if the image is clearly a marketing graphic rather than a photo of the actual served dish — e.g. it has bold overlaid price/promo text, a brand logo watermark, a solid-color ad background, or is a collage of multiple items arranged for advertising (a classic example: a delivery-app "3 MEAT TREAT $6" style pizza-chain ad graphic). A single real plated dish, drink, or dessert is NEVER promotional, even if professionally lit or styled — when in doubt, set isPromotional to false. Wrongly letting an ad through is much better than wrongly hiding a real food photo.
 
 Separately, set "isMenuPhoto" to true if the photo is a picture of a printed menu, a menu board, or a chalkboard listing dishes and prices — these are valuable for reading dish names even though they aren't a photo of food itself. isOrderable should be false for these.
 
-If isOrderable is true for a photo:
+If isOrderable is true AND isPromotional is false for a photo:
 - "name": a SHORT, menu-style name of 4 words or fewer, exactly like it would appear on a printed menu (e.g. "Brisket Plate", "Loaded Nachos", "Iced Vanilla Latte"). If it matches an item in the list above, use that item's exact name if it's short enough; otherwise write your own short name. Never include ingredient lists or cooking instructions in "name".
 - "description": a longer sentence with ingredients, preparation, and how it's served. This is where detail belongs, not in "name".
 
-If isOrderable is false, set "name" and "description" to null.
+Otherwise set "name" and "description" to null.
 
 Also decide "duplicateOfPhotoNumber": if this photo is a near-identical or duplicate shot of an EARLIER photo in this set (the same physical plate/moment — e.g. Google assigned two photo IDs to what's really one upload), return that earlier photo's number; otherwise null. Two different photos of the same dish type taken by different people are NOT duplicates — only flag true same-shot duplicates.
 
 Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one per photo in order, no markdown fences, no explanation:
-[{"isFood": boolean, "isOrderable": boolean, "isMenuPhoto": boolean, "name": string|null, "description": string|null, "duplicateOfPhotoNumber": number|null}, ...]`;
+[{"isFood": boolean, "isOrderable": boolean, "isPromotional": boolean, "isMenuPhoto": boolean, "name": string|null, "description": string|null, "duplicateOfPhotoNumber": number|null}, ...]`;
 
   const parts: unknown[] = [{ text: promptIntro }];
   validIndices.forEach((idx, n) => {
@@ -419,6 +427,7 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
       let parsed: Array<{
         isFood?: boolean;
         isOrderable?: boolean;
+        isPromotional?: boolean;
         isMenuPhoto?: boolean;
         name?: string | null;
         description?: string | null;
@@ -456,20 +465,38 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
 
 function resolveGeminiEntry(
   entry:
-    | { isFood?: boolean; isOrderable?: boolean; isMenuPhoto?: boolean; name?: string | null; description?: string | null }
+    | {
+        isFood?: boolean;
+        isOrderable?: boolean;
+        isPromotional?: boolean;
+        isMenuPhoto?: boolean;
+        name?: string | null;
+        description?: string | null;
+      }
     | undefined,
   menuItems: MenuItemData[],
   popularDishes: string[],
   hasMenu: boolean
 ): GeminiResult {
-  const fallback: GeminiResult = { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false, duplicateOfIndex: null };
+  const fallback: GeminiResult = {
+    dishName: null,
+    dishDescription: null,
+    isMenuMatch: false,
+    isFood: true,
+    isOrderable: true,
+    isPromotional: false,
+    isMenuPhoto: false,
+    duplicateOfIndex: null,
+  };
   if (!entry) return fallback;
-  if (!entry.isFood || !entry.isOrderable || !entry.name) {
+  if (!entry.isFood || !entry.isOrderable || entry.isPromotional || !entry.name) {
     return {
       dishName: null,
       dishDescription: null,
       isMenuMatch: false,
       isFood: !!entry.isFood,
+      isOrderable: !!entry.isOrderable,
+      isPromotional: !!entry.isPromotional,
       isMenuPhoto: !!entry.isMenuPhoto,
       duplicateOfIndex: null,
     };
@@ -477,7 +504,16 @@ function resolveGeminiEntry(
 
   const name = entry.name.trim();
   if (isTruncatedOrInvalid(name)) {
-    return { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false, duplicateOfIndex: null };
+    return {
+      dishName: null,
+      dishDescription: null,
+      isMenuMatch: false,
+      isFood: true,
+      isOrderable: true,
+      isPromotional: false,
+      isMenuPhoto: false,
+      duplicateOfIndex: null,
+    };
   }
 
   // Match against menu reference list — exact first, then one-way fuzzy.
@@ -505,6 +541,8 @@ function resolveGeminiEntry(
     dishDescription: matchedItem?.description ?? entry.description ?? null,
     isMenuMatch: !!(matchedItem || matchedPopular),
     isFood: true,
+    isOrderable: true,
+    isPromotional: false,
     isMenuPhoto: false,
     duplicateOfIndex: null,
   };
@@ -991,8 +1029,23 @@ export async function finalizeWithGemini(
 
   const geminiPhotos: { photo: DishPhoto; score: number }[] = [];
   photoCandidates.forEach((candidate, i) => {
-    const result = geminiResults[i] ?? { dishName: null, dishDescription: null, isMenuMatch: false, isFood: true, isMenuPhoto: false, duplicateOfIndex: null };
-    if (!result.isFood || result.isMenuPhoto) return; // drop non-food and menu-board photos
+    const result = geminiResults[i] ?? {
+      dishName: null,
+      dishDescription: null,
+      isMenuMatch: false,
+      isFood: true,
+      isOrderable: true,
+      isPromotional: false,
+      isMenuPhoto: false,
+      duplicateOfIndex: null,
+    };
+    // Drop non-food, non-orderable (facility/decor/fridge shots), promotional
+    // ad graphics, and menu-board photos — confirmed live July 2026: Cross
+    // Creek Golf Club (isOrderable=false golf-course shots) and Little
+    // Caesars ("3 MEAT TREAT" ad graphic) were leaking through as unlabeled
+    // tier-3 ghost photos because this filter never checked isOrderable, and
+    // this batch call never asked Gemini for isPromotional at all.
+    if (!result.isFood || !result.isOrderable || result.isPromotional || result.isMenuPhoto) return;
     if (result.duplicateOfIndex !== null) return; // near-identical shot of an earlier photo — drop it, not the original
     const score = computePriorityScore(result.dishName, result.isMenuMatch, popularDishes);
     geminiPhotos.push({
