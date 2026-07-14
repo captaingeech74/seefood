@@ -11,7 +11,8 @@ export type DataSource =
   | "chownow"
   | "olo"
   | "popmenu"
-  | "menu_ocr";
+  | "menu_ocr"
+  | "user_upload";
 
 /**
  * A single menu item sourced from any data provider.
@@ -42,6 +43,8 @@ export interface DishPhoto {
   tier: 1 | 2 | 3;
   width: number;
   height: number;
+  /** "I Loved This" tap count — no accounts, so dedup is per-browser (localStorage) only. */
+  loveCount: number;
 }
 
 export interface Restaurant {

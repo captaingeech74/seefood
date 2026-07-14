@@ -35,44 +35,72 @@ const PLACE_ID = "ChIJa7SNNcl_24ARGN-49KRUqPI"; // qutamicatering, Temecula — 
 const NAME = "SeeFood Test Kitchen (qutamicatering)";
 const ADDRESS = "42200, Temecula, CA";
 
-// Real, stable, freely-licensed food photos (foodish-api.com) — enough
-// distinct photos per dish, split across owner/user attribution, to
-// populate the management-vs-diner comparison carousel (PRD §4.3 tap-in).
-// source is always 'schema_org' regardless of attribution: that source is
-// never touched by the live pipeline's "clear stale google photos before
-// each re-persist" step (see db.ts persistPipelineResult), which is what
-// makes this fixture actually permanent rather than getting wiped on the
-// next accidental live-path hit.
+// Real, stable, freely-licensed food photos (foodish-api.com). Real
+// descriptions per dish (not placeholder text) so Dish Detail looks like a
+// real menu. Several dishes carry 4-5 photos across both owner/user
+// attribution specifically to exercise: (a) the management-vs-diner
+// comparison carousel, and (b) horizontal same-dish-photo swiping.
 const DISHES = [
   {
     name: "Test Burger Supreme",
-    description: "A deliberately fake dish for exercising the grid, Reveal, and comparison carousel UI.",
+    description: "A juicy beef patty with melted cheddar, crisp lettuce, tomato, and our signature burger sauce on a toasted brioche bun.",
     photos: [
       { url: "https://foodish-api.com/images/burger/burger60.jpg", attribution: "owner" },
       { url: "https://foodish-api.com/images/burger/burger18.jpg", attribution: "owner" },
-      { url: "https://foodish-api.com/images/burger/burger20.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/burger/burger20.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/burger/burger34.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/burger/burger14.jpg", attribution: "user" },
+    ],
+  },
+  {
+    name: "Test BBQ Bacon Burger",
+    description: "Applewood-smoked bacon, tangy BBQ sauce, and crispy onion straws stacked on a charbroiled patty.",
+    photos: [
+      { url: "https://foodish-api.com/images/burger/burger77.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/burger/burger28.jpg", attribution: "user" },
     ],
   },
   {
     name: "Test Wood-Fired Pizza",
-    description: "Fixture dish — not a real menu item.",
+    description: "Hand-stretched dough, San Marzano tomato sauce, fresh mozzarella, and basil, fired in our 900°F oven.",
     photos: [
       { url: "https://foodish-api.com/images/pizza/pizza92.jpg", attribution: "owner" },
-      { url: "https://foodish-api.com/images/pizza/pizza79.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/pizza/pizza79.jpg", attribution: "owner" },
       { url: "https://foodish-api.com/images/pizza/pizza55.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/pizza/pizza78.jpg", attribution: "user" },
+    ],
+  },
+  {
+    name: "Test Pepperoni Feast Pizza",
+    description: "Double pepperoni, mozzarella, and a honey drizzle for a sweet-and-spicy finish.",
+    photos: [
+      { url: "https://foodish-api.com/images/pizza/pizza85.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/pizza/pizza75.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/pizza/pizza43.jpg", attribution: "user" },
     ],
   },
   {
     name: "Test Truffle Pasta",
-    description: "Fixture dish — not a real menu item.",
+    description: "Fresh tagliatelle tossed in a black truffle cream sauce with shaved parmesan.",
     photos: [
       { url: "https://foodish-api.com/images/pasta/pasta11.jpg", attribution: "owner" },
       { url: "https://foodish-api.com/images/pasta/pasta13.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/pasta/pasta29.jpg", attribution: "user" },
     ],
   },
   {
-    name: "Test Chocolate Dessert",
-    description: "Fixture dish — not a real menu item.",
+    name: "Test Spicy Arrabbiata",
+    description: "Penne in a fiery tomato sauce with garlic, red chili flakes, and fresh basil.",
+    photos: [
+      { url: "https://foodish-api.com/images/pasta/pasta8.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/pasta/pasta18.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/pasta/pasta22.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/pasta/pasta6.jpg", attribution: "user" },
+    ],
+  },
+  {
+    name: "Test Chocolate Lava Cake",
+    description: "Warm chocolate cake with a molten center, served with vanilla bean ice cream.",
     photos: [
       { url: "https://foodish-api.com/images/dessert/dessert31.jpg", attribution: "owner" },
       { url: "https://foodish-api.com/images/dessert/dessert24.jpg", attribution: "owner" },
@@ -80,8 +108,19 @@ const DISHES = [
     ],
   },
   {
+    name: "Test Tiramisu",
+    description: "Espresso-soaked ladyfingers layered with mascarpone cream and a dusting of cocoa.",
+    photos: [
+      { url: "https://foodish-api.com/images/dessert/dessert35.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/dessert/dessert12.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/dessert/dessert21.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/dessert/dessert28.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/dessert/dessert29.jpg", attribution: "user" },
+    ],
+  },
+  {
     name: "Test Chicken Biryani",
-    description: "Fixture dish — not a real menu item.",
+    description: "Basmati rice slow-cooked with marinated chicken, saffron, and warm spices.",
     photos: [
       { url: "https://foodish-api.com/images/biryani/biryani61.jpg", attribution: "owner" },
       { url: "https://foodish-api.com/images/biryani/biryani10.jpg", attribution: "user" },
@@ -89,33 +128,59 @@ const DISHES = [
     ],
   },
   {
+    name: "Test Lamb Biryani",
+    description: "Tender lamb layered with fragrant basmati rice, caramelized onions, and mint.",
+    photos: [
+      { url: "https://foodish-api.com/images/biryani/biryani25.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/biryani/biryani57.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/biryani/biryani38.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/biryani/biryani62.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/biryani/biryani47.jpg", attribution: "user" },
+    ],
+  },
+  {
     name: "Test Crispy Samosa",
-    description: "Fixture dish — not a real menu item.",
+    description: "Golden fried pastry filled with spiced potatoes and peas, served with tamarind chutney.",
     photos: [
       { url: "https://foodish-api.com/images/samosa/samosa17.jpg", attribution: "owner" },
       { url: "https://foodish-api.com/images/samosa/samosa9.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/samosa/samosa14.jpg", attribution: "user" },
     ],
   },
   {
     name: "Test Masala Dosa",
-    description: "Fixture dish — not a real menu item.",
+    description: "A crispy rice-and-lentil crepe filled with spiced potato masala, served with sambar and coconut chutney.",
     photos: [
       { url: "https://foodish-api.com/images/dosa/dosa33.jpg", attribution: "owner" },
-      { url: "https://foodish-api.com/images/dosa/dosa60.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/dosa/dosa60.jpg", attribution: "owner" },
       { url: "https://foodish-api.com/images/dosa/dosa59.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/dosa/dosa44.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/dosa/dosa40.jpg", attribution: "user" },
     ],
   },
   {
     name: "Test Saffron Rice",
-    description: "Fixture dish — not a real menu item.",
+    description: "Fragrant basmati rice infused with saffron, cardamom, and toasted almonds.",
     photos: [
       { url: "https://foodish-api.com/images/rice/rice2.jpg", attribution: "owner" },
       { url: "https://foodish-api.com/images/rice/rice21.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/rice/rice13.jpg", attribution: "user" },
+    ],
+  },
+  {
+    name: "Test Vegetable Fried Rice",
+    description: "Wok-tossed rice with seasonal vegetables, egg, and a savory soy glaze.",
+    photos: [
+      { url: "https://foodish-api.com/images/rice/rice32.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/rice/rice5.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/rice/rice19.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/rice/rice33.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/rice/rice6.jpg", attribution: "user" },
     ],
   },
   {
     name: "Test Butter Chicken",
-    description: "Fixture dish — not a real menu item.",
+    description: "Tandoori chicken simmered in a creamy tomato-butter sauce with garam masala.",
     photos: [
       { url: "https://foodish-api.com/images/butter-chicken/butter-chicken10.jpg", attribution: "owner" },
       { url: "https://foodish-api.com/images/butter-chicken/butter-chicken5.jpg", attribution: "owner" },
@@ -124,10 +189,12 @@ const DISHES = [
   },
   {
     name: "Test Idly Platter",
-    description: "Fixture dish — not a real menu item.",
+    description: "Steamed rice-and-lentil cakes served with coconut chutney and sambar.",
     photos: [
       { url: "https://foodish-api.com/images/idly/idly63.jpg", attribution: "owner" },
-      { url: "https://foodish-api.com/images/idly/idly71.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/idly/idly71.jpg", attribution: "owner" },
+      { url: "https://foodish-api.com/images/idly/idly70.jpg", attribution: "user" },
+      { url: "https://foodish-api.com/images/idly/idly28.jpg", attribution: "user" },
     ],
   },
 ];

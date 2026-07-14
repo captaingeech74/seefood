@@ -18,13 +18,27 @@ export async function shareDish(photo: DishPhoto, restaurant: Restaurant): Promi
     : `Check out ${restaurant.name} on SeeFood`;
 
   const file = await composeShareCard(photo, restaurant).catch(() => null);
+  // The URL is folded into `text` (not just passed as `url`) because several
+  // platforms silently drop `url` when `files` is also present, or reject
+  // the combination entirely — appending it to text is the one thing every
+  // share target reliably keeps, and receiving apps (iMessage, WhatsApp,
+  // etc.) auto-linkify a URL in shared text anyway. Kyle: "it shouldn't just
+  // be sharing a photo... it should also be a link that opens to the
+  // SeeFood page" — this is what makes that true regardless of platform.
+  const textWithLink = `${text}\n${shareUrl}`;
 
   if (file && navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title, text });
+      await navigator.share({ files: [file], title, text: textWithLink, url: shareUrl });
       return;
     } catch {
-      // user cancelled or share failed — fall through to text share
+      // user cancelled, or this platform rejects url+files together — retry without url
+      try {
+        await navigator.share({ files: [file], title, text: textWithLink });
+        return;
+      } catch {
+        // fall through to text share
+      }
     }
   }
 

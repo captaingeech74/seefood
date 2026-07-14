@@ -16,27 +16,38 @@ const SOURCE_LABELS: Record<DishPhoto["source"], string> = {
   google: "Google", doordash: "DoorDash", grubhub: "Grubhub", menufy: "Menufy",
   schema_org: "Restaurant", toast: "Toast", square: "Square", clover: "Clover",
   chownow: "ChowNow", olo: "Olo", popmenu: "PopMenu", menu_ocr: "Menu",
+  user_upload: "SeeFood",
 };
 
 const SWIPE_THRESHOLD = 60; // px of finger travel to commit a navigation
 const ANIM_MS = 300;
 
 /**
- * PRD §4.3 — full-bleed immersive vertical swipe, replaces the old Lightbox
- * entirely. A real 3-slot sliding track (prev/current/next stacked and
- * translated together) rather than a swap-in-place image, so the motion
- * reads like Instagram/TikTok — the next photo visibly slides up from below
- * (or down from above) instead of popping.
+ * PRD §4.3 — full-bleed immersive swipe, replaces the old Lightbox entirely.
+ * Two independent axes, gesture-locked so a drag can't drift between them:
+ *   - Vertical: moves through the ranked dish list (the primary feed).
+ *   - Horizontal: browses other photos of the SAME dish ("variants") — a
+ *     real 3-slot sliding track exactly like the vertical one, just on the
+ *     other axis, layered on top of whichever dish is currently centered.
  */
 export default function Reveal({ photos, startIndex, restaurant, onClose }: RevealProps) {
   const [index, setIndex] = useState(startIndex);
-  const [dragY, setDragY] = useState(0); // live px offset — finger-follow while dragging, animated target while settling
+  const [dragY, setDragY] = useState(0);
+  const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [isResetting, setIsResetting] = useState(false); // true for the single no-transition frame after a commit
+  const [isResetting, setIsResetting] = useState(false);
+  const [isHAnimating, setIsHAnimating] = useState(false);
+  const [isHResetting, setIsHResetting] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [hasSwiped, setHasSwiped] = useState(false);
+  const [variantIndex, setVariantIndex] = useState(0);
+  const [uploadedPhotos, setUploadedPhotos] = useState<DishPhoto[]>([]);
+
+  const startXRef = useRef(0);
   const startYRef = useRef(0);
+  const dragAxisRef = useRef<"vertical" | "horizontal" | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const photo = photos[index];
   const prevPhoto = index > 0 ? photos[index - 1] : null;
@@ -44,10 +55,31 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
 
   const close = useCallback(() => onClose(index), [onClose, index]);
 
-  // Animates the track to a target offset, then commits the index change on
-  // a frame where the transition is disabled — so the swap from "next slide
-  // slid into center" to "that slide is now current, offset reset to 0" is
-  // visually seamless instead of a snap-back flash.
+  // Other photos of the SAME dish — exact dish-name match (Gemini's
+  // cross-photo grouping isn't persisted yet, so name equality is the
+  // practical stand-in). Includes this session's own uploads.
+  const variants = useMemo(() => {
+    if (!photo?.dishName) return [photo].filter(Boolean) as DishPhoto[];
+    const key = photo.dishName.toLowerCase().trim();
+    const fromProps = photos.filter((p) => p.dishName?.toLowerCase().trim() === key);
+    const fromUploads = uploadedPhotos.filter((p) => p.dishName?.toLowerCase().trim() === key);
+    return [...fromProps, ...fromUploads];
+  }, [photo, photos, uploadedPhotos]);
+
+  const activePhoto = variants[variantIndex] ?? photo;
+  const prevVariant = variantIndex > 0 ? variants[variantIndex - 1] : null;
+  const nextVariant = variantIndex < variants.length - 1 ? variants[variantIndex + 1] : null;
+
+  // Reset which variant is showing whenever the outer (vertical) dish
+  // changes — always land back on the ranked photo for the new dish, not
+  // wherever horizontal browsing last left off.
+  useEffect(() => {
+    const idx = variants.findIndex((v) => v.id === photo?.id);
+    setVariantIndex(idx >= 0 ? idx : 0);
+    setDragX(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photo?.id]);
+
   const animateTo = useCallback((targetOffset: number, nextIdx: number) => {
     setIsAnimating(true);
     setDragY(targetOffset);
@@ -70,6 +102,28 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
     window.setTimeout(() => setIsAnimating(false), ANIM_MS);
   }, []);
 
+  const animateVariantTo = useCallback((targetOffset: number, nextIdx: number) => {
+    setIsHAnimating(true);
+    setDragX(targetOffset);
+    window.setTimeout(() => {
+      setIsHResetting(true);
+      setVariantIndex(nextIdx);
+      setDragX(0);
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          setIsHResetting(false);
+          setIsHAnimating(false);
+        })
+      );
+    }, ANIM_MS);
+  }, []);
+
+  const snapBackH = useCallback(() => {
+    setIsHAnimating(true);
+    setDragX(0);
+    window.setTimeout(() => setIsHAnimating(false), ANIM_MS);
+  }, []);
+
   const goNext = useCallback(() => {
     if (isAnimating || index >= photos.length - 1) return;
     setHasSwiped(true);
@@ -87,10 +141,12 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
       if (e.key === "Escape") (detailOpen ? setDetailOpen(false) : close());
       else if (e.key === "ArrowUp") goPrev();
       else if (e.key === "ArrowDown") goNext();
+      else if (e.key === "ArrowLeft" && !isHAnimating && variantIndex > 0) animateVariantTo(window.innerWidth, variantIndex - 1);
+      else if (e.key === "ArrowRight" && !isHAnimating && variantIndex < variants.length - 1) animateVariantTo(-window.innerWidth, variantIndex + 1);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [close, goPrev, goNext, detailOpen]);
+  }, [close, goPrev, goNext, detailOpen, isHAnimating, variantIndex, variants.length, animateVariantTo]);
 
   useEffect(() => {
     const original = document.body.style.overflow;
@@ -99,17 +155,40 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
   }, []);
 
   const onTouchStart = (e: React.TouchEvent) => {
-    if (isAnimating) return;
+    if (isAnimating || isHAnimating) return;
+    startXRef.current = e.touches[0].clientX;
     startYRef.current = e.touches[0].clientY;
+    dragAxisRef.current = null;
     setIsDragging(true);
   };
   const onTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return;
-    setDragY(e.touches[0].clientY - startYRef.current);
+    const dx = e.touches[0].clientX - startXRef.current;
+    const dy = e.touches[0].clientY - startYRef.current;
+    if (dragAxisRef.current === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      dragAxisRef.current = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical";
+    }
+    if (dragAxisRef.current === "horizontal") setDragX(dx);
+    else if (dragAxisRef.current === "vertical") setDragY(dy);
   };
   const onTouchEnd = (e: React.TouchEvent) => {
     if (!isDragging) return;
     setIsDragging(false);
+    const axis = dragAxisRef.current;
+    dragAxisRef.current = null;
+
+    if (axis === "horizontal") {
+      const dx = e.changedTouches[0].clientX - startXRef.current;
+      if (dx < -SWIPE_THRESHOLD && variantIndex < variants.length - 1) {
+        animateVariantTo(-window.innerWidth, variantIndex + 1);
+      } else if (dx > SWIPE_THRESHOLD && variantIndex > 0) {
+        animateVariantTo(window.innerWidth, variantIndex - 1);
+      } else {
+        snapBackH();
+      }
+      return;
+    }
+
     const dy = e.changedTouches[0].clientY - startYRef.current;
     if (dy < -SWIPE_THRESHOLD && index < photos.length - 1) {
       setHasSwiped(true);
@@ -126,37 +205,90 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
     }
   };
 
-  // Same-dish photo grouping for Dish Detail — exact dish-name match across
-  // the full ranked list (Gemini's cross-photo grouping isn't persisted yet,
-  // so name equality is the practical stand-in).
-  const sameDishPhotos = useMemo(() => {
-    if (!photo?.dishName) return [photo].filter(Boolean) as DishPhoto[];
-    const key = photo.dishName.toLowerCase().trim();
-    return photos.filter((p) => p.dishName?.toLowerCase().trim() === key);
-  }, [photo, photos]);
-
   // "SeeFood" moment (Kyle's idea): when a dish has photos from BOTH
   // management and real diners, let people compare the ad shot to what
   // actually showed up on their table — split into two labeled carousels
   // instead of one flat strip. Falls back to the flat strip otherwise.
-  const managementPhotos = useMemo(() => sameDishPhotos.filter((p) => p.attribution === "owner"), [sameDishPhotos]);
-  const dinerPhotos = useMemo(() => sameDishPhotos.filter((p) => p.attribution === "user"), [sameDishPhotos]);
+  const managementPhotos = useMemo(() => variants.filter((p) => p.attribution === "owner"), [variants]);
+  const dinerPhotos = useMemo(() => variants.filter((p) => p.attribution === "user"), [variants]);
   const canCompare = managementPhotos.length > 0 && dinerPhotos.length > 0;
 
   const [sharing, setSharing] = useState(false);
   const handleShare = async () => {
-    if (!photo || sharing) return;
+    if (!activePhoto || sharing) return;
     setSharing(true);
     try {
-      await shareDish(photo, restaurant);
+      await shareDish(activePhoto, restaurant);
     } finally {
       setSharing(false);
+    }
+  };
+
+  const [loved, setLoved] = useState(false);
+  const [loveCount, setLoveCount] = useState(0);
+  useEffect(() => {
+    setLoveCount(activePhoto?.loveCount ?? 0);
+    try {
+      setLoved(activePhoto ? localStorage.getItem(`seefood-loved-${activePhoto.id}`) === "1" : false);
+    } catch {
+      setLoved(false);
+    }
+  }, [activePhoto?.id, activePhoto?.loveCount]);
+
+  const handleLove = async () => {
+    if (!activePhoto || loved) return;
+    setLoved(true);
+    setLoveCount((c) => c + 1);
+    try { localStorage.setItem(`seefood-loved-${activePhoto.id}`, "1"); } catch {}
+    try {
+      const res = await fetch("/api/love-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoId: activePhoto.id }),
+      });
+      if (!res.ok) throw new Error("failed");
+    } catch {
+      setLoved(false);
+      setLoveCount((c) => Math.max(0, c - 1));
+      try { localStorage.removeItem(`seefood-loved-${activePhoto.id}`); } catch {}
+    }
+  };
+
+  const [uploading, setUploading] = useState(false);
+  const handleTakePhotoClick = () => fileInputRef.current?.click();
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !activePhoto) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("photo", file);
+      form.append("placeId", restaurant.placeId || restaurant.id);
+      if (activePhoto.dishName) form.append("dishName", activePhoto.dishName);
+      if (activePhoto.dishDescription) form.append("dishDescription", activePhoto.dishDescription);
+      form.append("isMenuMatch", String(activePhoto.isMenuMatch));
+      form.append("tier", String(activePhoto.tier));
+      const res = await fetch("/api/upload-photo", { method: "POST", body: form });
+      const data = await res.json();
+      if (res.ok && data.photo) {
+        const newIndex = variants.length;
+        setUploadedPhotos((prev) => [...prev, data.photo]);
+        setVariantIndex(newIndex);
+      } else {
+        alert(data.error || "Upload failed — please try again.");
+      }
+    } catch {
+      alert("Upload failed — check your connection and try again.");
+    } finally {
+      setUploading(false);
     }
   };
 
   if (!photo) return null;
 
   const trackTransition = isDragging || isResetting ? "none" : `transform ${ANIM_MS}ms var(--ease-spring)`;
+  const hTrackTransition = isDragging || isHResetting ? "none" : `transform ${ANIM_MS}ms var(--ease-spring)`;
 
   return (
     <div
@@ -167,16 +299,30 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
       role="dialog"
       aria-modal="true"
     >
-      {/* Sliding track — prev/current/next stacked, translated together */}
+      {/* Vertical track — prev/current/next DISH stacked, translated together */}
       {prevPhoto && (
         <Slide photo={prevPhoto} style={{ transform: `translateY(calc(-100% + ${dragY}px))`, transition: trackTransition }} />
       )}
-      <Slide
-        photo={photo}
-        interactive
-        onTap={() => setDetailOpen((v) => !v)}
+
+      {/* Current dish — its own horizontal 3-slot track for same-dish variants */}
+      <div
+        className="absolute inset-0"
         style={{ transform: `translateY(${dragY}px)`, transition: trackTransition }}
-      />
+      >
+        {prevVariant && (
+          <HSlide photo={prevVariant} style={{ transform: `translateX(calc(-100% + ${dragX}px))`, transition: hTrackTransition }} />
+        )}
+        <HSlide
+          photo={activePhoto}
+          interactive
+          onTap={() => setDetailOpen((v) => !v)}
+          style={{ transform: `translateX(${dragX}px)`, transition: hTrackTransition }}
+        />
+        {nextVariant && (
+          <HSlide photo={nextVariant} style={{ transform: `translateX(calc(100% + ${dragX}px))`, transition: hTrackTransition }} />
+        )}
+      </div>
+
       {nextPhoto && (
         <Slide photo={nextPhoto} style={{ transform: `translateY(calc(100% + ${dragY}px))`, transition: trackTransition }} />
       )}
@@ -199,6 +345,23 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
           </svg>
         </button>
       </div>
+
+      {/* Same-dish variant dots — only when there's more than one photo to browse */}
+      {!detailOpen && variants.length > 1 && (
+        <div className="absolute top-12 inset-x-0 z-10 flex items-center justify-center gap-1.5">
+          {variants.map((v, i) => (
+            <span
+              key={v.id}
+              className="rounded-full transition-all"
+              style={{
+                width: i === variantIndex ? 14 : 5,
+                height: 5,
+                background: i === variantIndex ? "var(--accent)" : "rgba(255,255,255,0.3)",
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Bottom overlay — dish name + provenance badge (hidden while detail is open) */}
       {!detailOpen && (
@@ -240,7 +403,7 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
               </svg>
             )}
             <p className="text-white/30 text-[11px] font-medium">
-              Tap photo for details · Swipe up for next
+              Tap for details · Swipe ↕ for next dish{variants.length > 1 ? " · ↔ more photos" : ""}
             </p>
           </div>
         </div>
@@ -253,7 +416,7 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
           style={{
             background: "rgba(10,10,10,0.92)",
             paddingBottom: "max(24px, env(safe-area-inset-bottom))",
-            maxHeight: "60vh",
+            maxHeight: "72vh",
             overflowY: "auto",
           }}
         >
@@ -263,54 +426,87 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
             <h3 className="text-white text-[19px] font-bold mb-1.5">{photo.dishName}</h3>
           )}
           {photo.dishDescription && (
-            <p className="text-white/60 text-[13px] leading-relaxed mb-4">{photo.dishDescription}</p>
+            <p className="text-white/60 text-[13px] leading-relaxed">{photo.dishDescription}</p>
           )}
+
+          {/* Visual separation between the description and the photo carousels below */}
+          <div className="h-px bg-white/10 my-4" />
 
           {canCompare ? (
             <div className="mb-4 space-y-3">
-              <p className="text-[10px] uppercase font-bold text-white/35" style={{ letterSpacing: "0.14em" }}>
-                See the food — management vs. real diners
-              </p>
-              <PhotoStrip label="From management" photos={managementPhotos} activeId={photo.id} onPick={(p) => {
-                const i = photos.indexOf(p);
-                if (i >= 0) setIndex(i);
+              <PhotoStrip label="Photos - Management" photos={managementPhotos} activeId={activePhoto.id} onPick={(p) => {
+                const i = variants.indexOf(p);
+                if (i >= 0) setVariantIndex(i);
               }} />
-              <PhotoStrip label="From real diners" photos={dinerPhotos} activeId={photo.id} onPick={(p) => {
-                const i = photos.indexOf(p);
-                if (i >= 0) setIndex(i);
+              <PhotoStrip label="Photos - Real Diners" photos={dinerPhotos} activeId={activePhoto.id} onPick={(p) => {
+                const i = variants.indexOf(p);
+                if (i >= 0) setVariantIndex(i);
               }} accent />
             </div>
           ) : (
-            sameDishPhotos.length > 1 && (
+            variants.length > 1 && (
               <div className="mb-4">
                 <p className="text-[10px] uppercase font-bold text-white/35 mb-2" style={{ letterSpacing: "0.14em" }}>
                   More photos of this dish
                 </p>
-                <PhotoStrip photos={sameDishPhotos} activeId={photo.id} onPick={(p) => {
-                  const i = photos.indexOf(p);
-                  if (i >= 0) setIndex(i);
+                <PhotoStrip photos={variants} activeId={activePhoto.id} onPick={(p) => {
+                  const i = variants.indexOf(p);
+                  if (i >= 0) setVariantIndex(i);
                 }} />
               </div>
             )
           )}
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-white/8 text-white/55">
-                {SOURCE_LABELS[photo.source]}
-              </span>
-              <span
-                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${
-                  photo.attribution === "owner" ? "bg-amber-400/95 text-black" : "bg-white/10 text-white/60"
-                }`}
+          <div className="mb-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-white/8 text-white/55">
+              {SOURCE_LABELS[activePhoto.source]}
+            </span>
+          </div>
+
+          <button
+            onClick={handleTakePhotoClick}
+            disabled={uploading}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-[14px] font-bold mb-3 active:scale-[0.98] transition-all disabled:opacity-50"
+            style={{ background: "var(--surface-2)", color: "rgba(255,255,255,0.85)" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            {uploading ? "Uploading…" : "Take Photo of Dish"}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleFileSelected}
+          />
+
+          <div className="flex items-center justify-between gap-3">
+            <button
+              onClick={handleLove}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[13px] font-bold active:scale-95 transition-all"
+              style={{ background: "var(--surface-2)", color: loved ? "var(--gold)" : "rgba(255,255,255,0.75)" }}
+            >
+              <svg
+                width="16" height="16" viewBox="0 0 24 24"
+                fill={loved ? "var(--gold)" : "none"}
+                stroke="currentColor" strokeWidth="2"
+                strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: loved ? "scale(1.1)" : "scale(1)", transition: "transform 200ms var(--ease-spring)" }}
               >
-                {photo.attribution === "owner" ? "Management" : "User"}
-              </span>
-            </div>
+                <path d="M12 2 14.6 8.6 22 9.5l-5.4 5L18 22l-6-3.5L6 22l1.4-7.5L2 9.5l7.4-.9L12 2z"/>
+              </svg>
+              I Loved This
+              <span className="tabular-nums">{loveCount}</span>
+            </button>
+
             <button
               onClick={handleShare}
               disabled={sharing}
-              className="flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-4 py-2 rounded-full text-[13px] font-bold active:scale-95 transition-all disabled:opacity-50"
+              className="flex items-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-4 py-2.5 rounded-full text-[13px] font-bold active:scale-95 transition-all disabled:opacity-50"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -325,7 +521,23 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
   );
 }
 
-function Slide({
+/** Simple non-interactive peek slide — prev/next DISH in the vertical track. */
+function Slide({ photo, style }: { photo: DishPhoto; style: React.CSSProperties }) {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center" style={style}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={photo.url}
+        alt={photo.dishName || "Restaurant photo"}
+        className="max-w-full max-h-full object-contain select-none"
+        draggable={false}
+      />
+    </div>
+  );
+}
+
+/** Horizontal-track slide — same-dish variants for the currently centered dish. */
+function HSlide({
   photo,
   interactive = false,
   onTap,

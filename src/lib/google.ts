@@ -879,6 +879,7 @@ export async function fetchStreamingCandidates(
       tier: 1,
       width: 800,
       height: 600,
+      loveCount: 0,
     });
   }
 
@@ -944,6 +945,7 @@ export async function fetchStreamingCandidates(
     tier: 3, // unlabeled placeholder; upgraded once stage 2 (Gemini) resolves it
     width: c.width,
     height: c.height,
+    loveCount: 0,
   }));
 
   return {
@@ -1005,6 +1007,7 @@ export async function finalizeWithGemini(
         tier: scoreToTier(score),
         width: candidate.width,
         height: candidate.height,
+        loveCount: 0,
       },
       score,
     });

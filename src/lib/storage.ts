@@ -18,6 +18,28 @@ const r2 = new S3Client({
   },
 });
 
+/** Uploads raw bytes to R2 under `key`. Returns the public r2.dev URL, or null on any failure. */
+export async function uploadPhotoBuffer(
+  buffer: Buffer,
+  contentType: string,
+  key: string
+): Promise<string | null> {
+  try {
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+      })
+    );
+    return `https://${bucket}.${accountId}.r2.dev/${key}`;
+  } catch (e) {
+    console.error(`[R2] upload failed for key ${key}:`, e);
+    return null;
+  }
+}
+
 /**
  * Downloads a photo from its origin URL and uploads it to R2 under `key`.
  * Returns the public r2.dev URL, or null on any failure (fail-open — callers
@@ -29,17 +51,7 @@ export async function copyPhotoToR2(originUrl: string, key: string): Promise<str
     if (!res.ok) return null;
     const contentType = res.headers.get("content-type") ?? "image/jpeg";
     const buffer = Buffer.from(await res.arrayBuffer());
-
-    await r2.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: buffer,
-        ContentType: contentType,
-      })
-    );
-
-    return `https://${bucket}.${accountId}.r2.dev/${key}`;
+    return uploadPhotoBuffer(buffer, contentType, key);
   } catch (e) {
     console.error(`[R2] copy failed for ${originUrl}:`, e);
     return null;

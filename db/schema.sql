@@ -41,8 +41,11 @@ create table if not exists photos (
   is_orderable      boolean default true,
   width             int,
   height            int,
+  love_count        int default 0,  -- "I Loved This" tap count (no accounts — dedup is per-browser via localStorage only)
   created_at        timestamptz default now()
 );
+
+alter table photos add column if not exists love_count int default 0;
 
 create table if not exists source_runs (
   id                bigint generated always as identity primary key,

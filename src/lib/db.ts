@@ -36,6 +36,7 @@ interface PhotoRow {
   height: number | null;
   gemini_label: string | null;
   menu_item_id: number | null;
+  love_count: number | null;
 }
 
 interface MenuItemRow {
@@ -81,6 +82,7 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
       tier: (p.tier ?? (menuItem ? 1 : p.gemini_label ? 2 : 3)) as 1 | 2 | 3,
       width: p.width ?? 800,
       height: p.height ?? 600,
+      loveCount: p.love_count ?? 0,
     };
   });
 
@@ -134,6 +136,7 @@ export async function getMapPhotosForPlaceIds(
       tier: (p.tier ?? (menuItem ? 1 : p.gemini_label ? 2 : 3)) as 1 | 2 | 3,
       width: p.width ?? 800,
       height: p.height ?? 600,
+      loveCount: p.love_count ?? 0,
     };
     const list = byRestaurant.get(p.restaurant_id) ?? [];
     list.push(photo);
@@ -379,6 +382,80 @@ export async function savePhotos(
     .from("photos")
     .upsert(rows, { onConflict: "restaurant_id,origin_url" });
   if (error) console.error("[corpus] savePhotos failed:", error.message);
+}
+
+/**
+ * "I Loved This" (experimental, no accounts — per-browser dedup only via
+ * localStorage on the client). Only works for corpus-backed photos (id
+ * formatted "corpus-{n}", a real photos.id): a photo from an in-flight
+ * live-stream response that hasn't round-tripped through a page load yet
+ * doesn't have a stable numeric id to attribute the love to, so those are
+ * rejected rather than guessed at.
+ */
+export async function incrementLoveCount(photoId: string): Promise<number | null> {
+  const match = /^corpus-(\d+)$/.exec(photoId);
+  if (!match) return null;
+  const id = parseInt(match[1], 10);
+
+  const { data: current } = await supabase.from("photos").select("love_count").eq("id", id).maybeSingle();
+  if (!current) return null;
+  const next = (current.love_count ?? 0) + 1;
+
+  const { error } = await supabase.from("photos").update({ love_count: next }).eq("id", id);
+  if (error) { console.error("[corpus] incrementLoveCount failed:", error.message); return null; }
+  return next;
+}
+
+/**
+ * "Take Photo of Dish" (experimental). The photo is already tied to a known
+ * dish (the user was looking right at it in the Reveal), so — unlike the
+ * live pipeline's scraped photos — there's no naming/quality pass to run:
+ * it's inserted straight in as a trusted, real-food photo attributed to the
+ * dish being viewed. Returns the new corpus-backed DishPhoto so the client
+ * can splice it into the current view without a full reload.
+ */
+export async function saveUserUploadedPhoto(input: {
+  placeId: string;
+  originUrl: string;
+  dishName: string | null;
+  dishDescription: string | null;
+  isMenuMatch: boolean;
+  tier: 1 | 2 | 3;
+  menuItemId?: number;
+  width: number;
+  height: number;
+}): Promise<DishPhoto | null> {
+  const { data, error } = await supabase
+    .from("photos")
+    .insert({
+      restaurant_id: input.placeId,
+      origin_url: input.originUrl,
+      source: "user_upload",
+      attribution: "user",
+      tier: input.tier,
+      is_orderable: true,
+      width: input.width,
+      height: input.height,
+      gemini_label: input.dishName,
+      menu_item_id: input.menuItemId ?? null,
+    })
+    .select("id")
+    .single();
+  if (error || !data) { console.error("[corpus] saveUserUploadedPhoto failed:", error?.message); return null; }
+
+  return {
+    id: `corpus-${data.id}`,
+    url: input.originUrl,
+    dishName: input.dishName,
+    dishDescription: input.dishDescription,
+    isMenuMatch: input.isMenuMatch,
+    source: "user_upload",
+    attribution: "user",
+    tier: input.tier,
+    width: input.width,
+    height: input.height,
+    loveCount: 0,
+  };
 }
 
 /**
