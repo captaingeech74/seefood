@@ -1160,3 +1160,95 @@ surfaced 6 photos live. Investigated with real data rather than guessing:
   without a different Google billing arrangement (a $0-posture question,
   not a code fix). Full Temecula saturation via the crawler (Phase 3) is
   what closes the remaining gap for restaurants like this one.
+
+---
+
+## Removing Kyle as the crawl bottleneck: two independent automated tracks (July 2026)
+
+Kyle flagged, correctly, that requiring him to manually run `npm run crawl`
+was a real operational flaw — the whole saturation plan depends on crawling
+happening regularly, and "founder has to remember to run a terminal command"
+doesn't scale. Root cause of *why* his Mac was ever needed at all: only
+DoorDash and Grubhub require Camoufox + a residential IP to get past
+bot-detection that blocks cloud IPs (see the DoorDash-economics and
+Grubhub-SPA entries above). Every other source in the pipeline — restaurant
+websites, Menufy, schema.org, Google photos + Gemini identification — has
+zero technical reason to run on a residential connection. That fact was
+already true; nobody had split the crawler along that line before.
+
+**Track A — Vercel Cron, fully automated, zero Kyle involvement, zero added
+cost.** `/api/cron/saturate-temecula`, triggered daily by `vercel.json`'s
+cron config (`0 9 * * *` — Hobby-plan-safe; Vercel may fire it anytime in
+that hour). Each run pulls a batch (`getSaturationBatch` in `db.ts`:
+`status='queued'` restaurants first, then `status='active'` ones stale
+>7 days, `status='test_fixture'` always excluded) and runs the exact live
+pipeline (`getGooglePhotosAndReviews` — website/Menufy/schema.org/Google/
+Gemini, no DoorDash/Grubhub) against each, same as any live user request.
+Protected by `CRON_SECRET` (Vercel's documented pattern — sent as a Bearer
+token, compared server-side), which was added directly via `vercel env add`
+rather than asking Kyle to do it — a one-time setup action taken on his
+behalf, not a recurring one.
+
+Where the backlog comes from: `scripts/discover-temecula.mjs` (new,
+one-time-run-so-far) does a Places API sweep (Nearby Search, paginated +
+two Text Search queries) and queues every found Temecula restaurant not
+already in the corpus — found 86 places, 32 new (queued). The other 111
+already-queued restaurants turned out to already exist: Map Explore v2's
+"viewport visits enqueue for crawling" feature (built earlier this project,
+PRD §4.4) had quietly been building this exact backlog every time anyone
+panned the map, with nothing yet consuming it. Track A is that consumer.
+
+**Track B — Mac launchd, one-time setup then fully automated.**
+`scripts/mac/install-nightly-crawl.sh` — Kyle runs this once
+(`bash scripts/mac/install-nightly-crawl.sh`) and it installs a launchd
+LaunchAgent that runs `run-nightly-crawl.sh` automatically every night
+around 2am from then on, no manual `npm run crawl` ever again. The wrapper
+uses `caffeinate -s` to hold the Mac awake for the run's duration (a
+mid-crawl sleep would silently kill the Camoufox browser mid-session) and
+logs to `logs/nightly-crawl-YYYY-MM-DD.log`. Both scripts compute their own
+repo path via `BASH_SOURCE` rather than a hardcoded path, so installation
+is portable regardless of exact username/directory and safe to rerun if the
+repo ever moves. `scripts/crawl.ts`'s `--zone temecula` now also draws from
+the same corpus backlog Track A uses (new `--limit` flag, default 60) —
+both tracks drain the same queue now instead of each only seeing their own
+hardcoded list.
+
+**Known limitation, not hidden:** corpus freshness (`getCorpusSnapshot`'s
+`isFresh` check) is source-blind — it doesn't distinguish "this restaurant
+has fresh website/Google data" from "this restaurant has fresh DoorDash
+data." If Track A processes a restaurant the same day Track B would
+otherwise reach it, Track B's default freshness check can skip attempting
+DoorDash/Grubhub on it, since the restaurant already looks "fresh" overall.
+This only matters for same-day overlap between the two tracks' batches (a
+small fraction of any given night's list) and is a reasonable v1 tradeoff
+against building full per-source freshness tracking, which nothing has
+asked for yet.
+
+**Grubhub's crawler-side implementation was already complete, just never
+regularly exercised.** Re-investigated per Kyle's ask whether the
+website-aggregation technique (menu-link-follow + generic image scraping)
+that fixed Bluewater Grill would help Grubhub too — tested a real, known
+Grubhub restaurant page directly (`grubhub.com/restaurant/mantra-indian-
+cuisine-.../329004`, found via web search): 200 OK, 13.6KB, zero
+`application/ld+json`, zero embedded JSON — confirms the existing SPA
+diagnosis still holds for restaurant pages too, not just search results.
+The website-aggregation technique doesn't generalize here because the
+problem isn't "wrong page" (Bluewater's case), it's "no static content
+exists on any page of this domain." The real fix was already written —
+`crawlGrubhub` in `scripts/crawl.ts` uses Camoufox (`pythonFetch` with
+`render: true`) for both the search and store-page fetch, the same proven
+approach as DoorDash — it just needed the crawler to actually run
+regularly, which Track B now provides. No further Grubhub-specific code
+changes made; flagged here so nobody "re-fixes" a thing that already works
+on paper and just needs a live test once Kyle's Mac starts running nightly.
+
+**Ordering-platform (Square/ChowNow/Clover/Olo/PopMenu) extraction improved
+on the live path.** The Scrapfly `render_js=true` fallback for these
+JS-SPA platforms was confirmed working (render succeeds, real post-JS
+HTML) but its output was discarded the instant structured item extraction
+failed, so the schema.org + generic-image-scraping fallbacks added this
+week for Bluewater Grill only ever ran against the original PRE-render
+HTML — which has nothing in it for a pure SPA. Now those fallbacks also
+run against the rendered HTML when a render happened, giving these
+platforms a real (if best-effort) path to contribute photos even without
+structured menu extraction.
