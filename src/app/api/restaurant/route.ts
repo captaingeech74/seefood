@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findNearbyRestaurant, getRestaurantDetails } from "@/lib/google";
-import { getSlugForPlaceId } from "@/lib/db";
+import { getSlugForPlaceId, getTestFixtureNameOverride } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -32,13 +32,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const fixtureName = await getTestFixtureNameOverride(restaurant.placeId ?? restaurant.id).catch(() => null);
+    const name = fixtureName ?? restaurant.name;
+
     const slug = await getSlugForPlaceId(
       restaurant.placeId ?? restaurant.id,
-      restaurant.name,
+      name,
       restaurant.address
     ).catch(() => undefined);
 
-    return NextResponse.json({ ...restaurant, slug });
+    return NextResponse.json({ ...restaurant, name, slug });
   } catch (e) {
     console.error("Restaurant API error:", e);
     return NextResponse.json(

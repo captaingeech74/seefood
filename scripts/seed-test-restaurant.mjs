@@ -1,9 +1,12 @@
 #!/usr/bin/env node
-// Seeds the permanent SeeFood test fixture restaurant ("qutamicatering" —
-// a real, central Temecula Google Place that isn't an active restaurant, so
-// it's a safe forever-available canvas for dummy data). Idempotent: clears
-// and re-writes its menu_items/photos each run, safe to re-run any time to
-// refresh the fixture.
+// Seeds the permanent SeeFood test fixture restaurant, displayed as "LRay's
+// Kitchen" (underlying Google Place is "qutamicatering" — a real, central
+// Temecula Place that isn't an active restaurant, so it's a safe
+// forever-available canvas for dummy data; getTestFixtureNameOverride() in
+// db.ts is what makes /api/restaurant show "LRay's Kitchen" instead of
+// Google's real name for this place_id). Idempotent: clears and re-writes
+// its menu_items/photos each run, safe to re-run any time to refresh the
+// fixture.
 //
 // status='test_fixture' is the load-bearing bit: every crawl sweep (Track A
 // Vercel Cron, Track B Mac launchd, scripts/crawl.ts --zone) filters this
@@ -32,7 +35,7 @@ loadEnvLocal();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const PLACE_ID = "ChIJa7SNNcl_24ARGN-49KRUqPI"; // qutamicatering, Temecula — real Place, not an active restaurant
-const NAME = "SeeFood Test Kitchen (qutamicatering)";
+const NAME = "LRay's Kitchen";
 const ADDRESS = "42200, Temecula, CA";
 
 // Real, stable, freely-licensed food photos (foodish-api.com). Real
@@ -42,7 +45,7 @@ const ADDRESS = "42200, Temecula, CA";
 // comparison carousel, and (b) horizontal same-dish-photo swiping.
 const DISHES = [
   {
-    name: "Test Burger Supreme",
+    name: "Burger Supreme",
     description: "A juicy beef patty with melted cheddar, crisp lettuce, tomato, and our signature burger sauce on a toasted brioche bun.",
     photos: [
       { url: "https://foodish-api.com/images/burger/burger60.jpg", attribution: "owner" },
@@ -53,7 +56,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test BBQ Bacon Burger",
+    name: "BBQ Bacon Burger",
     description: "Applewood-smoked bacon, tangy BBQ sauce, and crispy onion straws stacked on a charbroiled patty.",
     photos: [
       { url: "https://foodish-api.com/images/burger/burger77.jpg", attribution: "owner" },
@@ -61,7 +64,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Wood-Fired Pizza",
+    name: "Wood-Fired Pizza",
     description: "Hand-stretched dough, San Marzano tomato sauce, fresh mozzarella, and basil, fired in our 900°F oven.",
     photos: [
       { url: "https://foodish-api.com/images/pizza/pizza92.jpg", attribution: "owner" },
@@ -71,7 +74,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Pepperoni Feast Pizza",
+    name: "Pepperoni Feast Pizza",
     description: "Double pepperoni, mozzarella, and a honey drizzle for a sweet-and-spicy finish.",
     photos: [
       { url: "https://foodish-api.com/images/pizza/pizza85.jpg", attribution: "owner" },
@@ -80,7 +83,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Truffle Pasta",
+    name: "Truffle Pasta",
     description: "Fresh tagliatelle tossed in a black truffle cream sauce with shaved parmesan.",
     photos: [
       { url: "https://foodish-api.com/images/pasta/pasta11.jpg", attribution: "owner" },
@@ -89,7 +92,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Spicy Arrabbiata",
+    name: "Spicy Arrabbiata",
     description: "Penne in a fiery tomato sauce with garlic, red chili flakes, and fresh basil.",
     photos: [
       { url: "https://foodish-api.com/images/pasta/pasta8.jpg", attribution: "owner" },
@@ -99,7 +102,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Chocolate Lava Cake",
+    name: "Chocolate Lava Cake",
     description: "Warm chocolate cake with a molten center, served with vanilla bean ice cream.",
     photos: [
       { url: "https://foodish-api.com/images/dessert/dessert31.jpg", attribution: "owner" },
@@ -108,7 +111,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Tiramisu",
+    name: "Tiramisu",
     description: "Espresso-soaked ladyfingers layered with mascarpone cream and a dusting of cocoa.",
     photos: [
       { url: "https://foodish-api.com/images/dessert/dessert35.jpg", attribution: "owner" },
@@ -119,7 +122,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Chicken Biryani",
+    name: "Chicken Biryani",
     description: "Basmati rice slow-cooked with marinated chicken, saffron, and warm spices.",
     photos: [
       { url: "https://foodish-api.com/images/biryani/biryani61.jpg", attribution: "owner" },
@@ -128,7 +131,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Lamb Biryani",
+    name: "Lamb Biryani",
     description: "Tender lamb layered with fragrant basmati rice, caramelized onions, and mint.",
     photos: [
       { url: "https://foodish-api.com/images/biryani/biryani25.jpg", attribution: "owner" },
@@ -139,7 +142,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Crispy Samosa",
+    name: "Crispy Samosa",
     description: "Golden fried pastry filled with spiced potatoes and peas, served with tamarind chutney.",
     photos: [
       { url: "https://foodish-api.com/images/samosa/samosa17.jpg", attribution: "owner" },
@@ -148,7 +151,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Masala Dosa",
+    name: "Masala Dosa",
     description: "A crispy rice-and-lentil crepe filled with spiced potato masala, served with sambar and coconut chutney.",
     photos: [
       { url: "https://foodish-api.com/images/dosa/dosa33.jpg", attribution: "owner" },
@@ -159,7 +162,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Saffron Rice",
+    name: "Saffron Rice",
     description: "Fragrant basmati rice infused with saffron, cardamom, and toasted almonds.",
     photos: [
       { url: "https://foodish-api.com/images/rice/rice2.jpg", attribution: "owner" },
@@ -168,7 +171,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Vegetable Fried Rice",
+    name: "Vegetable Fried Rice",
     description: "Wok-tossed rice with seasonal vegetables, egg, and a savory soy glaze.",
     photos: [
       { url: "https://foodish-api.com/images/rice/rice32.jpg", attribution: "owner" },
@@ -179,7 +182,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Butter Chicken",
+    name: "Butter Chicken",
     description: "Tandoori chicken simmered in a creamy tomato-butter sauce with garam masala.",
     photos: [
       { url: "https://foodish-api.com/images/butter-chicken/butter-chicken10.jpg", attribution: "owner" },
@@ -188,7 +191,7 @@ const DISHES = [
     ],
   },
   {
-    name: "Test Idly Platter",
+    name: "Idly Platter",
     description: "Steamed rice-and-lentil cakes served with coconut chutney and sambar.",
     photos: [
       { url: "https://foodish-api.com/images/idly/idly63.jpg", attribution: "owner" },
@@ -205,7 +208,7 @@ async function main() {
   const { error: restErr } = await supabase.from("restaurants").upsert(
     {
       place_id: PLACE_ID,
-      slug: "qutamicatering-temecula",
+      slug: "lrays-kitchen-temecula",
       name: NAME,
       lat: 33.5273381,
       lng: -117.1147095,
@@ -257,7 +260,7 @@ async function main() {
   }
 
   console.log(`\nDone. ${DISHES.length} dishes, ${totalPhotos} photos.`);
-  console.log(`Live at: https://seefood-rho.vercel.app/r/qutamicatering-temecula`);
+  console.log(`Live at: https://seefood.vercel.app/r/lrays-kitchen-temecula`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

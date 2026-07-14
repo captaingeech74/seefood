@@ -316,6 +316,23 @@ export async function getSlugForPlaceId(placeId: string, name: string, address: 
   return data?.slug ?? slugifyRestaurant(name, address);
 }
 
+/**
+ * Corpus-stored display name, but ONLY for status='test_fixture' rows (e.g.
+ * LRay's Kitchen). /api/restaurant otherwise always fetches the name live
+ * from Google, which is correct for real restaurants — but the test fixture
+ * isn't a real Google place, so its corpus name is the only source of truth
+ * and needs to override whatever Google happens to return for that place_id.
+ */
+export async function getTestFixtureNameOverride(placeId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("restaurants")
+    .select("name")
+    .eq("place_id", placeId)
+    .eq("status", "test_fixture")
+    .maybeSingle();
+  return data?.name ?? null;
+}
+
 /** Persist menu items, returns a name→id map for linking photos to items. */
 export async function saveMenuItems(
   placeId: string,
