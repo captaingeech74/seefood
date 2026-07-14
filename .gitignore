@@ -18,3 +18,9 @@ ORCHESTRATOR_HANDOFF.md
 
 # Track B nightly crawler logs (Kyle's Mac, machine-local)
 logs/
+
+# Kyle's own fixture photos (personal files, not app source)
+fixture-photos/inbox/*
+fixture-photos/processed/*
+!fixture-photos/inbox/.gitkeep
+!fixture-photos/processed/.gitkeep
