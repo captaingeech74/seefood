@@ -13,6 +13,12 @@ export const maxDuration = 60;
 // Pre-labeled owner photos (Menufy/DoorDash/schema.org) no longer appear in
 // stage 1: they now go through the same ad-photo/duplicate quality pass as
 // everything else before being shown, so they only land in the final line.
+//
+// The 100 cap here is a hard ceiling matching MAX_VISIBLE in
+// TopDishesGrid.tsx, which reveals dishes progressively (30 initially,
+// growing via infinite scroll) — this used to be capped at 20 with no way
+// to see more at all, hiding real dishes (confirmed live: LRay's Kitchen
+// has 36 real menu items behind this cap). Keep these two numbers in sync.
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const placeId = searchParams.get("placeId");
@@ -37,7 +43,7 @@ export async function GET(req: NextRequest) {
         // ── Corpus-first: a fresh hit means zero external API calls ───────────
         const corpus = await getCorpusSnapshot(placeId).catch(() => null);
         if (corpus?.isFresh) {
-          write({ dishes: corpus.photos.slice(0, 20), popularDishes: corpus.popularDishes, done: true });
+          write({ dishes: corpus.photos.slice(0, 100), popularDishes: corpus.popularDishes, done: true });
           controller.close();
           return;
         }
@@ -50,7 +56,7 @@ export async function GET(req: NextRequest) {
           return;
         }
         write({
-          dishes: candidates.rawPhotoPlaceholders.slice(0, 20),
+          dishes: candidates.rawPhotoPlaceholders.slice(0, 100),
           done: false,
         });
 
@@ -69,7 +75,7 @@ export async function GET(req: NextRequest) {
           menuItems,
         }).catch((e) => console.error("[corpus] persist failed:", e));
 
-        write({ dishes: photos.slice(0, 20), popularDishes: candidates.popularDishes, done: true });
+        write({ dishes: photos.slice(0, 100), popularDishes: candidates.popularDishes, done: true });
         controller.close();
       } catch (e) {
         console.error("Dishes API error:", e);
