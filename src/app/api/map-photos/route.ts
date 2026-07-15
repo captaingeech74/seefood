@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMapPhotosForPlaceIds, enqueueForCrawl } from "@/lib/db";
+import { getMapPhotosForPlaceIds, enqueueForCrawl, MapDishPreview } from "@/lib/db";
 
 interface MapRestaurantInput {
   placeId: string;
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   const uncrawled = restaurants.filter((r) => !previews.has(r.placeId));
   Promise.all(uncrawled.map((r) => enqueueForCrawl(r).catch(() => {}))).catch(() => {});
 
-  const out: Record<string, { topPhoto: unknown; dishes: unknown }> = {};
+  const out: Record<string, MapDishPreview> = {};
   for (const [placeId, preview] of previews) {
     out[placeId] = preview;
   }

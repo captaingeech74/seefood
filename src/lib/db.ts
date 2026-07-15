@@ -5,6 +5,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { DishPhoto, MenuItemData, Restaurant } from "./types";
+import { dedupeToPrimary } from "./dishGrouping";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -115,6 +116,8 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
 export interface MapDishPreview {
   topPhoto: DishPhoto;
   dishes: DishPhoto[]; // top ~5, tier-ordered, for the bottom-sheet strip
+  /** Distinct-dish count (same dedup the grid uses) — for "See all dishes (#)". */
+  totalDishCount: number;
 }
 
 /**
@@ -166,7 +169,8 @@ export async function getMapPhotosForPlaceIds(
 
   for (const [placeId, photos] of byRestaurant) {
     if (photos.length === 0) continue;
-    result.set(placeId, { topPhoto: photos[0], dishes: photos.slice(0, 5) });
+    const { primary } = dedupeToPrimary(photos);
+    result.set(placeId, { topPhoto: photos[0], dishes: photos.slice(0, 5), totalDishCount: primary.length });
   }
   return result;
 }

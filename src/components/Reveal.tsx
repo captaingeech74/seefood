@@ -5,6 +5,7 @@ import { DishPhoto, Restaurant } from "@/lib/types";
 import { provenanceLabel } from "./DishTile";
 import { shareDish } from "@/lib/share";
 import { pickPrimary } from "@/lib/dishGrouping";
+import PhotoSourceSheet from "./PhotoSourceSheet";
 
 interface RevealProps {
   /** Deduped, one-per-dish list — drives vertical prev/next so a dish never repeats while scrolling. */
@@ -61,7 +62,6 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   const startXRef = useRef(0);
   const startYRef = useRef(0);
   const dragAxisRef = useRef<"vertical" | "horizontal" | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const activeImgRef = useRef<HTMLImageElement>(null);
   // Tracks the in-flight vertical transition so a new swipe/tap can interrupt
   // it immediately instead of the user having to wait out the full 300ms —
@@ -346,11 +346,9 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   };
 
   const [uploading, setUploading] = useState(false);
-  const handleTakePhotoClick = () => fileInputRef.current?.click();
-  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !activePhoto) return;
+  const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
+  const handleFileSelected = async (file: File) => {
+    if (!activePhoto) return;
     setUploading(true);
     try {
       const form = new FormData();
@@ -630,7 +628,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
 
           <div className="grid grid-cols-3 gap-2.5 mb-1">
             <button
-              onClick={handleTakePhotoClick}
+              onClick={() => setPhotoSourceOpen(true)}
               disabled={uploading}
               className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border active:scale-[0.96] transition-all disabled:opacity-50"
               style={{ background: "var(--surface-2)", borderColor: "rgba(255,255,255,0.1)" }}
@@ -682,15 +680,14 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
               <span className="text-[11.5px] font-bold text-center leading-tight">Share</span>
             </button>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileSelected}
-          />
         </div>
       )}
+
+      <PhotoSourceSheet
+        open={photoSourceOpen}
+        onClose={() => setPhotoSourceOpen(false)}
+        onPick={handleFileSelected}
+      />
     </div>
   );
 }

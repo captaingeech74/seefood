@@ -29,45 +29,10 @@ export default function DishTile({
 
   const hasName = !!dish.dishName;
   const aspectRatio = dish.width && dish.height ? dish.width / dish.height : 1;
-  const hasStack = variantCount > 1;
-  const radius = hero ? "1.5rem" : "1rem"; // matches rounded-3xl / rounded-2xl
+  const hasMultiple = variantCount > 1;
 
   return (
     <div className={`relative ${hero ? "" : "mb-2.5 break-inside-avoid"}`}>
-      {/* "Lifted corner" photo-stack cue — two backing sheets of the same
-          photo, dimmed and nudged up-right, peeking out from behind the top
-          card like the next photos in a stack. Kept subtle (small offsets,
-          no rotation — rotation reads as "messy pile" rather than "more
-          photos of this dish") and never obstructs the actual photo. */}
-      {hasStack && (
-        <>
-          <div
-            aria-hidden
-            className="absolute bg-cover bg-center"
-            style={{
-              inset: 0,
-              borderRadius: radius,
-              backgroundImage: `url(${dish.url})`,
-              filter: "brightness(0.55) blur(0.5px)",
-              transform: "translate(5px, -5px)",
-              zIndex: 0,
-            }}
-          />
-          <div
-            aria-hidden
-            className="absolute bg-cover bg-center"
-            style={{
-              inset: 0,
-              borderRadius: radius,
-              backgroundImage: `url(${dish.url})`,
-              filter: "brightness(0.75)",
-              transform: "translate(2.5px, -2.5px)",
-              zIndex: 1,
-            }}
-          />
-        </>
-      )}
-
       <button
         onClick={onOpen}
         data-dish-id={dish.id}
@@ -77,7 +42,6 @@ export default function DishTile({
         style={{
           background: "var(--surface-2)",
           aspectRatio: hero ? "4 / 3" : aspectRatio > 0.4 && aspectRatio < 2.6 ? aspectRatio : 1,
-          zIndex: 2,
         }}
         aria-label={dish.dishName ? `View ${dish.dishName}` : "View photo"}
       >
@@ -163,6 +127,26 @@ export default function DishTile({
       )}
 
       </button>
+
+      {/* Multiple-photos cue — a small accent badge riding the tile's
+          top-right corner, mostly OUTSIDE the photo itself (Kyle: no more
+          putting things on top of the picture) rather than an overlay on
+          the image content. Same pattern as an app-icon notification badge. */}
+      {loaded && hasMultiple && (
+        <div
+          className="absolute top-0 right-0 flex items-center justify-center rounded-full font-extrabold text-white pointer-events-none"
+          style={{
+            transform: "translate(40%, -40%)",
+            width: hero ? 24 : 19,
+            height: hero ? 24 : 19,
+            fontSize: hero ? 11 : 9.5,
+            background: "var(--accent)",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.35), 0 0 0 2.5px var(--surface-0)",
+          }}
+        >
+          {variantCount}
+        </div>
+      )}
     </div>
   );
 }

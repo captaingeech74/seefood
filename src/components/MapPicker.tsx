@@ -33,12 +33,27 @@ interface SelectedPlace {
   userRatingsTotal?: number;
   priceLevel?: number;
   dishes?: DishPhoto[]; // top ~5 from the corpus, for the bottom-sheet strip (PRD §4.4)
+  totalDishCount?: number;
 }
 
 interface MapPreview {
   topPhoto: DishPhoto;
   dishes: DishPhoto[];
+  totalDishCount: number;
 }
+
+// LRay's Kitchen (status='test_fixture') is a real Google Place that isn't
+// classified as an active restaurant — that's exactly why it was safe to
+// pick as a permanent demo fixture, but it also means Google's own
+// nearbySearch(type: "restaurant") will never surface it, no matter how
+// close the viewport is. Injected manually whenever it's in view so the
+// restaurant Kyle actively demos is reachable from Map Explore at all.
+const TEST_FIXTURE = {
+  placeId: "ChIJa7SNNcl_24ARGN-49KRUqPI",
+  name: "LRay's Kitchen",
+  lat: 33.5273381,
+  lng: -117.1147095,
+};
 
 function PriceLevel({ level }: { level: number }) {
   return (
@@ -155,6 +170,7 @@ export default function MapPicker({
           userRatingsTotal: place.user_ratings_total ?? undefined,
           priceLevel: place.price_level ?? undefined,
           dishes: currentPreview?.dishes,
+          totalDishCount: currentPreview?.totalDishCount,
         });
         if (place.geometry?.location) {
           mapInstance.panTo(place.geometry.location);
@@ -227,7 +243,27 @@ export default function MapPicker({
         (results, status) => {
           setSearching(false);
           if (status !== window.google.maps.places.PlacesServiceStatus.OK || !results) return;
-          loadPreviewsAndAddMarkers(mapInstance, results);
+
+          const bounds = mapInstance.getBounds();
+          const fixtureLatLng = new window.google.maps.LatLng(TEST_FIXTURE.lat, TEST_FIXTURE.lng);
+          const alreadyPresent = results.some((r) => r.place_id === TEST_FIXTURE.placeId);
+          // Prepended, not appended — loadPreviewsAndAddMarkers caps markers
+          // at the first 20 results, and the fixture should never lose that
+          // race to whatever Google happened to return this search.
+          const withFixture =
+            !alreadyPresent && bounds?.contains(fixtureLatLng)
+              ? [
+                  {
+                    place_id: TEST_FIXTURE.placeId,
+                    name: TEST_FIXTURE.name,
+                    vicinity: "Temecula, CA",
+                    geometry: { location: fixtureLatLng },
+                  } as google.maps.places.PlaceResult,
+                  ...results,
+                ]
+              : results;
+
+          loadPreviewsAndAddMarkers(mapInstance, withFixture);
         }
       );
     },
@@ -550,7 +586,7 @@ export default function MapPicker({
                   onClick={() => onSelectRestaurant(selected.placeId, selected.name)}
                   className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-bold text-[15px] py-3.5 rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20"
                 >
-                  See all dishes
+                  {selected.totalDishCount ? `See all dishes (${selected.totalDishCount})` : "See all dishes"}
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m9 18 6-6-6-6"/>
                   </svg>
