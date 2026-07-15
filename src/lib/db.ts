@@ -46,14 +46,30 @@ interface MenuItemRow {
   description: string | null;
 }
 
-/** Corpus-first read: null if the restaurant has never been seen before. */
+/**
+ * Corpus-first read: null if the restaurant has never been seen before.
+ *
+ * status='test_fixture' restaurants (LRay's Kitchen) ALWAYS report
+ * isFresh=true, no matter their age or even if they somehow have zero
+ * photos — never falling through to /api/dishes' live-pipeline branch.
+ * Confirmed live July 2026: LRay's Kitchen's place_id is a real Google
+ * Place, so once its normal 24h freshness window lapsed, an ordinary page
+ * view (Kyle demoing the app) silently ran the full live pipeline against
+ * that real place and persistPipelineResult overwrote the seeded menu with
+ * whatever the live pipeline found there (nothing) — wiping every photo on
+ * the restaurant being actively demoed. Test fixtures are manually curated
+ * and must never be treated as fetchable/overwritable by the live path,
+ * regardless of how stale their timestamp looks.
+ */
 export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot | null> {
   const { data: restaurant } = await supabase
     .from("restaurants")
-    .select("updated_at")
+    .select("updated_at, status")
     .eq("place_id", placeId)
     .maybeSingle();
   if (!restaurant) return null;
+
+  const isTestFixture = restaurant.status === "test_fixture";
 
   const [{ data: photoRows }, { data: menuItemRows }] = await Promise.all([
     supabase
@@ -64,7 +80,9 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
       .order("id", { ascending: true }),
     supabase.from("menu_items").select("id,name,description").eq("restaurant_id", placeId),
   ]);
-  if (!photoRows || photoRows.length === 0) return null;
+  if (!photoRows || photoRows.length === 0) {
+    return isTestFixture ? { photos: [], popularDishes: [], isFresh: true } : null;
+  }
 
   const menuItemsById = new Map<number, MenuItemRow>(
     (menuItemRows ?? []).map((m: MenuItemRow) => [m.id, m])
@@ -89,7 +107,7 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
   });
 
   const ageMs = Date.now() - new Date(restaurant.updated_at).getTime();
-  const isFresh = ageMs < CORPUS_FRESH_HOURS * 60 * 60 * 1000;
+  const isFresh = isTestFixture || ageMs < CORPUS_FRESH_HOURS * 60 * 60 * 1000;
 
   return { photos, popularDishes: [], isFresh };
 }
