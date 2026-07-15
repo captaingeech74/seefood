@@ -16,6 +16,14 @@
 #      what happened without watching it run.
 set -uo pipefail
 
+# launchd runs with a minimal PATH (no ~/.zshrc, no shell profile sourced) —
+# node/npm live in ~/.local/bin on this Mac and simply aren't found
+# otherwise ("npm: No such file or directory"), even though the exact same
+# script works fine when run by hand from an interactive Terminal. Covers
+# the other common install locations too (Homebrew, nvm-less system npm)
+# so this keeps working if node's install method ever changes.
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LOG_DIR="$REPO_DIR/logs"
