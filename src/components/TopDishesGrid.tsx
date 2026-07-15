@@ -73,10 +73,24 @@ export default function TopDishesGrid({
   const maxVisible = Math.min(rankedList.length, MAX_VISIBLE);
   const canGrow = visibleCount < maxVisible;
 
+  // IntersectionObserver is the primary trigger, but some WebView/browser
+  // combinations are unreliable about firing it reliably (confirmed one
+  // such environment while building this) — a plain scroll-position check
+  // is a robust fallback that doesn't depend on IO semantics at all, and at
+  // this list size (max 100 items) the extra scroll listener costs nothing
+  // measurable.
   useEffect(() => {
     if (!canGrow) return;
     const el = sentinelRef.current;
     if (!el) return;
+
+    const tryGrow = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight + 600) {
+        setVisibleCount((v) => Math.min(v + BATCH_SIZE, MAX_VISIBLE));
+      }
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) {
@@ -86,7 +100,16 @@ export default function TopDishesGrid({
       { rootMargin: "600px" }
     );
     observer.observe(el);
-    return () => observer.disconnect();
+
+    window.addEventListener("scroll", tryGrow, { passive: true });
+    window.addEventListener("resize", tryGrow);
+    tryGrow(); // covers the case where the sentinel is already on-screen at mount
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", tryGrow);
+      window.removeEventListener("resize", tryGrow);
+    };
   }, [canGrow]);
 
   if (loading) {
