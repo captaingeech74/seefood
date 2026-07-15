@@ -146,16 +146,21 @@ export default function RestaurantHeader({
           <p className="text-[12px] text-white/35 truncate font-medium">
             {restaurant.address}
           </p>
-          <button
-            onClick={onSuggestDish}
-            className="flex items-center gap-1.5 mt-2.5 text-[12px] font-bold active:scale-95 transition-transform"
-            style={{ color: "var(--accent)" }}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Add a Missing Photo or Menu Item
-          </button>
+          <div className="flex justify-end mt-2.5">
+            <button
+              onClick={onSuggestDish}
+              className="flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
+              style={{ background: "var(--accent)" }}
+              aria-label="Add a missing photo or menu item"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              <span className="text-[12.5px] font-bold text-white whitespace-nowrap">
+                Add a Missing Photo or Menu Item
+              </span>
+            </button>
+          </div>
         </div>
       )}
     </header>

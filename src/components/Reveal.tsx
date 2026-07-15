@@ -40,12 +40,10 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   const [dragY, setDragY] = useState(0);
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isHAnimating, setIsHAnimating] = useState(false);
   const [isHResetting, setIsHResetting] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [hasSwiped, setHasSwiped] = useState(false);
   const [variantIndex, setVariantIndex] = useState(0);
   const [uploadedPhotos, setUploadedPhotos] = useState<DishPhoto[]>([]);
   // Once true, the swipe-right-only hint upgrades to show both directions —
@@ -64,6 +62,13 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   const startYRef = useRef(0);
   const dragAxisRef = useRef<"vertical" | "horizontal" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeImgRef = useRef<HTMLImageElement>(null);
+  // Tracks the in-flight vertical transition so a new swipe/tap can interrupt
+  // it immediately instead of the user having to wait out the full 300ms —
+  // Kyle: "I have to wait a split second before I can make subsequent
+  // scrolling actions... make it so I can [go faster]."
+  const pendingVerticalRef = useRef<{ timeoutId: number; nextIdx: number } | null>(null);
+  const [imgBounds, setImgBounds] = useState<{ top: number; bottom: number } | null>(null);
 
   const photo = photos[index];
   const prevPhoto = index > 0 ? photos[index - 1] : null;
@@ -102,26 +107,65 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photo?.id]);
 
+  // The vertical swipe-hint arrows sit "just outside the edges of the
+  // photo" (Kyle's spec) rather than at a fixed screen position — every
+  // photo's rendered height differs under object-contain, so this measures
+  // the actual displayed <img> bounds and repositions on every photo change
+  // and window resize.
+  const measureImgBounds = useCallback(() => {
+    const el = activeImgRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setImgBounds({ top: r.top, bottom: r.bottom });
+  }, []);
+
+  useEffect(() => {
+    measureImgBounds();
+    window.addEventListener("resize", measureImgBounds);
+    return () => window.removeEventListener("resize", measureImgBounds);
+  }, [measureImgBounds, activePhoto?.id]);
+
+  // Commits whatever vertical transition is currently in flight immediately
+  // (no visible flash — isDragging/isResetting already force transition:none
+  // for the frame this runs in), so a new swipe/tap never has to wait out
+  // the previous one's remaining animation time.
+  const commitPendingVertical = useCallback(() => {
+    if (!pendingVerticalRef.current) return;
+    clearTimeout(pendingVerticalRef.current.timeoutId);
+    const { nextIdx } = pendingVerticalRef.current;
+    pendingVerticalRef.current = null;
+    setIsResetting(true);
+    setIndex(nextIdx);
+    setDragY(0);
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        setIsResetting(false);
+      })
+    );
+  }, []);
+
   const animateTo = useCallback((targetOffset: number, nextIdx: number) => {
-    setIsAnimating(true);
+    if (pendingVerticalRef.current) {
+      clearTimeout(pendingVerticalRef.current.timeoutId);
+      pendingVerticalRef.current = null;
+    }
     setDragY(targetOffset);
-    window.setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       setIsResetting(true);
       setIndex(nextIdx);
       setDragY(0);
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
           setIsResetting(false);
-          setIsAnimating(false);
+          pendingVerticalRef.current = null;
         })
       );
     }, ANIM_MS);
+    pendingVerticalRef.current = { timeoutId, nextIdx };
   }, []);
 
   const snapBack = useCallback(() => {
-    setIsAnimating(true);
     setDragY(0);
-    window.setTimeout(() => setIsAnimating(false), ANIM_MS);
   }, []);
 
   const animateVariantTo = useCallback((targetOffset: number, nextIdx: number) => {
@@ -149,16 +193,14 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   }, []);
 
   const goNext = useCallback(() => {
-    if (isAnimating || index >= photos.length - 1) return;
-    setHasSwiped(true);
+    if (index >= photos.length - 1) return;
     animateTo(-window.innerHeight, index + 1);
-  }, [isAnimating, index, photos.length, animateTo]);
+  }, [index, photos.length, animateTo]);
 
   const goPrev = useCallback(() => {
-    if (isAnimating || index <= 0) return;
-    setHasSwiped(true);
+    if (index <= 0) return;
     animateTo(window.innerHeight, index - 1);
-  }, [isAnimating, index, animateTo]);
+  }, [index, animateTo]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -179,7 +221,8 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   }, []);
 
   const onTouchStart = (e: React.TouchEvent) => {
-    if (isAnimating || isHAnimating) return;
+    if (isHAnimating) return;
+    if (pendingVerticalRef.current) commitPendingVertical();
     startXRef.current = e.touches[0].clientX;
     startYRef.current = e.touches[0].clientY;
     dragAxisRef.current = null;
@@ -215,13 +258,11 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
 
     const dy = e.changedTouches[0].clientY - startYRef.current;
     if (dy < -SWIPE_THRESHOLD && index < photos.length - 1) {
-      setHasSwiped(true);
       animateTo(-window.innerHeight, index + 1);
     } else if (dy > SWIPE_THRESHOLD) {
       // Swipe down: previous dish, or dismiss if already at the top (PRD §4.3).
       if (index === 0) close();
       else {
-        setHasSwiped(true);
         animateTo(window.innerHeight, index - 1);
       }
     } else {
@@ -366,6 +407,8 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
           photo={activePhoto}
           interactive
           onTap={() => setDetailOpen((v) => !v)}
+          imgRef={activeImgRef}
+          onImgLoad={measureImgBounds}
           style={{ transform: `translateX(${dragX}px)`, transition: hTrackTransition }}
         />
         {nextVariant && (
@@ -378,8 +421,11 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
       )}
 
       {/* Same-dish swipe hint — right-only until the user has discovered the
-          gesture once (globally, via localStorage), then both edges light up. */}
-      {!detailOpen && !isDragging && nextVariant && (
+          gesture once (globally, via localStorage), then both edges light up.
+          Stays visible through the detail sheet too (Kyle: horizontal/
+          vertical browsing still works there, so the hints should keep
+          showing, not just the dots). */}
+      {!isDragging && nextVariant && (
         <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none swipe-hint-right">
           <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
@@ -388,11 +434,40 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
           </div>
         </div>
       )}
-      {!detailOpen && !isDragging && discoveredHSwipe && prevVariant && (
+      {!isDragging && discoveredHSwipe && prevVariant && (
         <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none swipe-hint-left">
           <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
               <path d="m15 6-6 6 6 6" />
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* Vertical swipe hint — sits just outside the photo's actual rendered
+          edges (measured via imgBounds, not a fixed screen position, since
+          object-contain photos vary in displayed height). Replaces the old
+          bounce-chevron + "Swipe for next dish" text entirely. */}
+      {!isDragging && imgBounds && prevPhoto && (
+        <div
+          className="absolute left-1/2 z-10 pointer-events-none swipe-hint-up"
+          style={{ top: Math.max(imgBounds.top - 36, 56) }}
+        >
+          <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
+              <path d="m6 15 6-6 6 6" />
+            </svg>
+          </div>
+        </div>
+      )}
+      {!isDragging && imgBounds && nextPhoto && (
+        <div
+          className="absolute left-1/2 z-10 pointer-events-none swipe-hint-down"
+          style={{ top: Math.min(imgBounds.bottom + 4, (typeof window !== "undefined" ? window.innerHeight : 800) - 96) }}
+        >
+          <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
+              <path d="m6 9 6 6 6-6" />
             </svg>
           </div>
         </div>
@@ -417,8 +492,9 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         </button>
       </div>
 
-      {/* Same-dish variant dots — only when there's more than one photo to browse */}
-      {!detailOpen && variants.length > 1 && (
+      {/* Same-dish variant dots — only when there's more than one photo to
+          browse. Stays visible through the detail sheet too. */}
+      {variants.length > 1 && (
         <div className="absolute top-12 inset-x-0 z-10 flex items-center justify-center gap-1.5">
           {variants.map((v, i) => (
             <span
@@ -479,28 +555,22 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
           )}
 
           {photo.dishName ? (
-            <h2 className="text-white text-[22px] font-bold leading-tight tracking-tight mb-1">
+            <h2 className="text-white text-[27px] font-bold leading-tight tracking-tight mb-1.5">
               {photo.dishName}
             </h2>
           ) : (
-            <p className="text-white/50 text-[14px] font-medium italic mb-1">No dish identified</p>
+            <p className="text-white/50 text-[14px] font-medium italic mb-1.5">No dish identified</p>
           )}
 
-          <div className="flex items-center gap-1.5 pointer-events-auto">
-            {!hasSwiped && nextPhoto && (
-              <svg
-                width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-                className="text-white/40 animate-bounce"
-              >
-                <path d="M12 5v14M5 12l7 7 7-7"/>
-              </svg>
-            )}
-            <p className="text-white/30 text-[11px] font-medium">
-              Tap for details · Swipe ↕ for next dish
-              {variants.length > 1 ? ` · Swipe ${discoveredHSwipe ? "↔" : "→"} more photos` : ""}
-            </p>
-          </div>
+          {/* Vertical "swipe for next dish" no longer needs text — it's
+              taught visually now by the up/down arrow hints beside the
+              photo. The horizontal same-dish-photos note stays (Kyle only
+              asked to remove the vertical mention), just carried by bigger
+              type now that it's doing more of the teaching. */}
+          <p className="text-white/40 text-[13px] font-semibold pointer-events-auto">
+            Tap for details
+            {variants.length > 1 ? ` · Swipe ${discoveredHSwipe ? "↔" : "→"} more photos` : ""}
+          </p>
         </div>
       )}
 
@@ -570,7 +640,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
                 <circle cx="12" cy="13" r="4"/>
               </svg>
               <span className="text-[11.5px] font-bold text-white/85 text-center leading-tight">
-                {uploading ? "Uploading…" : "Take Photo"}
+                {uploading ? "Uploading…" : "Add a Photo"}
               </span>
             </button>
 
@@ -645,20 +715,27 @@ function HSlide({
   photo,
   interactive = false,
   onTap,
+  imgRef,
+  onImgLoad,
   style,
 }: {
   photo: DishPhoto;
   interactive?: boolean;
   onTap?: () => void;
+  /** Only passed for the active/interactive slide — used to measure its rendered bounds for the vertical swipe-hint arrows. */
+  imgRef?: React.RefObject<HTMLImageElement | null>;
+  onImgLoad?: () => void;
   style: React.CSSProperties;
 }) {
   const img = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={imgRef}
       src={photo.url}
       alt={photo.dishName || "Restaurant photo"}
       className="max-w-full max-h-full object-contain select-none"
       draggable={false}
+      onLoad={onImgLoad}
     />
   );
   return (

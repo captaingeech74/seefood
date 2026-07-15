@@ -152,6 +152,21 @@ img {
   animation: swipeHintLeft 1.6s ease-in-out infinite;
 }
 
+@keyframes swipeHintUp {
+  0%, 100% { opacity: 0.55; transform: translateX(-50%) translateY(0); }
+  50%      { opacity: 1;    transform: translateX(-50%) translateY(-5px); }
+}
+@keyframes swipeHintDown {
+  0%, 100% { opacity: 0.55; transform: translateX(-50%) translateY(0); }
+  50%      { opacity: 1;    transform: translateX(-50%) translateY(5px); }
+}
+.swipe-hint-up {
+  animation: swipeHintUp 1.6s ease-in-out infinite;
+}
+.swipe-hint-down {
+  animation: swipeHintDown 1.6s ease-in-out infinite;
+}
+
 /* "Suggest a Dish" success confetti burst */
 @keyframes confettiPop {
   0%   { opacity: 0; transform: translateY(10px) scale(0.5) rotate(0deg); }
