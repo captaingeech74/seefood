@@ -4,7 +4,7 @@
  * opportunistic (crawler writes, and live-path saves when a photo is judged
  * corpus-worthy) — not every photo needs an R2 copy on day one.
  */
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 
 const accountId = process.env.R2_ACCOUNT_ID!;
 const bucket = process.env.R2_BUCKET!;
@@ -18,7 +18,16 @@ const r2 = new S3Client({
   },
 });
 
-/** Uploads raw bytes to R2 under `key`. Returns the public r2.dev URL, or null on any failure. */
+/**
+ * Uploads raw bytes to R2 under `key`. Returns a stable app-relative URL
+ * proxied through /api/r2-photo (see that route). R2's actual public-bucket
+ * domain is a dashboard-provisioned pub-<hash>.r2.dev address (or a custom
+ * domain) that can't be derived from the account id and bucket name alone —
+ * an earlier version of this function guessed `${bucket}.${accountId}.r2.dev`,
+ * which doesn't correspond to any real R2 domain format and silently served
+ * broken images (caught July 2026 when the LRay's Kitchen Notion-menu import
+ * was the first real end-to-end exercise of this upload path).
+ */
 export async function uploadPhotoBuffer(
   buffer: Buffer,
   contentType: string,
@@ -33,9 +42,24 @@ export async function uploadPhotoBuffer(
         ContentType: contentType,
       })
     );
-    return `https://${bucket}.${accountId}.r2.dev/${key}`;
+    return `/api/r2-photo?key=${encodeURIComponent(key)}`;
   } catch (e) {
     console.error(`[R2] upload failed for key ${key}:`, e);
+    return null;
+  }
+}
+
+/** Streams an object back out of R2 for /api/r2-photo to serve. Null on any failure. */
+export async function getR2ObjectStream(key: string): Promise<{ body: ReadableStream; contentType: string } | null> {
+  try {
+    const result = await r2.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    if (!result.Body) return null;
+    return {
+      body: result.Body.transformToWebStream(),
+      contentType: result.ContentType || "image/jpeg",
+    };
+  } catch (e) {
+    console.error(`[R2] get failed for key ${key}:`, e);
     return null;
   }
 }
