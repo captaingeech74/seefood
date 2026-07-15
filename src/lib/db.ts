@@ -400,7 +400,24 @@ export async function savePhotos(
   }>
 ): Promise<void> {
   if (photos.length === 0) return;
-  const rows = photos.map((p) => ({
+
+  // De-dupe by origin_url BEFORE building the upsert payload — Postgres's
+  // ON CONFLICT DO UPDATE errors out ("command cannot affect row a second
+  // time") if two rows in the SAME statement target the same conflict key,
+  // and that failure is atomic: the whole batch is rejected, not just the
+  // offending row. Confirmed live July 2026: 23 of 65 restaurants in one
+  // nightly crawl lost 100% of their photos to this — some upstream source
+  // (Google/website candidates) occasionally repeats the identical URL
+  // within one restaurant's candidate set, which previously nuked the
+  // entire restaurant's save instead of just silently keeping one copy.
+  const seen = new Set<string>();
+  const deduped = photos.filter((p) => {
+    if (seen.has(p.originUrl)) return false;
+    seen.add(p.originUrl);
+    return true;
+  });
+
+  const rows = deduped.map((p) => ({
     restaurant_id: placeId,
     origin_url: p.originUrl,
     storage_url: p.storageUrl ?? null,
