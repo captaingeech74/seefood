@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveUserUploadedPhoto, saveMenuItems } from "@/lib/db";
+import { saveUserUploadedPhoto, saveMenuItems, findExistingMenuItemByName } from "@/lib/db";
 import { uploadPhotoBuffer } from "@/lib/storage";
 
 // "Add a Missing Photo or Menu Item" (grid view, hidden under the
 // restaurant-name caret) — for a diner at the table with a dish SeeFood has
-// no photo or menu record of: a name, a photo, and an attestation that they
-// were actually served it. No accounts exist, so the checkbox is the only
+// no photo or menu record of: a name, a photo, and an implicit attestation
+// that they were actually served it. No accounts exist, so this is the only
 // integrity gate; the created photo/menu item is otherwise treated exactly
 // like any other real content.
+//
+// Duplicate handling is automatic, not the diner's job: if the typed name
+// matches an existing menu item for this restaurant (any source — Gemini-
+// identified, Notion-imported, an earlier suggestion), the new photo is
+// attached to THAT item as another variant instead of spawning a duplicate
+// dish (see findExistingMenuItemByName).
 //
 // Delight feature: if the diner leaves the description blank, one quick
 // Gemini vision pass looks at their photo and writes one for them.
@@ -81,9 +87,14 @@ export async function POST(req: NextRequest) {
   const aiWrote = !dishDescription && !!aiDescription;
   if (aiWrote) dishDescription = aiDescription!;
 
-  const nameToId = await saveMenuItems(placeId, [
-    { name: dishName, description: dishDescription || undefined, source: "user_suggested" },
-  ]);
+  const existingMenuItemId = await findExistingMenuItemByName(placeId, dishName);
+  let menuItemId = existingMenuItemId ?? undefined;
+  if (!existingMenuItemId) {
+    const nameToId = await saveMenuItems(placeId, [
+      { name: dishName, description: dishDescription || undefined, source: "user_suggested" },
+    ]);
+    menuItemId = nameToId.get(dishName);
+  }
 
   const photo = await saveUserUploadedPhoto({
     placeId,
@@ -92,7 +103,7 @@ export async function POST(req: NextRequest) {
     dishDescription: dishDescription || null,
     isMenuMatch: true,
     tier: 1,
-    menuItemId: nameToId.get(dishName),
+    menuItemId,
     width: 1200,
     height: 1200,
   });

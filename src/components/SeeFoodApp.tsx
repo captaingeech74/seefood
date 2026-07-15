@@ -36,7 +36,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
   // True once the stage-2 (Gemini-labeled) result has landed — gates whether
   // TopDishesGrid shows the flat streaming view or the real hero/tier layout.
   const [dishesFinal, setDishesFinal] = useState(false);
-  const [reveal, setReveal] = useState<{ list: DishPhoto[]; index: number } | null>(null);
+  const [reveal, setReveal] = useState<{ list: DishPhoto[]; index: number; allPhotos: DishPhoto[] } | null>(null);
   const [suggestOpen, setSuggestOpen] = useState(false);
   // Preserves map pan/zoom across opens (PRD §4.4 "back preserves map position") —
   // only used on re-open, not the first cold explore entry, which centers fresh.
@@ -244,7 +244,8 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         dishes={dishes}
         loading={state === "loading_dishes" || dishesLoading}
         finalized={dishesFinal}
-        onOpenReveal={(list, index) => setReveal({ list, index })}
+        resetKey={restaurant?.placeId || restaurant?.id || ""}
+        onOpenReveal={(list, index, allPhotos) => setReveal({ list, index, allPhotos })}
       />
 
       {suggestOpen && restaurant && (
@@ -258,6 +259,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
       {reveal && restaurant && (
         <Reveal
           photos={reveal.list}
+          allPhotos={reveal.allPhotos}
           startIndex={reveal.index}
           restaurant={restaurant}
           onClose={(lastIndex) => {

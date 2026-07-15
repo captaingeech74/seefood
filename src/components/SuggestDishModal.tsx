@@ -24,7 +24,6 @@ const CONFETTI = ["🎉", "🍽️", "✨", "🥳", "👏", "🌟"];
 export default function SuggestDishModal({ restaurant, onClose, onAdded }: SuggestDishModalProps) {
   const [dishName, setDishName] = useState("");
   const [dishDescription, setDishDescription] = useState("");
-  const [attested, setAttested] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -39,7 +38,7 @@ export default function SuggestDishModal({ restaurant, onClose, onAdded }: Sugge
     setPreviewUrl(URL.createObjectURL(f));
   };
 
-  const canSubmit = dishName.trim().length > 0 && !!file && attested && !submitting;
+  const canSubmit = dishName.trim().length > 0 && !!file && !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit || !file) return;
@@ -94,7 +93,7 @@ export default function SuggestDishModal({ restaurant, onClose, onAdded }: Sugge
             </p>
 
             <label className="block text-[11px] font-bold uppercase text-white/40 mb-1.5" style={{ letterSpacing: "0.08em" }}>
-              Dish Name
+              Dish Name <span style={{ color: "var(--accent)" }}>*</span>
             </label>
             <input
               value={dishName}
@@ -147,32 +146,13 @@ export default function SuggestDishModal({ restaurant, onClose, onAdded }: Sugge
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               className="hidden"
               onChange={handleFileSelected}
             />
 
-            <button
-              onClick={() => setAttested((v) => !v)}
-              className="w-full flex items-start gap-3 mb-5 text-left"
-            >
-              <span
-                className="shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center mt-0.5 transition-colors"
-                style={{
-                  borderColor: attested ? "var(--accent)" : "rgba(255,255,255,0.3)",
-                  background: attested ? "var(--accent)" : "transparent",
-                }}
-              >
-                {attested && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                )}
-              </span>
-              <span className="text-[13px] text-white/70 leading-relaxed">
-                I confirm I was actually served this dish at {restaurant.name} — not a joke or a duplicate.
-              </span>
-            </button>
+            <p className="text-[11.5px] text-white/35 leading-relaxed mb-5">
+              * By adding this, you&apos;re confirming you were actually served it at {restaurant.name}.
+            </p>
 
             {error && <p className="text-rose-400 text-[13px] mb-3">{error}</p>}
 

@@ -37,6 +37,7 @@ interface PhotoRow {
   gemini_label: string | null;
   menu_item_id: number | null;
   love_count: number | null;
+  primary_votes: number | null;
 }
 
 interface MenuItemRow {
@@ -83,6 +84,7 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
       width: p.width ?? 800,
       height: p.height ?? 600,
       loveCount: p.love_count ?? 0,
+      primaryVotes: p.primary_votes ?? 0,
     };
   });
 
@@ -137,6 +139,7 @@ export async function getMapPhotosForPlaceIds(
       width: p.width ?? 800,
       height: p.height ?? 600,
       loveCount: p.love_count ?? 0,
+      primaryVotes: p.primary_votes ?? 0,
     };
     const list = byRestaurant.get(p.restaurant_id) ?? [];
     list.push(photo);
@@ -333,6 +336,25 @@ export async function getTestFixtureNameOverride(placeId: string): Promise<strin
   return data?.name ?? null;
 }
 
+/**
+ * Cross-source duplicate check for "Add a Missing Photo or Menu Item" — a
+ * diner typing "Burger Supreme" should attach their photo to the SAME dish
+ * Gemini or the Notion import already created (any source), not spawn a
+ * second, duplicate menu item that happens to share a name. Kyle: "we
+ * should be able to determine if it's a duplicate and append the photo to
+ * the existing dish" — this replaces relying on the diner's word for it.
+ * Exact match after case/whitespace normalization only (deliberately no
+ * fuzzy matching — a false-positive merge is worse than an occasional
+ * missed duplicate, which a human can still notice and we can improve later).
+ */
+export async function findExistingMenuItemByName(placeId: string, name: string): Promise<number | null> {
+  const { data } = await supabase.from("menu_items").select("id,name").eq("restaurant_id", placeId);
+  if (!data) return null;
+  const key = name.toLowerCase().trim();
+  const match = data.find((m) => m.name.toLowerCase().trim() === key);
+  return match?.id ?? null;
+}
+
 /** Persist menu items, returns a name→id map for linking photos to items. */
 export async function saveMenuItems(
   placeId: string,
@@ -424,6 +446,27 @@ export async function incrementLoveCount(photoId: string): Promise<number | null
 }
 
 /**
+ * Thumbs-up on a non-primary same-dish variant while browsing horizontally
+ * in the Reveal — over time, the highest-voted photo (see computePrimaryPhoto
+ * in TopDishesGrid) becomes the one shown in the grid instead of whatever
+ * the pipeline happened to pick first. Same corpus-id constraint and
+ * per-browser dedup approach as incrementLoveCount.
+ */
+export async function incrementPrimaryVotes(photoId: string): Promise<number | null> {
+  const match = /^corpus-(\d+)$/.exec(photoId);
+  if (!match) return null;
+  const id = parseInt(match[1], 10);
+
+  const { data: current } = await supabase.from("photos").select("primary_votes").eq("id", id).maybeSingle();
+  if (!current) return null;
+  const next = (current.primary_votes ?? 0) + 1;
+
+  const { error } = await supabase.from("photos").update({ primary_votes: next }).eq("id", id);
+  if (error) { console.error("[corpus] incrementPrimaryVotes failed:", error.message); return null; }
+  return next;
+}
+
+/**
  * "Take Photo of Dish" (experimental). The photo is already tied to a known
  * dish (the user was looking right at it in the Reveal), so — unlike the
  * live pipeline's scraped photos — there's no naming/quality pass to run:
@@ -472,6 +515,7 @@ export async function saveUserUploadedPhoto(input: {
     width: input.width,
     height: input.height,
     loveCount: 0,
+    primaryVotes: 0,
   };
 }
 

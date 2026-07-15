@@ -13,10 +13,13 @@ export function provenanceLabel(dish: DishPhoto): string {
 export default function DishTile({
   dish,
   hero = false,
+  variantCount = 1,
   onOpen,
 }: {
   dish: DishPhoto;
   hero?: boolean;
+  /** How many photos exist of this same dish — renders a small "multiple photos" badge when > 1. */
+  variantCount?: number;
   onOpen: () => void;
 }) {
   const [loaded, setLoaded] = useState(false);
@@ -118,6 +121,23 @@ export default function DishTile({
           <span className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-white/55">
             #1
           </span>
+        </div>
+      )}
+
+      {/* Multiple-photos indicator — bottom-right, out of the way of the
+          name pill and provenance badges. Ultra-minimal: a small stacked-
+          squares glyph in a glass pill, no count number (keeps it quiet). */}
+      {loaded && variantCount > 1 && (
+        <div className={`absolute pointer-events-none ${hero ? "bottom-4 right-4" : "bottom-2.5 right-2.5"}`}>
+          <div
+            className="glass rounded-full flex items-center justify-center"
+            style={{ background: "rgba(0,0,0,0.45)", width: hero ? 26 : 20, height: hero ? 26 : 20 }}
+          >
+            <svg width={hero ? 13 : 10} height={hero ? 13 : 10} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="7" width="14" height="14" rx="2" />
+              <path d="M7 7V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-3" />
+            </svg>
+          </div>
         </div>
       )}
     </button>

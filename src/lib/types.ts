@@ -46,6 +46,8 @@ export interface DishPhoto {
   height: number;
   /** "I Loved This" tap count — no accounts, so dedup is per-browser (localStorage) only. */
   loveCount: number;
+  /** Thumbs-up count from browsing same-dish variants — see computePrimaryPhoto. */
+  primaryVotes: number;
 }
 
 export interface Restaurant {

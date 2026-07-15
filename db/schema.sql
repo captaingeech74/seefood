@@ -42,10 +42,12 @@ create table if not exists photos (
   width             int,
   height            int,
   love_count        int default 0,  -- "I Loved This" tap count (no accounts — dedup is per-browser via localStorage only)
+  primary_votes     int default 0,  -- thumbs-up while browsing same-dish variants — promotes which photo represents the dish in the grid (see computePrimaryPhoto)
   created_at        timestamptz default now()
 );
 
 alter table photos add column if not exists love_count int default 0;
+alter table photos add column if not exists primary_votes int default 0;
 
 create table if not exists source_runs (
   id                bigint generated always as identity primary key,

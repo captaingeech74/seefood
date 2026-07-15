@@ -4,9 +4,13 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { DishPhoto, Restaurant } from "@/lib/types";
 import { provenanceLabel } from "./DishTile";
 import { shareDish } from "@/lib/share";
+import { pickPrimary } from "@/lib/dishGrouping";
 
 interface RevealProps {
+  /** Deduped, one-per-dish list — drives vertical prev/next so a dish never repeats while scrolling. */
   photos: DishPhoto[];
+  /** Full undeduped pool (every photo, including same-dish duplicates) — used only to find a dish's OTHER photos for horizontal browsing. */
+  allPhotos: DishPhoto[];
   startIndex: number;
   restaurant: Restaurant;
   onClose: (lastIndex: number) => void;
@@ -31,7 +35,7 @@ const ANIM_MS = 300;
  *     real 3-slot sliding track exactly like the vertical one, just on the
  *     other axis, layered on top of whichever dish is currently centered.
  */
-export default function Reveal({ photos, startIndex, restaurant, onClose }: RevealProps) {
+export default function Reveal({ photos, allPhotos, startIndex, restaurant, onClose }: RevealProps) {
   const [index, setIndex] = useState(startIndex);
   const [dragY, setDragY] = useState(0);
   const [dragX, setDragX] = useState(0);
@@ -69,18 +73,24 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
 
   // Other photos of the SAME dish — exact dish-name match (Gemini's
   // cross-photo grouping isn't persisted yet, so name equality is the
-  // practical stand-in). Includes this session's own uploads.
+  // practical stand-in). Looked up against the full undeduped pool (not the
+  // vertical `photos` list, which only has one photo per dish), plus this
+  // session's own uploads.
   const variants = useMemo(() => {
     if (!photo?.dishName) return [photo].filter(Boolean) as DishPhoto[];
     const key = photo.dishName.toLowerCase().trim();
-    const fromProps = photos.filter((p) => p.dishName?.toLowerCase().trim() === key);
+    const fromProps = allPhotos.filter((p) => p.dishName?.toLowerCase().trim() === key);
     const fromUploads = uploadedPhotos.filter((p) => p.dishName?.toLowerCase().trim() === key);
     return [...fromProps, ...fromUploads];
-  }, [photo, photos, uploadedPhotos]);
+  }, [photo, allPhotos, uploadedPhotos]);
 
   const activePhoto = variants[variantIndex] ?? photo;
   const prevVariant = variantIndex > 0 ? variants[variantIndex - 1] : null;
   const nextVariant = variantIndex < variants.length - 1 ? variants[variantIndex + 1] : null;
+  // Whichever variant currently represents this dish in the grid (see
+  // dedupeToPrimary) — the thumbs-up-to-promote control only shows on the
+  // OTHER variants, since promoting the one already primary is a no-op.
+  const primaryPhoto = useMemo(() => (variants.length > 1 ? pickPrimary(variants) : null), [variants]);
 
   // Reset which variant is showing whenever the outer (vertical) dish
   // changes — always land back on the ranked photo for the new dish, not
@@ -268,6 +278,32 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
     }
   };
 
+  const [votedPrimary, setVotedPrimary] = useState(false);
+  useEffect(() => {
+    try {
+      setVotedPrimary(activePhoto ? localStorage.getItem(`seefood-voted-primary-${activePhoto.id}`) === "1" : false);
+    } catch {
+      setVotedPrimary(false);
+    }
+  }, [activePhoto?.id]);
+
+  const handleVotePrimary = async () => {
+    if (!activePhoto || votedPrimary) return;
+    setVotedPrimary(true);
+    try { localStorage.setItem(`seefood-voted-primary-${activePhoto.id}`, "1"); } catch {}
+    try {
+      const res = await fetch("/api/vote-primary-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoId: activePhoto.id }),
+      });
+      if (!res.ok) throw new Error("failed");
+    } catch {
+      setVotedPrimary(false);
+      try { localStorage.removeItem(`seefood-voted-primary-${activePhoto.id}`); } catch {}
+    }
+  };
+
   const [uploading, setUploading] = useState(false);
   const handleTakePhotoClick = () => fileInputRef.current?.click();
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -395,6 +431,29 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
               }}
             />
           ))}
+        </div>
+      )}
+
+      {/* Thumbs-up to promote this variant to the grid's primary photo —
+          only shown when NOT already viewing the primary one. Over time the
+          most-voted photo of a dish becomes the one shown in the grid. */}
+      {!detailOpen && primaryPhoto && activePhoto.id !== primaryPhoto.id && (
+        <div className="absolute top-[76px] inset-x-0 z-10 flex items-center justify-center">
+          <button
+            onClick={handleVotePrimary}
+            disabled={votedPrimary}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold active:scale-95 transition-all"
+            style={{
+              background: votedPrimary ? "rgba(52,211,153,0.16)" : "rgba(0,0,0,0.4)",
+              color: votedPrimary ? "var(--success)" : "rgba(255,255,255,0.75)",
+              backdropFilter: "blur(6px)",
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill={votedPrimary ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 10v12M15 5.88 14 10h6.28a2 2 0 0 1 1.94 2.5l-2.06 8a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h.5a2.5 2.5 0 0 1 2.5 2.5c0 .38-.07.75-.2 1.11L15 5.88Z" />
+            </svg>
+            {votedPrimary ? "Voted as best photo" : "Make this the main photo"}
+          </button>
         </div>
       )}
 
@@ -557,7 +616,6 @@ export default function Reveal({ photos, startIndex, restaurant, onClose }: Reve
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
             className="hidden"
             onChange={handleFileSelected}
           />

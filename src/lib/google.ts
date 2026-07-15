@@ -918,6 +918,7 @@ export async function fetchStreamingCandidates(
       width: 800,
       height: 600,
       loveCount: 0,
+      primaryVotes: 0,
     });
   }
 
@@ -984,6 +985,7 @@ export async function fetchStreamingCandidates(
     width: c.width,
     height: c.height,
     loveCount: 0,
+      primaryVotes: 0,
   }));
 
   return {
@@ -1061,6 +1063,7 @@ export async function finalizeWithGemini(
         width: candidate.width,
         height: candidate.height,
         loveCount: 0,
+      primaryVotes: 0,
       },
       score,
     });

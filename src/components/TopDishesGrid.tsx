@@ -1,14 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DishPhoto } from "@/lib/types";
+import { dedupeToPrimary } from "@/lib/dishGrouping";
 import DishTile from "./DishTile";
+
+const INITIAL_VISIBLE = 30;
+const BATCH_SIZE = 20;
+const MAX_VISIBLE = 100;
 
 /**
  * PRD §4.2 — the landing view. Masonry grid, hero tile for #1, confidence
- * pyramid ordering (Tier 1 → Tier 2 shown, Tier 3 collapsed under "More
- * photos"). Tapping any tile opens The Reveal starting at that dish,
- * continuing through the ranked list (Tier 3 excluded unless expanded here).
+ * pyramid ordering (Tier 1 → Tier 2 → Tier 3, all reachable by scrolling —
+ * no manual "expand" gate). Tapping any tile opens The Reveal starting at
+ * that dish, continuing vertically through the ranked list (deduped, so a
+ * dish never appears twice) while still able to browse that dish's OTHER
+ * photos horizontally (the undeduped `dishes` pool, passed through as
+ * `onOpenReveal`'s third argument).
+ *
+ * One tile per distinct dish name (see dedupeToPrimary) — a dish with two
+ * photos used to show up as two separate grid tiles, which read as two
+ * different dishes. The representative photo shown is whichever variant has
+ * the most thumbs-up votes from diners browsing the Reveal's horizontal
+ * same-dish carousel, so the grid's primary photo improves over time.
  *
  * `finalized` distinguishes two real states, not just a loading spinner:
  * while streaming (stage 1 — raw, mostly-unlabeled photos), nothing is
@@ -23,30 +37,57 @@ export default function TopDishesGrid({
   dishes,
   loading,
   finalized,
+  resetKey,
   onOpenReveal,
 }: {
   dishes: DishPhoto[];
   loading: boolean;
   finalized: boolean;
-  onOpenReveal: (rankedList: DishPhoto[], startIndex: number) => void;
+  /** Restaurant identity (e.g. placeId) — visible-count resets only when this changes, not on every dish-list mutation (e.g. a diner adding a missing dish shouldn't collapse the scroll position). */
+  resetKey: string;
+  onOpenReveal: (rankedList: DishPhoto[], startIndex: number, allPhotos: DishPhoto[]) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Dishes arrive pre-sorted by priority score from the server; bucket by
-  // tier without re-sorting within each bucket.
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE);
+  }, [resetKey]);
+
+  // Dishes arrive pre-sorted by priority score from the server; dedupe to
+  // one tile per dish, then bucket by tier without re-sorting within each.
+  const { primary, variantCounts } = useMemo(() => dedupeToPrimary(dishes), [dishes]);
+
   const { tier1, tier2, tier3 } = useMemo(
     () => ({
-      tier1: dishes.filter((d) => d.tier === 1),
-      tier2: dishes.filter((d) => d.tier === 2),
-      tier3: dishes.filter((d) => d.tier === 3),
+      tier1: primary.filter((d) => d.tier === 1),
+      tier2: primary.filter((d) => d.tier === 2),
+      tier3: primary.filter((d) => d.tier === 3),
     }),
-    [dishes]
+    [primary]
   );
 
-  const rankedList = useMemo(
-    () => (expanded ? [...tier1, ...tier2, ...tier3] : [...tier1, ...tier2]),
-    [tier1, tier2, tier3, expanded]
-  );
+  // Continuous scroll through the whole confidence pyramid — tier1, then
+  // tier2, then tier3 — rather than a manual "More photos" click gate.
+  const rankedList = useMemo(() => [...tier1, ...tier2, ...tier3], [tier1, tier2, tier3]);
+  const maxVisible = Math.min(rankedList.length, MAX_VISIBLE);
+  const canGrow = visibleCount < maxVisible;
+
+  useEffect(() => {
+    if (!canGrow) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((v) => Math.min(v + BATCH_SIZE, MAX_VISIBLE));
+        }
+      },
+      { rootMargin: "600px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [canGrow]);
 
   if (loading) {
     return (
@@ -86,15 +127,21 @@ export default function TopDishesGrid({
     );
   }
 
-  // Stage 1 — flat streaming grid. Every photo that's arrived so far, in
-  // server order, no hero/tier treatment (nothing's confidently identified
-  // yet so there's nothing real to tier). Tapping still opens the Reveal.
+  // Stage 1 — flat streaming grid. Every distinct dish that's arrived so
+  // far, in server order, no hero/tier treatment (nothing's confidently
+  // identified yet so there's nothing real to tier). Tapping still opens
+  // the Reveal.
   if (!finalized) {
     return (
       <div className="px-4 pt-3 pb-12 fade-up">
         <div className="columns-2 sm:columns-3 lg:columns-4 gap-2.5">
-          {dishes.map((dish, i) => (
-            <DishTile key={dish.id} dish={dish} onOpen={() => onOpenReveal(dishes, i)} />
+          {primary.map((dish, i) => (
+            <DishTile
+              key={dish.id}
+              dish={dish}
+              variantCount={variantCounts.get(dish.id) ?? 1}
+              onOpen={() => onOpenReveal(primary, i, dishes)}
+            />
           ))}
         </div>
       </div>
@@ -102,7 +149,7 @@ export default function TopDishesGrid({
   }
 
   const hero = rankedList[0];
-  const rest = rankedList.slice(1);
+  const visibleRest = rankedList.slice(1, visibleCount);
 
   return (
     <div className="px-4 pt-3 pb-12 fade-up">
@@ -111,49 +158,28 @@ export default function TopDishesGrid({
           <DishTile
             dish={hero}
             hero
-            onOpen={() => onOpenReveal(rankedList, 0)}
+            variantCount={variantCounts.get(hero.id) ?? 1}
+            onOpen={() => onOpenReveal(rankedList, 0, dishes)}
           />
         </div>
       )}
 
-      {rest.length > 0 && (
+      {visibleRest.length > 0 && (
         <div className="columns-2 sm:columns-3 lg:columns-4 gap-2.5">
-          {rest.map((dish, i) => (
+          {visibleRest.map((dish, i) => (
             <DishTile
               key={dish.id}
               dish={dish}
-              onOpen={() => onOpenReveal(rankedList, i + 1)}
+              variantCount={variantCounts.get(dish.id) ?? 1}
+              onOpen={() => onOpenReveal(rankedList, i + 1, dishes)}
             />
           ))}
         </div>
       )}
 
-      {!expanded && tier3.length > 0 && (
-        <button
-          onClick={() => setExpanded(true)}
-          className="w-full mt-4 py-3.5 rounded-2xl text-[14px] font-bold text-white/60 active:opacity-60 transition-opacity"
-          style={{ background: "var(--surface-2)" }}
-        >
-          More photos ({tier3.length})
-        </button>
-      )}
+      {canGrow && <div ref={sentinelRef} className="h-1" aria-hidden />}
 
-      {expanded && tier3.length > 0 && (
-        <div className="columns-2 sm:columns-3 lg:columns-4 gap-2.5 mt-4">
-          {tier3.map((dish) => {
-            const idx = rankedList.indexOf(dish);
-            return (
-              <DishTile
-                key={dish.id}
-                dish={dish}
-                onOpen={() => onOpenReveal(rankedList, idx)}
-              />
-            );
-          })}
-        </div>
-      )}
-
-      {!hero && rest.length === 0 && tier3.length === 0 && (
+      {!hero && visibleRest.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
           <p className="text-white/50 text-[13px]">
             We found photos here, but couldn&apos;t confidently identify any dishes yet.
