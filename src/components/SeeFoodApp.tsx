@@ -8,6 +8,7 @@ import Reveal from "@/components/Reveal";
 import PopularDishes from "@/components/PopularDishes";
 import MapPicker, { MapView } from "@/components/MapPicker";
 import LoadingScreen from "@/components/LoadingScreen";
+import SuggestDishModal from "@/components/SuggestDishModal";
 
 type AppState =
   | "locating"
@@ -36,6 +37,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
   // TopDishesGrid shows the flat streaming view or the real hero/tier layout.
   const [dishesFinal, setDishesFinal] = useState(false);
   const [reveal, setReveal] = useState<{ list: DishPhoto[]; index: number } | null>(null);
+  const [suggestOpen, setSuggestOpen] = useState(false);
   // Preserves map pan/zoom across opens (PRD §4.4 "back preserves map position") —
   // only used on re-open, not the first cold explore entry, which centers fresh.
   const [lastMapView, setLastMapView] = useState<MapView | null>(null);
@@ -233,6 +235,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
       <RestaurantHeader
         restaurant={restaurant}
         onChangeRestaurant={() => setState("map_open")}
+        onSuggestDish={() => setSuggestOpen(true)}
       />
 
       {!dishesLoading && <PopularDishes dishes={popularDishes} />}
@@ -243,6 +246,14 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         finalized={dishesFinal}
         onOpenReveal={(list, index) => setReveal({ list, index })}
       />
+
+      {suggestOpen && restaurant && (
+        <SuggestDishModal
+          restaurant={restaurant}
+          onClose={() => setSuggestOpen(false)}
+          onAdded={(photo) => setDishes((prev) => [photo, ...prev])}
+        />
+      )}
 
       {reveal && restaurant && (
         <Reveal

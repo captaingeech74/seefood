@@ -152,6 +152,17 @@ img {
   animation: swipeHintLeft 1.6s ease-in-out infinite;
 }
 
+/* "Suggest a Dish" success confetti burst */
+@keyframes confettiPop {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.5) rotate(0deg); }
+  35%  { opacity: 1; transform: translateY(-18px) scale(1.15) rotate(-12deg); }
+  70%  { opacity: 1; transform: translateY(-6px) scale(1) rotate(8deg); }
+  100% { opacity: 0; transform: translateY(4px) scale(0.9) rotate(0deg); }
+}
+.confetti-piece {
+  animation: confettiPop 1.1s var(--ease-spring) both;
+}
+
 /* ─── Utilities ─────────────────────────────────────────────────────── */
 .glass {
   background: rgba(10, 10, 10, 0.72);

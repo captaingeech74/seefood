@@ -12,7 +12,8 @@ export type DataSource =
   | "olo"
   | "popmenu"
   | "menu_ocr"
-  | "user_upload";
+  | "user_upload"
+  | "user_suggested";
 
 /**
  * A single menu item sourced from any data provider.

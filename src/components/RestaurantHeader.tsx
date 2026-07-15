@@ -30,9 +30,11 @@ function PriceLevel({ level }: { level: number }) {
 export default function RestaurantHeader({
   restaurant,
   onChangeRestaurant,
+  onSuggestDish,
 }: {
   restaurant: Restaurant | null;
   onChangeRestaurant: () => void;
+  onSuggestDish: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -140,9 +142,21 @@ export default function RestaurantHeader({
 
       {/* Address — hidden by default, revealed by the chevron above */}
       {expanded && (
-        <p className="mt-1.5 text-[12px] text-white/35 truncate font-medium fade-in">
-          {restaurant.address}
-        </p>
+        <div className="mt-1.5 fade-in">
+          <p className="text-[12px] text-white/35 truncate font-medium">
+            {restaurant.address}
+          </p>
+          <button
+            onClick={onSuggestDish}
+            className="flex items-center gap-1.5 mt-2.5 text-[12px] font-bold active:scale-95 transition-transform"
+            style={{ color: "var(--accent)" }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Suggest a Dish
+          </button>
+        </div>
       )}
     </header>
   );

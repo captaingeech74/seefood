@@ -17,6 +17,7 @@ const SOURCE_LABELS: Record<DishPhoto["source"], string> = {
   schema_org: "Restaurant", toast: "Toast", square: "Square", clover: "Clover",
   chownow: "ChowNow", olo: "Olo", popmenu: "PopMenu", menu_ocr: "Menu",
   user_upload: "SeeFood",
+  user_suggested: "SeeFood",
 };
 
 const SWIPE_THRESHOLD = 60; // px of finger travel to commit a navigation
