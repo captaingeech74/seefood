@@ -12,10 +12,11 @@ interface SuggestDishModalProps {
 const CONFETTI = ["🎉", "🍽️", "✨", "🥳", "👏", "🌟"];
 
 /**
- * "Suggest a Dish" — lets a diner add a menu item SeeFood hasn't found yet:
- * a name, a photo, and a pre-checked attestation that it's real. Hidden
- * under the restaurant-name caret (Kyle's spec). The delight is threefold:
- * an AI-written description when the diner leaves it blank, a confetti
+ * "Add a Missing Photo or Menu Item" — for a diner sitting at the table with
+ * a dish SeeFood has no photo or menu record of. A name, a photo, and a
+ * pre-checked attestation that they were actually served it. Hidden under
+ * the restaurant-name caret (Kyle's spec). The delight is threefold: an
+ * AI-written description when the diner leaves it blank, a confetti
  * celebration on success, and a "Menu Scout" milestone badge tracked
  * per-browser via localStorage — small surprises that reward the action
  * without needing any accounts.
@@ -87,9 +88,9 @@ export default function SuggestDishModal({ restaurant, onClose, onAdded }: Sugge
           <SuccessState result={result} onDone={onClose} />
         ) : (
           <>
-            <h2 className="text-white text-[19px] font-bold mb-1">Suggest a Dish</h2>
+            <h2 className="text-white text-[19px] font-bold mb-1">Add a Missing Photo or Menu Item</h2>
             <p className="text-white/45 text-[13px] mb-5 leading-relaxed">
-              See something on {restaurant.name}&apos;s menu we&apos;re missing? Add it — snap a photo and give it a name.
+              Got something in front of you that isn&apos;t in SeeFood yet? Snap a photo of what you were served and name it — you&apos;ll help the next person who orders here.
             </p>
 
             <label className="block text-[11px] font-bold uppercase text-white/40 mb-1.5" style={{ letterSpacing: "0.08em" }}>
@@ -169,7 +170,7 @@ export default function SuggestDishModal({ restaurant, onClose, onAdded }: Sugge
                 )}
               </span>
               <span className="text-[13px] text-white/70 leading-relaxed">
-                I confirm this is a real dish on {restaurant.name}&apos;s menu, not a joke or a duplicate.
+                I confirm I was actually served this dish at {restaurant.name} — not a joke or a duplicate.
               </span>
             </button>
 

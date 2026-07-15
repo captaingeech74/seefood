@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveUserUploadedPhoto, saveMenuItems } from "@/lib/db";
 import { uploadPhotoBuffer } from "@/lib/storage";
 
-// "Suggest a Dish" (grid view, hidden under the restaurant-name caret) —
-// diners can add a menu item SeeFood hasn't found yet: a name, a photo, and
-// an attestation that it's a real thing on this restaurant's menu. No
-// accounts exist, so the checkbox is the only integrity gate; the created
-// photo/menu item is otherwise treated exactly like any other real content.
+// "Add a Missing Photo or Menu Item" (grid view, hidden under the
+// restaurant-name caret) — for a diner at the table with a dish SeeFood has
+// no photo or menu record of: a name, a photo, and an attestation that they
+// were actually served it. No accounts exist, so the checkbox is the only
+// integrity gate; the created photo/menu item is otherwise treated exactly
+// like any other real content.
 //
 // Delight feature: if the diner leaves the description blank, one quick
 // Gemini vision pass looks at their photo and writes one for them.
