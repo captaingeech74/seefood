@@ -202,6 +202,19 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     animateTo(window.innerHeight, index - 1);
   }, [index, animateTo]);
 
+  // Once the user has scrolled to the very last dish, there's nothing left
+  // to swipe down to — the down-hint slot repurposes into a direct jump
+  // back to the top of the feed instead of just disappearing.
+  const backToTop = useCallback(() => {
+    if (pendingVerticalRef.current) commitPendingVertical();
+    setIsResetting(true);
+    setIndex(0);
+    setDragY(0);
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => setIsResetting(false))
+    );
+  }, [commitPendingVertical]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") (detailOpen ? setDetailOpen(false) : close());
@@ -470,6 +483,19 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
           </div>
         </div>
       )}
+      {!isDragging && imgBounds && !nextPhoto && (
+        <button
+          onClick={backToTop}
+          className="absolute left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 pl-2.5 pr-3.5 py-1.5 rounded-full bg-black/45 backdrop-blur-sm active:scale-95 transition-transform"
+          style={{ top: Math.min(imgBounds.bottom + 4, (typeof window !== "undefined" ? window.innerHeight : 800) - 96) }}
+          aria-label="Back to top"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
+            <path d="M12 19V5M5 12l7-7 7 7" />
+          </svg>
+          <span className="text-white/85 text-[12px] font-bold">Back to top</span>
+        </button>
+      )}
 
       {/* Top bar — counter + close */}
       <div
@@ -490,10 +516,27 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         </button>
       </div>
 
+      {/* Dish name — highlighted near the top of the screen (Kyle: give it
+          more prominence), right below the counter/close row. Everything
+          else (tags, tap-for-details, swipe hints) stays down by the photo. */}
+      {!detailOpen && photo.dishName && (
+        <div
+          className="absolute inset-x-0 z-10 px-8 pointer-events-none text-center"
+          style={{ top: "max(56px, calc(env(safe-area-inset-top) + 44px))" }}
+        >
+          <h2
+            className="text-white text-[24px] font-extrabold leading-tight tracking-tight truncate"
+            style={{ textShadow: "0 2px 10px rgba(0,0,0,0.65)" }}
+          >
+            {photo.dishName}
+          </h2>
+        </div>
+      )}
+
       {/* Same-dish variant dots — only when there's more than one photo to
           browse. Stays visible through the detail sheet too. */}
       {variants.length > 1 && (
-        <div className="absolute top-12 inset-x-0 z-10 flex items-center justify-center gap-1.5">
+        <div className="absolute top-24 inset-x-0 z-10 flex items-center justify-center gap-1.5">
           {variants.map((v, i) => (
             <span
               key={v.id}
@@ -512,7 +555,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
           only shown when NOT already viewing the primary one. Over time the
           most-voted photo of a dish becomes the one shown in the grid. */}
       {!detailOpen && primaryPhoto && activePhoto.id !== primaryPhoto.id && (
-        <div className="absolute top-[76px] inset-x-0 z-10 flex items-center justify-center">
+        <div className="absolute top-[132px] inset-x-0 z-10 flex items-center justify-center">
           <button
             onClick={handleVotePrimary}
             disabled={votedPrimary}
@@ -531,16 +574,20 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         </div>
       )}
 
-      {/* Bottom overlay — dish name + provenance badge (hidden while detail is open) */}
+      {/* Bottom overlay — provenance badge + tap/swipe instructions (hidden
+          while detail is open). The dish name itself now lives near the top
+          of the screen (see above) so this overlay just carries the
+          secondary context, sized up a bit since it's no longer sharing
+          space with the name. */}
       {!detailOpen && (
         <div
           className="absolute bottom-0 inset-x-0 z-10 px-5 pt-14 bg-gradient-to-t from-black via-black/75 to-transparent pointer-events-none"
           style={{ paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}
         >
-          {photo.dishName && (
-            <div className="flex items-center gap-1.5 mb-1.5">
+          {photo.dishName ? (
+            <div className="flex items-center gap-1.5 mb-2">
               <span
-                className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
+                className="text-[11px] font-bold uppercase px-2.5 py-1 rounded-full"
                 style={{
                   background: photo.isMenuMatch ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.08)",
                   color: photo.isMenuMatch ? "var(--success)" : "rgba(255,255,255,0.55)",
@@ -550,14 +597,8 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
                 {provenanceLabel(photo)}
               </span>
             </div>
-          )}
-
-          {photo.dishName ? (
-            <h2 className="text-white text-[27px] font-bold leading-tight tracking-tight mb-1.5">
-              {photo.dishName}
-            </h2>
           ) : (
-            <p className="text-white/50 text-[14px] font-medium italic mb-1.5">No dish identified</p>
+            <p className="text-white/50 text-[15px] font-medium italic mb-2">No dish identified</p>
           )}
 
           {/* Vertical "swipe for next dish" no longer needs text — it's
@@ -565,31 +606,35 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
               photo. The horizontal same-dish-photos note stays (Kyle only
               asked to remove the vertical mention), just carried by bigger
               type now that it's doing more of the teaching. */}
-          <p className="text-white/40 text-[13px] font-semibold pointer-events-auto">
+          <p className="text-white/45 text-[15px] font-semibold pointer-events-auto">
             Tap for details
             {variants.length > 1 ? ` · Swipe ${discoveredHSwipe ? "↔" : "→"} more photos` : ""}
           </p>
         </div>
       )}
 
-      {/* Dish Detail sheet (PRD §4.3 tap-in) */}
+      {/* Dish Detail sheet (PRD §4.3 tap-in). Tap-to-close only (preserves
+          the photo swipe gestures underneath), so this uses a visible top
+          border/glow to read as a distinct overlay instead of a misleading
+          "slide to close" drag handle — and gives content real top padding
+          so the rounded corners never clip the first line of text. */}
       {detailOpen && (
         <div
-          className="absolute inset-x-0 bottom-0 z-20 glass rounded-t-3xl px-5 pt-5 slide-up"
+          className="absolute inset-x-0 bottom-0 z-20 glass rounded-t-3xl px-6 pt-7 slide-up"
           style={{
-            background: "rgba(10,10,10,0.92)",
+            background: "rgba(10,10,10,0.94)",
+            borderTop: "1px solid rgba(255,255,255,0.14)",
+            boxShadow: "0 -12px 32px rgba(0,0,0,0.5)",
             paddingBottom: "max(24px, env(safe-area-inset-bottom))",
-            maxHeight: "72vh",
+            maxHeight: "74vh",
             overflowY: "auto",
           }}
         >
-          <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
-
           {photo.dishName && (
-            <h3 className="text-white text-[19px] font-bold mb-1.5">{photo.dishName}</h3>
+            <h3 className="text-white text-[21px] font-bold mb-2 tracking-tight">{photo.dishName}</h3>
           )}
           {photo.dishDescription && (
-            <p className="text-white/60 text-[13px] leading-relaxed">{photo.dishDescription}</p>
+            <p className="text-white/65 text-[14px] leading-relaxed">{photo.dishDescription}</p>
           )}
 
           {/* Visual separation between the description and the photo carousels below */}

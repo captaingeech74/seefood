@@ -806,6 +806,14 @@ export async function findNearbyRestaurant(
   return placeToRestaurant(data.results[0] as GooglePlace);
 }
 
+// LRay's Kitchen is a manually-curated demo fixture (see `status: "test_fixture"`
+// in getCorpusSnapshot) built on a real Google Place that has no real rating/
+// price/hours data of its own. Kyle wants the demo to always show up highly
+// reviewed, expensive, and open — hardcoded rather than left to whatever (or
+// nothing) the underlying real place happens to report.
+const FIXTURE_PLACE_ID = "ChIJa7SNNcl_24ARGN-49KRUqPI";
+const FIXTURE_OVERRIDE = { rating: 4.9, reviewCount: 812, priceLevel: 4, isOpen: true };
+
 export async function getRestaurantDetails(
   placeId: string
 ): Promise<Restaurant | null> {
@@ -821,10 +829,14 @@ export async function getRestaurantDetails(
     lat: p.geometry.location.lat,
     lng: p.geometry.location.lng,
     placeId: p.place_id,
-    rating: p.rating,
-    reviewCount: p.user_ratings_total,
-    priceLevel: p.price_level,
-    isOpen: p.opening_hours?.open_now,
+    ...(placeId === FIXTURE_PLACE_ID
+      ? FIXTURE_OVERRIDE
+      : {
+          rating: p.rating,
+          reviewCount: p.user_ratings_total,
+          priceLevel: p.price_level,
+          isOpen: p.opening_hours?.open_now,
+        }),
   };
 }
 

@@ -32,7 +32,7 @@ export default function DishTile({
   const hasMultiple = variantCount > 1;
 
   return (
-    <div className={`relative ${hero ? "" : "mb-2.5 break-inside-avoid"}`}>
+    <div className={`relative ${hero ? "" : "mb-2.5"}`}>
       <button
         onClick={onOpen}
         data-dish-id={dish.id}
@@ -128,23 +128,19 @@ export default function DishTile({
 
       </button>
 
-      {/* Multiple-photos cue — a small accent badge riding the tile's
-          top-right corner, mostly OUTSIDE the photo itself (Kyle: no more
-          putting things on top of the picture) rather than an overlay on
-          the image content. Same pattern as an app-icon notification badge. */}
+      {/* Multiple-photos cue — plain stacked-photos glyph, sitting fully
+          inside the tile's top-right corner (not straddling the edge). */}
       {loaded && hasMultiple && (
-        <div
-          className="absolute top-0 right-0 flex items-center justify-center rounded-full font-extrabold text-white pointer-events-none"
-          style={{
-            transform: "translate(40%, -40%)",
-            width: hero ? 24 : 19,
-            height: hero ? 24 : 19,
-            fontSize: hero ? 11 : 9.5,
-            background: "var(--accent)",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.35), 0 0 0 2.5px var(--surface-0)",
-          }}
-        >
-          {variantCount}
+        <div className={`absolute pointer-events-none ${hero ? "top-4 right-4" : "top-2.5 right-2.5"}`}>
+          <div
+            className="glass rounded-full flex items-center justify-center"
+            style={{ background: "rgba(0,0,0,0.45)", width: hero ? 26 : 20, height: hero ? 26 : 20 }}
+          >
+            <svg width={hero ? 13 : 10} height={hero ? 13 : 10} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="7" width="14" height="14" rx="2" />
+              <path d="M7 7V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-3" />
+            </svg>
+          </div>
         </div>
       )}
     </div>

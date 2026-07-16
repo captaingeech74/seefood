@@ -258,7 +258,12 @@ export default function MapPicker({
                     name: TEST_FIXTURE.name,
                     vicinity: "Temecula, CA",
                     geometry: { location: fixtureLatLng },
-                  } as google.maps.places.PlaceResult,
+                    // Hardcoded demo stats (Kyle: highly reviewed, expensive,
+                    // matching the same override in getRestaurantDetails).
+                    rating: 4.9,
+                    user_ratings_total: 812,
+                    price_level: 4,
+                  } as unknown as google.maps.places.PlaceResult,
                   ...results,
                 ]
               : results;

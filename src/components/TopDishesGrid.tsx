@@ -116,11 +116,11 @@ export default function TopDishesGrid({
     return (
       <div className="px-4 pt-3 pb-8">
         <div className="rounded-3xl shimmer mb-2.5" style={{ aspectRatio: "4 / 3" }} />
-        <div className="columns-2 sm:columns-3 lg:columns-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 items-start gap-2.5">
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
-              className="aspect-square rounded-2xl shimmer mb-2.5 break-inside-avoid"
+              className="aspect-square rounded-2xl shimmer"
               style={{ animationDelay: `${i * 60}ms` }}
             />
           ))}
@@ -157,7 +157,7 @@ export default function TopDishesGrid({
   if (!finalized) {
     return (
       <div className="px-4 pt-3 pb-12 fade-up">
-        <div className="columns-2 sm:columns-3 lg:columns-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 items-start gap-2.5">
           {primary.map((dish, i) => (
             <DishTile
               key={dish.id}
@@ -188,7 +188,7 @@ export default function TopDishesGrid({
       )}
 
       {visibleRest.length > 0 && (
-        <div className="columns-2 sm:columns-3 lg:columns-4 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 items-start gap-2.5">
           {visibleRest.map((dish, i) => (
             <DishTile
               key={dish.id}
