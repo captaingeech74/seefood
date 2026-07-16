@@ -234,8 +234,10 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
     <main className="min-h-screen bg-[#0a0a0a] max-w-3xl mx-auto">
       <RestaurantHeader
         restaurant={restaurant}
+        dishes={dishes}
         onChangeRestaurant={() => setState("map_open")}
         onSuggestDish={() => setSuggestOpen(true)}
+        onOpenReveal={(list, index, allPhotos) => setReveal({ list, index, allPhotos })}
       />
 
       {!dishesLoading && <PopularDishes dishes={popularDishes} />}

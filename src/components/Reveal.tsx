@@ -28,6 +28,22 @@ const SOURCE_LABELS: Record<DishPhoto["source"], string> = {
 const SWIPE_THRESHOLD = 60; // px of finger travel to commit a navigation
 const ANIM_MS = 300;
 
+// The image is always capped well short of full-bleed (Kyle: "the image
+// should always be constrained to never exceed a certain vertical height
+// where it would throw off the arrangement") — this guarantees the top
+// cluster (vote button / dots / name) and the bottom info block always have
+// somewhere to sit, in the worst case of a near-square viewport + portrait
+// photo, without needing per-photo math. Below this cap, object-contain
+// still shrinks further for wide/short photos, and the top/bottom clusters
+// hug wherever the image actually ends up (measured via imgBounds).
+const RESERVED_TOP = 170;
+const RESERVED_BOTTOM = 150;
+const IMG_MAX_HEIGHT = `max(200px, calc(100dvh - ${RESERVED_TOP + RESERVED_BOTTOM}px))`;
+const TOP_CLUSTER_GAP = 16; // gap between the image's top edge and the cluster above it
+const TOP_CLUSTER_FLOOR = 76; // never let the cluster's bottom edge creep above the top bar
+const BOTTOM_INFO_GAP = 12; // gap between the image's bottom edge and the info block below it
+const BOTTOM_INFO_CEILING = 140; // reserve this much room at the bottom of the screen at minimum
+
 /**
  * PRD §4.3 — full-bleed immersive swipe, replaces the old Lightbox entirely.
  * Two independent axes, gesture-locked so a drag can't drift between them:
@@ -516,50 +532,28 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         </button>
       </div>
 
-      {/* Dish name — highlighted near the top of the screen (Kyle: give it
-          more prominence), right below the counter/close row. Everything
-          else (tags, tap-for-details, swipe hints) stays down by the photo. */}
-      {!detailOpen && photo.dishName && (
-        <div
-          className="absolute inset-x-0 z-10 px-8 pointer-events-none text-center"
-          style={{ top: "max(56px, calc(env(safe-area-inset-top) + 44px))" }}
-        >
-          <h2
-            className="text-white text-[24px] font-extrabold leading-tight tracking-tight truncate"
-            style={{ textShadow: "0 2px 10px rgba(0,0,0,0.65)" }}
-          >
-            {photo.dishName}
-          </h2>
-        </div>
-      )}
-
-      {/* Same-dish variant dots — only when there's more than one photo to
-          browse. Stays visible through the detail sheet too. */}
-      {variants.length > 1 && (
-        <div className="absolute top-24 inset-x-0 z-10 flex items-center justify-center gap-1.5">
-          {variants.map((v, i) => (
-            <span
-              key={v.id}
-              className="rounded-full transition-all"
-              style={{
-                width: i === variantIndex ? 14 : 5,
-                height: 5,
-                background: i === variantIndex ? "var(--accent)" : "rgba(255,255,255,0.3)",
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Thumbs-up to promote this variant to the grid's primary photo —
-          only shown when NOT already viewing the primary one. Over time the
-          most-voted photo of a dish becomes the one shown in the grid. */}
-      {!detailOpen && primaryPhoto && activePhoto.id !== primaryPhoto.id && (
-        <div className="absolute top-[132px] inset-x-0 z-10 flex items-center justify-center">
+      {/* Top cluster — vote button, variant dots, dish name, stacked and
+          anchored as ONE group a fixed gap above the image's actual
+          rendered top edge (not a fixed screen position). A flex column
+          sized to whichever pieces are actually rendered + translateY(-100%)
+          means the group's bottom edge always lands exactly TOP_CLUSTER_GAP
+          above the photo regardless of which of the three are present —
+          Kyle: "too far away from it" for horizontal (short) photos when
+          these were pinned to fixed screen offsets instead. Clamped with a
+          floor so a near-full-height portrait photo never pushes the
+          cluster up under (or above) the top bar. */}
+      <div
+        className="absolute inset-x-0 z-10 flex flex-col items-center gap-2 px-8 pointer-events-none"
+        style={{
+          top: Math.max((imgBounds?.top ?? 400) - TOP_CLUSTER_GAP, TOP_CLUSTER_FLOOR),
+          transform: "translateY(-100%)",
+        }}
+      >
+        {!detailOpen && primaryPhoto && activePhoto.id !== primaryPhoto.id && (
           <button
             onClick={handleVotePrimary}
             disabled={votedPrimary}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold active:scale-95 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-bold active:scale-95 transition-all pointer-events-auto"
             style={{
               background: votedPrimary ? "rgba(52,211,153,0.16)" : "rgba(0,0,0,0.4)",
               color: votedPrimary ? "var(--success)" : "rgba(255,255,255,0.75)",
@@ -571,18 +565,52 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
             </svg>
             {votedPrimary ? "Voted as best photo" : "Make this the main photo"}
           </button>
-        </div>
-      )}
+        )}
 
-      {/* Bottom overlay — provenance badge + tap/swipe instructions (hidden
-          while detail is open). The dish name itself now lives near the top
-          of the screen (see above) so this overlay just carries the
-          secondary context, sized up a bit since it's no longer sharing
-          space with the name. */}
+        {variants.length > 1 && (
+          <div className="flex items-center justify-center gap-1.5">
+            {variants.map((v, i) => (
+              <span
+                key={v.id}
+                className="rounded-full transition-all"
+                style={{
+                  width: i === variantIndex ? 14 : 5,
+                  height: 5,
+                  background: i === variantIndex ? "var(--accent)" : "rgba(255,255,255,0.3)",
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {!detailOpen && photo.dishName && (
+          <h2
+            className="text-white text-[24px] font-extrabold leading-tight tracking-tight truncate max-w-full text-center"
+            style={{ textShadow: "0 2px 10px rgba(0,0,0,0.65)" }}
+          >
+            {photo.dishName}
+          </h2>
+        )}
+      </div>
+
+      {/* Bottom info — provenance badge + tap/swipe instructions (hidden
+          while detail is open). Anchored a fixed gap below the image's
+          actual rendered bottom edge rather than pinned to the screen
+          bottom, so it hugs short/horizontal photos instead of floating far
+          beneath them — clamped with a ceiling so a near-full-height photo
+          still leaves this block fully on-screen above the safe area. No
+          longer needs a fade-to-black gradient: with RESERVED_BOTTOM always
+          held clear, this block never actually overlaps the photo. */}
       {!detailOpen && (
         <div
-          className="absolute bottom-0 inset-x-0 z-10 px-5 pt-14 bg-gradient-to-t from-black via-black/75 to-transparent pointer-events-none"
-          style={{ paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}
+          className="absolute inset-x-0 z-10 px-5 pt-3 pointer-events-none"
+          style={{
+            top: Math.min(
+              (imgBounds?.bottom ?? 400) + BOTTOM_INFO_GAP,
+              (typeof window !== "undefined" ? window.innerHeight : 800) - BOTTOM_INFO_CEILING
+            ),
+            paddingBottom: "max(20px, env(safe-area-inset-bottom))",
+          }}
         >
           {photo.dishName ? (
             <div className="flex items-center gap-1.5 mb-2">
@@ -616,20 +644,29 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
       {/* Dish Detail sheet (PRD §4.3 tap-in). Tap-to-close only (preserves
           the photo swipe gestures underneath), so this uses a visible top
           border/glow to read as a distinct overlay instead of a misleading
-          "slide to close" drag handle — and gives content real top padding
-          so the rounded corners never clip the first line of text. */}
+          "slide to close" drag handle. The rounded corner + glass blur live
+          on this OUTER wrapper, which is overflow-hidden (a hard clip that
+          holds regardless of how a given browser handles backdrop-filter +
+          border-radius compositing) — the actual scrolling happens on an
+          INNER div with its own padding, so the corner clip is never at the
+          mercy of whatever padding the scrollable content needs. */}
       {detailOpen && (
         <div
-          className="absolute inset-x-0 bottom-0 z-20 glass rounded-t-3xl px-6 pt-7 slide-up"
+          className="absolute inset-x-0 bottom-0 z-20 glass rounded-t-3xl overflow-hidden slide-up"
           style={{
             background: "rgba(10,10,10,0.94)",
-            borderTop: "1px solid rgba(255,255,255,0.14)",
-            boxShadow: "0 -12px 32px rgba(0,0,0,0.5)",
-            paddingBottom: "max(24px, env(safe-area-inset-bottom))",
+            borderTop: "1px solid rgba(255,255,255,0.16)",
+            boxShadow: "0 -12px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)",
             maxHeight: "74vh",
-            overflowY: "auto",
           }}
         >
+          <div
+            className="px-6 pt-7 overflow-y-auto"
+            style={{
+              maxHeight: "74vh",
+              paddingBottom: "max(24px, env(safe-area-inset-bottom))",
+            }}
+          >
           {photo.dishName && (
             <h3 className="text-white text-[21px] font-bold mb-2 tracking-tight">{photo.dishName}</h3>
           )}
@@ -725,6 +762,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
               <span className="text-[11.5px] font-bold text-center leading-tight">Share</span>
             </button>
           </div>
+          </div>
         </div>
       )}
 
@@ -745,7 +783,8 @@ function Slide({ photo, style }: { photo: DishPhoto; style: React.CSSProperties 
       <img
         src={photo.url}
         alt={photo.dishName || "Restaurant photo"}
-        className="max-w-full max-h-full object-contain select-none"
+        className="max-w-full object-contain select-none"
+        style={{ maxHeight: IMG_MAX_HEIGHT }}
         draggable={false}
       />
     </div>
@@ -775,7 +814,8 @@ function HSlide({
       ref={imgRef}
       src={photo.url}
       alt={photo.dishName || "Restaurant photo"}
-      className="max-w-full max-h-full object-contain select-none"
+      className="max-w-full object-contain select-none"
+      style={{ maxHeight: IMG_MAX_HEIGHT }}
       draggable={false}
       onLoad={onImgLoad}
     />
