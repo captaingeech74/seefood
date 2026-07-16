@@ -41,7 +41,10 @@ export async function GET(req: NextRequest) {
       restaurant.address
     ).catch(() => undefined);
 
-    return NextResponse.json({ ...restaurant, name, slug });
+    return NextResponse.json(
+      { ...restaurant, name, slug },
+      { headers: { "Cache-Control": "no-store, must-revalidate" } }
+    );
   } catch (e) {
     console.error("Restaurant API error:", e);
     return NextResponse.json(

@@ -818,7 +818,7 @@ export async function getRestaurantDetails(
   placeId: string
 ): Promise<Restaurant | null> {
   const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,photos,place_id,rating,user_ratings_total,price_level,opening_hours&key=${API_KEY}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: "no-store" });
   const data = await res.json();
   if (!data.result) return null;
   const p = data.result;

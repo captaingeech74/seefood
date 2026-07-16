@@ -104,7 +104,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
     async (lat: number, lng: number) => {
       setState("loading_restaurant");
       try {
-        const res = await fetch(`/api/restaurant?lat=${lat}&lng=${lng}`);
+        const res = await fetch(`/api/restaurant?lat=${lat}&lng=${lng}`, { cache: "no-store" });
         if (!res.ok) throw new Error("No restaurant found");
         const data: Restaurant = await res.json();
         setRestaurant(data);
@@ -122,7 +122,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
     async (placeId: string) => {
       setState("loading_restaurant");
       try {
-        const res = await fetch(`/api/restaurant?placeId=${placeId}`);
+        const res = await fetch(`/api/restaurant?placeId=${placeId}`, { cache: "no-store" });
         if (!res.ok) throw new Error("Not found");
         const data: Restaurant = await res.json();
         setRestaurant(data);

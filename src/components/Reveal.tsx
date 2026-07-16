@@ -318,22 +318,29 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     }
   };
 
+  // "I Loved This" applies to the DISH, not the individual photo — once
+  // loved, the star stays filled for every variant of that same dish as the
+  // user swipes horizontally between MGMT/diner photos (Kyle: "it needs to
+  // apply to the dish"). Scoped by dish name (matching dishGrouping's own
+  // grouping key) rather than photo id; unnamed photos fall back to their
+  // own id so they never falsely share a "loved" state with something else.
+  const loveDishKey = activePhoto?.dishName?.toLowerCase().trim() || activePhoto?.id || "";
   const [loved, setLoved] = useState(false);
   const [loveCount, setLoveCount] = useState(0);
   useEffect(() => {
     setLoveCount(activePhoto?.loveCount ?? 0);
     try {
-      setLoved(activePhoto ? localStorage.getItem(`seefood-loved-${activePhoto.id}`) === "1" : false);
+      setLoved(loveDishKey ? localStorage.getItem(`seefood-loved-dish-${loveDishKey}`) === "1" : false);
     } catch {
       setLoved(false);
     }
-  }, [activePhoto?.id, activePhoto?.loveCount]);
+  }, [loveDishKey, activePhoto?.loveCount]);
 
   const handleLove = async () => {
     if (!activePhoto || loved) return;
     setLoved(true);
     setLoveCount((c) => c + 1);
-    try { localStorage.setItem(`seefood-loved-${activePhoto.id}`, "1"); } catch {}
+    try { localStorage.setItem(`seefood-loved-dish-${loveDishKey}`, "1"); } catch {}
     try {
       const res = await fetch("/api/love-photo", {
         method: "POST",
@@ -344,7 +351,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     } catch {
       setLoved(false);
       setLoveCount((c) => Math.max(0, c - 1));
-      try { localStorage.removeItem(`seefood-loved-${activePhoto.id}`); } catch {}
+      try { localStorage.removeItem(`seefood-loved-dish-${loveDishKey}`); } catch {}
     }
   };
 
@@ -612,17 +619,17 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
             paddingBottom: "max(20px, env(safe-area-inset-bottom))",
           }}
         >
-          {photo.dishName ? (
+          {activePhoto.dishName ? (
             <div className="flex items-center gap-1.5 mb-2">
               <span
                 className="text-[11px] font-bold uppercase px-2.5 py-1 rounded-full"
                 style={{
-                  background: photo.isMenuMatch ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.08)",
-                  color: photo.isMenuMatch ? "var(--success)" : "rgba(255,255,255,0.55)",
+                  background: activePhoto.isMenuMatch ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.08)",
+                  color: activePhoto.isMenuMatch ? "var(--success)" : "rgba(255,255,255,0.55)",
                   letterSpacing: "0.1em",
                 }}
               >
-                {provenanceLabel(photo)}
+                {provenanceLabel(activePhoto)}
               </span>
             </div>
           ) : (
