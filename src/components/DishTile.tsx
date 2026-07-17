@@ -1,7 +1,8 @@
 "use client";
 
 import { DishPhoto } from "@/lib/types";
-import { useState } from "react";
+import { SOURCE_LABELS } from "@/lib/labels";
+import { useEffect, useRef, useState } from "react";
 
 /** PRD §4.2/§4.3 provenance badge — one of three labels per dish. */
 export function provenanceLabel(dish: DishPhoto): string {
@@ -10,20 +11,46 @@ export function provenanceLabel(dish: DishPhoto): string {
   return "Spotted here";
 }
 
+/**
+ * Which provenance badge a tile WOULD earn in the grid. Menu-match is the
+ * baseline expectation ("this is a menu dish") so it never badges a tile;
+ * management-provided and diner-contributed photos are the differentiating
+ * cases. The grid then suppresses whichever label is the MAJORITY for the
+ * current restaurant (see TopDishesGrid) — a badge repeated on nearly every
+ * tile is the house norm, not information. The Reveal still shows full
+ * provenance for every photo.
+ */
+export function tileBadge(dish: DishPhoto): string | null {
+  if (dish.attribution === "owner") return "From management";
+  if (dish.source === "user_upload" || dish.source === "user_suggested") return "Spotted here";
+  return null;
+}
+
 export default function DishTile({
   dish,
   hero = false,
   variantCount = 1,
+  hiddenBadge = null,
   onOpen,
 }: {
   dish: DishPhoto;
   hero?: boolean;
   /** How many photos exist of this same dish — renders a small "multiple photos" badge when > 1. */
   variantCount?: number;
+  /** Badge label suppressed grid-wide because it's this restaurant's majority provenance (see TopDishesGrid). */
+  hiddenBadge?: string | null;
   onOpen: () => void;
 }) {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // A cached image can be `complete` before React attaches onLoad — without
+  // this check the tile stays at opacity 0 forever on warm loads.
+  useEffect(() => {
+    const el = imgRef.current;
+    if (el?.complete && el.naturalWidth > 0) setLoaded(true);
+  }, []);
 
   if (errored) return null;
 
@@ -49,6 +76,7 @@ export default function DishTile({
 
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        ref={imgRef}
         src={dish.url}
         alt={dish.dishName || "Restaurant photo"}
         className={`absolute inset-0 w-full h-full object-cover transition-[opacity,transform] duration-500 ${
@@ -64,20 +92,36 @@ export default function DishTile({
         <div className="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black/75 via-black/20 to-transparent pointer-events-none" />
       )}
 
-      {/* Frosted ≤4-word name pill (PRD §4.2) */}
+      {/* Frosted ≤4-word name pill (PRD §4.2) — wraps to two lines before
+          truncating so longer names aren't cut mid-word while vertical
+          space is free. */}
       {hasName && (
         <div className={`absolute pointer-events-none ${hero ? "left-4 right-4 bottom-4" : "left-2.5 right-2.5 bottom-2.5"}`}>
           <div
-            className="inline-block glass rounded-full px-3 py-1.5 max-w-full"
+            className={`inline-block glass max-w-full px-3 py-1.5 ${hero ? "rounded-3xl" : "rounded-2xl"}`}
             style={{ background: "rgba(0,0,0,0.45)" }}
           >
             <p
-              className={`text-white font-bold tracking-tight truncate ${hero ? "text-[18px]" : "text-[12px]"}`}
+              className={`text-white font-bold tracking-tight line-clamp-2 ${hero ? "text-[18px]" : "text-[12px]"}`}
               style={{ textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}
             >
               {dish.dishName}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Unnamed photos still get a caption — a grid of fully unlabeled
+          tiles (common for uncurated pipeline restaurants) reads as broken.
+          Cite the photo's source instead. */}
+      {!hasName && loaded && (
+        <div className="absolute left-2.5 bottom-2.5 pointer-events-none">
+          <span
+            className="glass rounded-full px-2.5 py-1 text-[10px] font-semibold text-white/60"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+          >
+            Photo · {SOURCE_LABELS[dish.source]}
+          </span>
         </div>
       )}
 
@@ -89,38 +133,40 @@ export default function DishTile({
         <div className="absolute top-2 left-2 flex flex-col items-start gap-1 pointer-events-none">
           {hero && (
             <div
-              className="text-[8px] font-extrabold uppercase px-1.5 py-[3px] rounded-md leading-none text-white"
+              className="text-[10px] font-extrabold uppercase px-2 py-1 rounded-md leading-none text-white"
               style={{ background: "var(--accent)", letterSpacing: "0.06em" }}
             >
               Most Popular
             </div>
           )}
-          <div
-            className={`text-[8px] font-extrabold uppercase px-1.5 py-[3px] rounded-md leading-none ${
-              dish.isMenuMatch
-                ? "text-[#0a0a0a]"
-                : dish.attribution === "owner"
-                ? "text-[#0a0a0a]"
-                : "text-white/75"
-            }`}
-            style={{
-              background: dish.isMenuMatch
-                ? "rgba(52,211,153,0.95)"
-                : dish.attribution === "owner"
-                ? "rgba(251,191,36,0.96)"
-                : "rgba(0,0,0,0.45)",
-              backdropFilter: dish.isMenuMatch || dish.attribution === "owner" ? undefined : "blur(6px)",
-              letterSpacing: "0.06em",
-            }}
-          >
-            {provenanceLabel(dish)}
-          </div>
+          {(() => {
+            const badge = tileBadge(dish);
+            if (!badge || badge === hiddenBadge) return null;
+            const owner = dish.attribution === "owner";
+            return (
+              <div
+                className={`text-[10px] font-extrabold uppercase px-2 py-1 rounded-md leading-none ${
+                  owner ? "text-[#0a0a0a]" : "text-white/85"
+                }`}
+                style={{
+                  background: owner ? "rgba(251,191,36,0.96)" : "rgba(0,0,0,0.55)",
+                  backdropFilter: owner ? undefined : "blur(6px)",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {badge}
+              </div>
+            );
+          })()}
         </div>
       )}
 
       {hero && loaded && (
         <div className="absolute top-2 right-2.5 pointer-events-none">
-          <span className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-white/55">
+          <span
+            className="glass rounded-full px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.14em] text-white/85"
+            style={{ background: "rgba(0,0,0,0.45)" }}
+          >
             #1
           </span>
         </div>
@@ -128,18 +174,22 @@ export default function DishTile({
 
       </button>
 
-      {/* Multiple-photos cue — plain stacked-photos glyph, sitting fully
-          inside the tile's top-right corner (not straddling the edge). */}
+      {/* Multiple-photos cue — stacked-photos glyph + count, on a scrim so
+          it stays legible over bright photos. (The hero's top-right corner
+          belongs to the #1 chip, so the hero pill sits below it.) */}
       {loaded && hasMultiple && (
-        <div className={`absolute pointer-events-none ${hero ? "top-4 right-4" : "top-2.5 right-2.5"}`}>
+        <div className={`absolute pointer-events-none ${hero ? "top-9 right-2.5" : "top-2.5 right-2.5"}`}>
           <div
-            className="glass rounded-full flex items-center justify-center"
-            style={{ background: "rgba(0,0,0,0.45)", width: hero ? 26 : 20, height: hero ? 26 : 20 }}
+            className="glass rounded-full flex items-center gap-1 px-1.5 py-1"
+            style={{ background: "rgba(0,0,0,0.55)" }}
           >
-            <svg width={hero ? 13 : 10} height={hero ? 13 : 10} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="7" width="14" height="14" rx="2" />
               <path d="M7 7V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-3" />
             </svg>
+            <span className="text-white/90 text-[10px] font-bold leading-none tabular-nums">
+              {variantCount}
+            </span>
           </div>
         </div>
       )}

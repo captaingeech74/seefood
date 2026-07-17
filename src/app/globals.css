@@ -36,10 +36,12 @@
 }
 
 /* ─── Reset ─────────────────────────────────────────────────────────── */
+/* box-sizing/margin/padding are already reset by Tailwind v4 preflight.
+   Repeating them here UNLAYERED made this rule beat every layered Tailwind
+   utility (unlayered author CSS wins over layered CSS regardless of
+   specificity) — which silently zeroed out every padding/margin utility
+   (including mx-auto) across the app. Keep only what preflight lacks. */
 * {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -185,8 +187,25 @@ img {
   -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
+/* Some embedded/legacy browsers skip backdrop-filter entirely — without the
+   blur, 0.72 alpha lets content collide with glass surfaces. Fall back to
+   near-opaque. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: rgba(10, 10, 10, 0.97); }
+}
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
+
+/* Expands a small control's tappable area to ~44px without changing its
+   visual size (Apple HIG minimum). Apply to compact pills/icons. The element
+   must already be positioned (add Tailwind's `relative` unless it's already
+   absolute) — deliberately NOT set here, where it would override utilities. */
+.hit-target::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
 
 .tap-scale {
   transition: transform 120ms var(--ease-standard);

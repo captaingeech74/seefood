@@ -470,14 +470,14 @@ export async function savePhotos(
  * doesn't have a stable numeric id to attribute the love to, so those are
  * rejected rather than guessed at.
  */
-export async function incrementLoveCount(photoId: string): Promise<number | null> {
+export async function incrementLoveCount(photoId: string, delta: 1 | -1 = 1): Promise<number | null> {
   const match = /^corpus-(\d+)$/.exec(photoId);
   if (!match) return null;
   const id = parseInt(match[1], 10);
 
   const { data: current } = await supabase.from("photos").select("love_count").eq("id", id).maybeSingle();
   if (!current) return null;
-  const next = (current.love_count ?? 0) + 1;
+  const next = Math.max(0, (current.love_count ?? 0) + delta);
 
   const { error } = await supabase.from("photos").update({ love_count: next }).eq("id", id);
   if (error) { console.error("[corpus] incrementLoveCount failed:", error.message); return null; }

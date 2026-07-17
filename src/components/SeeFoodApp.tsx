@@ -19,6 +19,21 @@ type AppState =
   | "error";
 
 /**
+ * Keeps the address bar pointing at the restaurant actually on screen —
+ * without this, picking a different restaurant from Map Explore left the
+ * previous restaurant's `/r/[slug]` in the URL, so refresh/share loaded the
+ * wrong place. replaceState (not push) — the map itself isn't a history
+ * entry, so back shouldn't step through every restaurant viewed.
+ */
+function syncUrlToRestaurant(r: Restaurant) {
+  if (!r.slug || typeof window === "undefined") return;
+  const path = `/r/${r.slug}`;
+  if (window.location.pathname !== path) {
+    window.history.replaceState(null, "", path);
+  }
+}
+
+/**
  * Core app shell (PRD §4.1–§4.3). Two entry points share this: the GPS-first
  * home route (`/`, no props) and a stable shared restaurant link
  * (`/r/[slug]`, `initialPlaceId` set) — same landing experience either way,
@@ -37,7 +52,8 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
   // TopDishesGrid shows the flat streaming view or the real hero/tier layout.
   const [dishesFinal, setDishesFinal] = useState(false);
   const [reveal, setReveal] = useState<{ list: DishPhoto[]; index: number; allPhotos: DishPhoto[] } | null>(null);
-  const [suggestOpen, setSuggestOpen] = useState(false);
+  // null = closed; { initialName } = open, optionally prefilled (e.g. from a failed dish search).
+  const [suggest, setSuggest] = useState<{ initialName?: string } | null>(null);
   // Preserves map pan/zoom across opens (PRD §4.4 "back preserves map position") —
   // only used on re-open, not the first cold explore entry, which centers fresh.
   const [lastMapView, setLastMapView] = useState<MapView | null>(null);
@@ -108,6 +124,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         if (!res.ok) throw new Error("No restaurant found");
         const data: Restaurant = await res.json();
         setRestaurant(data);
+        syncUrlToRestaurant(data);
         setState("loading_dishes");
         await fetchDishes(data);
       } catch {
@@ -126,6 +143,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         if (!res.ok) throw new Error("Not found");
         const data: Restaurant = await res.json();
         setRestaurant(data);
+        syncUrlToRestaurant(data);
         setUserLat((prev) => prev || data.lat);
         setUserLng((prev) => prev || data.lng);
         setState("loading_dishes");
@@ -236,7 +254,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         restaurant={restaurant}
         dishes={dishes}
         onChangeRestaurant={() => setState("map_open")}
-        onSuggestDish={() => setSuggestOpen(true)}
+        onSuggestDish={(initialName) => setSuggest({ initialName })}
         onOpenReveal={(list, index, allPhotos) => setReveal({ list, index, allPhotos })}
       />
 
@@ -250,10 +268,11 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         onOpenReveal={(list, index, allPhotos) => setReveal({ list, index, allPhotos })}
       />
 
-      {suggestOpen && restaurant && (
+      {suggest && restaurant && (
         <SuggestDishModal
           restaurant={restaurant}
-          onClose={() => setSuggestOpen(false)}
+          initialName={suggest.initialName}
+          onClose={() => setSuggest(null)}
           onAdded={(photo) => setDishes((prev) => [photo, ...prev])}
         />
       )}

@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DishPhoto, Restaurant } from "@/lib/types";
 import PhotoSourceSheet from "./PhotoSourceSheet";
 
 interface SuggestDishModalProps {
   restaurant: Restaurant;
+  /** Prefills the dish-name field (e.g. handing off a failed search query). */
+  initialName?: string;
   onClose: () => void;
   onAdded: (photo: DishPhoto) => void;
 }
@@ -22,8 +24,8 @@ const CONFETTI = ["🎉", "🍽️", "✨", "🥳", "👏", "🌟"];
  * per-browser via localStorage — small surprises that reward the action
  * without needing any accounts.
  */
-export default function SuggestDishModal({ restaurant, onClose, onAdded }: SuggestDishModalProps) {
-  const [dishName, setDishName] = useState("");
+export default function SuggestDishModal({ restaurant, initialName, onClose, onAdded }: SuggestDishModalProps) {
+  const [dishName, setDishName] = useState(initialName ?? "");
   const [dishDescription, setDishDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -31,6 +33,16 @@ export default function SuggestDishModal({ restaurant, onClose, onAdded }: Sugge
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ photo: DishPhoto; aiWrote: boolean; scoutCount: number } | null>(null);
+
+  // Escape dismisses (backdrop tap already does; a sheet with no keyboard
+  // exit is a trap on desktop).
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   const handleFileSelected = (f: File) => {
     setFile(f);
@@ -86,7 +98,18 @@ export default function SuggestDishModal({ restaurant, onClose, onAdded }: Sugge
           <SuccessState result={result} onDone={onClose} />
         ) : (
           <>
-            <h2 className="text-white text-[22px] font-bold mb-6 tracking-tight">Add a Missing Photo or Menu Item</h2>
+            <div className="flex items-start justify-between gap-3 mb-6">
+              <h2 className="text-white text-[22px] font-bold tracking-tight">Add a Missing Photo or Menu Item</h2>
+              <button
+                onClick={onClose}
+                className="hit-target relative shrink-0 mt-0.5 w-8 h-8 rounded-full bg-white/8 hover:bg-white/14 active:bg-white/20 flex items-center justify-center transition-colors"
+                aria-label="Close"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-white/70">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
             <label className="block text-[13px] font-bold text-white/55 mb-2">
               Dish Name <span style={{ color: "var(--accent)" }}>*</span>
@@ -106,7 +129,7 @@ export default function SuggestDishModal({ restaurant, onClose, onAdded }: Sugge
             <textarea
               value={dishDescription}
               onChange={(e) => setDishDescription(e.target.value)}
-              placeholder="Leave blank and we'll write one for you from your photo ✨"
+              placeholder={"Leave blank and we'll write one from your photo ✨"}
               maxLength={300}
               rows={2}
               className="w-full px-4 py-3.5 rounded-2xl text-white text-[15px] mb-5 outline-none resize-none focus:ring-2 focus:ring-[var(--accent-ring)] placeholder:text-white/25"
@@ -152,6 +175,17 @@ export default function SuggestDishModal({ restaurant, onClose, onAdded }: Sugge
             >
               {submitting ? "Adding to the menu…" : "Add This Dish"}
             </button>
+
+            {/* A silently-dimmed button reads as broken — say what's missing. */}
+            {!canSubmit && !submitting && (
+              <p className="text-white/40 text-[12px] text-center mt-2.5">
+                {dishName.trim().length === 0 && !file
+                  ? "Add a dish name and a photo to submit"
+                  : dishName.trim().length === 0
+                  ? "Add a dish name to submit"
+                  : "Add a photo to submit"}
+              </p>
+            )}
           </>
         )}
       </div>

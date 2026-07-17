@@ -5,6 +5,7 @@ import { DishPhoto, Restaurant } from "@/lib/types";
 import { provenanceLabel } from "./DishTile";
 import { shareDish } from "@/lib/share";
 import { pickPrimary } from "@/lib/dishGrouping";
+import { SOURCE_LABELS } from "@/lib/labels";
 import PhotoSourceSheet from "./PhotoSourceSheet";
 
 interface RevealProps {
@@ -16,14 +17,6 @@ interface RevealProps {
   restaurant: Restaurant;
   onClose: (lastIndex: number) => void;
 }
-
-const SOURCE_LABELS: Record<DishPhoto["source"], string> = {
-  google: "Google", doordash: "DoorDash", grubhub: "Grubhub", menufy: "Menufy",
-  schema_org: "Restaurant", toast: "Toast", square: "Square", clover: "Clover",
-  chownow: "ChowNow", olo: "Olo", popmenu: "PopMenu", menu_ocr: "Menu",
-  user_upload: "SeeFood",
-  user_suggested: "SeeFood",
-};
 
 const SWIPE_THRESHOLD = 60; // px of finger travel to commit a navigation
 const ANIM_MS = 300;
@@ -74,6 +67,15 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
       return false;
     }
   });
+
+  // Mouse-driven environments get click affordances and "Click" copy in
+  // place of the touch-only "Tap"/"Swipe" wording.
+  const [finePointer, setFinePointer] = useState(false);
+  useEffect(() => {
+    try {
+      setFinePointer(window.matchMedia("(hover: hover) and (pointer: fine)").matches);
+    } catch {}
+  }, []);
 
   const startXRef = useRef(0);
   const startYRef = useRef(0);
@@ -208,15 +210,32 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     window.setTimeout(() => setIsHAnimating(false), ANIM_MS);
   }, []);
 
+  // Like onTouchStart, keyboard/click navigation commits any in-flight
+  // transition first — otherwise rapid presses read a stale `index` and get
+  // silently dropped for the animation's full 300ms.
   const goNext = useCallback(() => {
+    if (pendingVerticalRef.current) {
+      const landing = pendingVerticalRef.current.nextIdx;
+      commitPendingVertical();
+      if (landing >= photos.length - 1) return;
+      animateTo(-window.innerHeight, landing + 1);
+      return;
+    }
     if (index >= photos.length - 1) return;
     animateTo(-window.innerHeight, index + 1);
-  }, [index, photos.length, animateTo]);
+  }, [index, photos.length, animateTo, commitPendingVertical]);
 
   const goPrev = useCallback(() => {
+    if (pendingVerticalRef.current) {
+      const landing = pendingVerticalRef.current.nextIdx;
+      commitPendingVertical();
+      if (landing <= 0) return;
+      animateTo(window.innerHeight, landing - 1);
+      return;
+    }
     if (index <= 0) return;
     animateTo(window.innerHeight, index - 1);
-  }, [index, animateTo]);
+  }, [index, animateTo, commitPendingVertical]);
 
   // Once the user has scrolled to the very last dish, there's nothing left
   // to swipe down to — the down-hint slot repurposes into a direct jump
@@ -336,22 +355,31 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     }
   }, [loveDishKey, activePhoto?.loveCount]);
 
+  // A true toggle — a second tap un-loves. One-way love meant an accidental
+  // tap was permanent and quietly inflated counts.
   const handleLove = async () => {
-    if (!activePhoto || loved) return;
-    setLoved(true);
-    setLoveCount((c) => c + 1);
-    try { localStorage.setItem(`seefood-loved-dish-${loveDishKey}`, "1"); } catch {}
+    if (!activePhoto) return;
+    const next = !loved;
+    setLoved(next);
+    setLoveCount((c) => Math.max(0, c + (next ? 1 : -1)));
+    try {
+      if (next) localStorage.setItem(`seefood-loved-dish-${loveDishKey}`, "1");
+      else localStorage.removeItem(`seefood-loved-dish-${loveDishKey}`);
+    } catch {}
     try {
       const res = await fetch("/api/love-photo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoId: activePhoto.id }),
+        body: JSON.stringify({ photoId: activePhoto.id, unlove: !next || undefined }),
       });
       if (!res.ok) throw new Error("failed");
     } catch {
-      setLoved(false);
-      setLoveCount((c) => Math.max(0, c - 1));
-      try { localStorage.removeItem(`seefood-loved-dish-${loveDishKey}`); } catch {}
+      setLoved(!next);
+      setLoveCount((c) => Math.max(0, c + (next ? -1 : 1)));
+      try {
+        if (next) localStorage.removeItem(`seefood-loved-dish-${loveDishKey}`);
+        else localStorage.setItem(`seefood-loved-dish-${loveDishKey}`, "1");
+      } catch {}
     }
   };
 
@@ -417,7 +445,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-black/97 fade-in overflow-hidden"
+      className="fixed inset-0 z-[100] bg-[#0a0a0a] fade-in overflow-hidden"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -458,45 +486,73 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
           gesture once (globally, via localStorage), then both edges light up.
           Stays visible through the detail sheet too (Kyle: horizontal/
           vertical browsing still works there, so the hints should keep
-          showing, not just the dots). */}
-      {!isDragging && nextVariant && (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none swipe-hint-right">
-          <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
-              <path d="m9 6 6 6-6 6" />
-            </svg>
-          </div>
-        </div>
-      )}
-      {!isDragging && discoveredHSwipe && prevVariant && (
-        <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none swipe-hint-left">
-          <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
-              <path d="m15 6-6 6 6 6" />
-            </svg>
-          </div>
-        </div>
-      )}
+          showing, not just the dots). Real buttons, not decoration — on
+          desktop (or for anyone who taps instead of swiping) tapping the
+          visible arrow must advance the photo, never fall through to the
+          drawer toggle underneath. Constrained to the content column so
+          they hug the photo at desktop widths instead of the screen edges. */}
+      <div className="absolute inset-0 z-10 max-w-2xl mx-auto pointer-events-none">
+        {!isDragging && nextVariant && (
+          <button
+            onClick={() => !isHAnimating && animateVariantTo(-window.innerWidth, variantIndex + 1)}
+            aria-label="Next photo of this dish"
+            className="hit-target absolute right-2 top-1/2 -translate-y-1/2 pointer-events-auto swipe-hint-right focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] rounded-full"
+          >
+            <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
+                <path d="m9 6 6 6-6 6" />
+              </svg>
+            </div>
+          </button>
+        )}
+        {!isDragging && discoveredHSwipe && prevVariant && (
+          <button
+            onClick={() => !isHAnimating && animateVariantTo(window.innerWidth, variantIndex - 1)}
+            aria-label="Previous photo of this dish"
+            className="hit-target absolute left-2 top-1/2 -translate-y-1/2 pointer-events-auto swipe-hint-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] rounded-full"
+          >
+            <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
+                <path d="m15 6-6 6 6 6" />
+              </svg>
+            </div>
+          </button>
+        )}
+      </div>
 
       {/* Vertical swipe hint — sits just outside the photo's actual rendered
           edges (measured via imgBounds, not a fixed screen position, since
           object-contain photos vary in displayed height). Replaces the old
           bounce-chevron + "Swipe for next dish" text entirely. */}
       {!isDragging && imgBounds && prevPhoto && (
-        <div
-          className="absolute left-1/2 z-10 pointer-events-none swipe-hint-up"
-          style={{ top: Math.max(imgBounds.top - 36, 56) }}
+        <button
+          onClick={goPrev}
+          aria-label="Previous dish"
+          className="hit-target absolute left-1/2 z-10 swipe-hint-up focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] rounded-full"
+          // Sits above the whole title cluster (name, and the vote pill when
+          // present) — they all anchor to the same band just over the photo,
+          // and without the offset the chevron renders behind them.
+          style={{
+            top: Math.max(
+              imgBounds.top - 36
+                - (!detailOpen && photo.dishName ? 48 : 0)
+                - (!detailOpen && primaryPhoto && activePhoto.id !== primaryPhoto.id ? 40 : 0),
+              56
+            ),
+          }}
         >
           <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white/80">
               <path d="m6 15 6-6 6 6" />
             </svg>
           </div>
-        </div>
+        </button>
       )}
       {!isDragging && imgBounds && nextPhoto && (
-        <div
-          className="absolute left-1/2 z-10 pointer-events-none swipe-hint-down"
+        <button
+          onClick={goNext}
+          aria-label="Next dish"
+          className="hit-target absolute left-1/2 z-10 swipe-hint-down focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] rounded-full"
           style={{ top: Math.min(imgBounds.bottom + 4, (typeof window !== "undefined" ? window.innerHeight : 800) - 96) }}
         >
           <div className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
@@ -504,7 +560,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
               <path d="m6 9 6 6 6-6" />
             </svg>
           </div>
-        </div>
+        </button>
       )}
       {!isDragging && imgBounds && !nextPhoto && (
         <button
@@ -520,9 +576,10 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         </button>
       )}
 
-      {/* Top bar — counter + close */}
+      {/* Top bar — counter + close. Constrained to the content column so the
+          close button doesn't strand in the far viewport corner on desktop. */}
       <div
-        className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-4 py-3"
+        className="absolute top-0 inset-x-0 z-10 max-w-2xl mx-auto flex items-center justify-between px-4 py-3"
         style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}
       >
         <div className="text-white/55 text-[13px] font-medium tabular-nums">
@@ -530,7 +587,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         </div>
         <button
           onClick={close}
-          className="w-9 h-9 rounded-full bg-white/8 hover:bg-white/14 active:bg-white/20 flex items-center justify-center transition-colors"
+          className="w-11 h-11 rounded-full bg-white/8 hover:bg-white/14 active:bg-white/20 flex items-center justify-center transition-colors"
           aria-label="Close"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-white/85">
@@ -575,15 +632,19 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         )}
 
         {variants.length > 1 && (
-          <div className="flex items-center justify-center gap-1.5">
+          <div
+            className="flex items-center justify-center gap-1.5"
+            role="img"
+            aria-label={`Photo ${variantIndex + 1} of ${variants.length}`}
+          >
             {variants.map((v, i) => (
               <span
                 key={v.id}
                 className="rounded-full transition-all"
                 style={{
-                  width: i === variantIndex ? 14 : 5,
-                  height: 5,
-                  background: i === variantIndex ? "var(--accent)" : "rgba(255,255,255,0.3)",
+                  width: i === variantIndex ? 18 : 6.5,
+                  height: 6.5,
+                  background: i === variantIndex ? "var(--accent)" : "rgba(255,255,255,0.35)",
                 }}
               />
             ))}
@@ -610,7 +671,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
           held clear, this block never actually overlaps the photo. */}
       {!detailOpen && (
         <div
-          className="absolute inset-x-0 z-10 px-5 pt-3 pointer-events-none"
+          className="absolute inset-x-0 z-10 max-w-2xl mx-auto px-5 pt-3 pointer-events-none"
           style={{
             top: Math.min(
               (imgBounds?.bottom ?? 400) + BOTTOM_INFO_GAP,
@@ -642,8 +703,12 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
               asked to remove the vertical mention), just carried by bigger
               type now that it's doing more of the teaching. */}
           <p className="text-white/45 text-[15px] font-semibold pointer-events-auto">
-            Tap for details
-            {variants.length > 1 ? ` · Swipe ${discoveredHSwipe ? "↔" : "→"} more photos` : ""}
+            {finePointer ? "Click for details" : "Tap for details"}
+            {variants.length > 1
+              ? finePointer
+                ? " · → more photos"
+                : ` · Swipe ${discoveredHSwipe ? "↔" : "→"} more photos`
+              : ""}
           </p>
         </div>
       )}
@@ -733,26 +798,27 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
 
             <button
               onClick={handleLove}
+              aria-pressed={loved}
               className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border active:scale-[0.96] transition-all"
               style={{
-                background: loved ? "rgba(251,191,36,0.14)" : "var(--surface-2)",
-                borderColor: loved ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.1)",
+                background: loved ? "var(--accent-soft)" : "var(--surface-2)",
+                borderColor: loved ? "rgba(255,107,53,0.45)" : "rgba(255,255,255,0.1)",
               }}
             >
               <svg
                 width="20" height="20" viewBox="0 0 24 24"
-                fill={loved ? "var(--gold)" : "none"}
+                fill={loved ? "var(--accent)" : "none"}
                 stroke="currentColor" strokeWidth="2"
                 strokeLinecap="round" strokeLinejoin="round"
                 style={{
-                  color: loved ? "var(--gold)" : "rgba(255,255,255,0.85)",
+                  color: loved ? "var(--accent)" : "rgba(255,255,255,0.85)",
                   transform: loved ? "scale(1.1)" : "scale(1)",
                   transition: "transform 200ms var(--ease-spring)",
                 }}
               >
-                <path d="M12 2 14.6 8.6 22 9.5l-5.4 5L18 22l-6-3.5L6 22l1.4-7.5L2 9.5l7.4-.9L12 2z"/>
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
               </svg>
-              <span className="text-[11.5px] font-bold text-center leading-tight" style={{ color: loved ? "var(--gold)" : "rgba(255,255,255,0.85)" }}>
+              <span className="text-[11.5px] font-bold text-center leading-tight" style={{ color: loved ? "var(--accent)" : "rgba(255,255,255,0.85)" }}>
                 I Loved This{loveCount > 0 ? ` · ${loveCount}` : ""}
               </span>
             </button>

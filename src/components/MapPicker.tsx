@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { DishPhoto } from "@/lib/types";
+import { formatAddress } from "@/lib/labels";
 
 export interface MapView {
   lat: number;
@@ -64,6 +65,85 @@ function PriceLevel({ level }: { level: number }) {
   );
 }
 
+/** Pin geometry (CSS px): circular photo + ring, with a small anchor tail so
+ *  the pin visibly points at its coordinate instead of floating as a bare
+ *  square pasted over the map. */
+const PIN = {
+  normal: { size: 48, ring: 3 },
+  selected: { size: 60, ring: 4 },
+  tail: 7,
+};
+
+/**
+ * Composites a dish photo into a proper map-marker icon (2x canvas for
+ * retina): center-cropped circle, white ring (accent when selected), and an
+ * anchor tail. Returns data-URLs for both states, or null when the photo's
+ * host blocks anonymous canvas reads (caller falls back to the raw square).
+ */
+async function buildPhotoMarkerIcons(url: string): Promise<{ normal: string; selected: string } | null> {
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.crossOrigin = "anonymous";
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("load failed"));
+      i.src = url;
+    });
+
+    const draw = (sizeCss: number, ringCss: number, ringColor: string) => {
+      const dpr = 2;
+      const size = sizeCss * dpr;
+      const tail = PIN.tail * dpr;
+      const ring = ringCss * dpr;
+      const c = document.createElement("canvas");
+      c.width = size;
+      c.height = size + tail;
+      const ctx = c.getContext("2d");
+      if (!ctx) throw new Error("no 2d context");
+
+      const cx = size / 2;
+      const cy = size / 2;
+      const r = size / 2 - ring / 2;
+
+      // Anchor tail (under the circle, same color as the ring)
+      ctx.beginPath();
+      ctx.moveTo(cx - 5.5 * dpr, size - ring);
+      ctx.lineTo(cx + 5.5 * dpr, size - ring);
+      ctx.lineTo(cx, size + tail);
+      ctx.closePath();
+      ctx.fillStyle = ringColor;
+      ctx.fill();
+
+      // Photo, center-cropped into the circle
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r - ring / 2, 0, Math.PI * 2);
+      ctx.clip();
+      const side = Math.min(img.naturalWidth, img.naturalHeight);
+      const sx = (img.naturalWidth - side) / 2;
+      const sy = (img.naturalHeight - side) / 2;
+      ctx.drawImage(img, sx, sy, side, side, cx - r, cy - r, r * 2, r * 2);
+      ctx.restore();
+
+      // Ring on top
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.lineWidth = ring;
+      ctx.strokeStyle = ringColor;
+      ctx.stroke();
+
+      return c.toDataURL("image/png");
+    };
+
+    return {
+      normal: draw(PIN.normal.size, PIN.normal.ring, "#ffffff"),
+      selected: draw(PIN.selected.size, PIN.selected.ring, "#ff6b35"),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Map Explore v2 (PRD §4.4) — instant open on the user's block, pins are
  * dish-photo thumbnails from the corpus (dot pins for uncrawled restaurants,
@@ -90,6 +170,8 @@ export default function MapPicker({
   const [searching, setSearching] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [selected, setSelected] = useState<SelectedPlace | null>(null);
+  /** Post-search feedback ("7 restaurants found"), auto-dismissed. */
+  const [foundToast, setFoundToast] = useState<string | null>(null);
 
   const clearMarkers = useCallback(() => {
     markersRef.current.forEach((m) => m.setMap(null));
@@ -116,13 +198,30 @@ export default function MapPicker({
     scale: 11,
   }), []);
 
+  // Composited circular marker icons per photo URL (see buildPhotoMarkerIcons).
+  const iconCacheRef = useRef<Map<string, { normal: string; selected: string }>>(new Map());
+
   // Photo-thumbnail pin (PRD §4.4 "pins are dish-photo thumbnails, not dots").
+  // Uses the composited circle+ring+tail icon when available; falls back to
+  // the raw square thumbnail if the photo's host blocked canvas reads.
   const photoIcon = useCallback(
-    (url: string, isSelected: boolean): google.maps.Icon => ({
-      url,
-      scaledSize: new window.google.maps.Size(isSelected ? 56 : 44, isSelected ? 56 : 44),
-      anchor: new window.google.maps.Point(isSelected ? 28 : 22, isSelected ? 28 : 22),
-    }),
+    (url: string, isSelected: boolean): google.maps.Icon => {
+      const built = iconCacheRef.current.get(url);
+      if (built) {
+        const { size } = isSelected ? PIN.selected : PIN.normal;
+        return {
+          url: isSelected ? built.selected : built.normal,
+          scaledSize: new window.google.maps.Size(size, size + PIN.tail),
+          // Anchor at the tail tip so the pin points at its coordinate.
+          anchor: new window.google.maps.Point(size / 2, size + PIN.tail),
+        };
+      }
+      return {
+        url,
+        scaledSize: new window.google.maps.Size(isSelected ? 56 : 44, isSelected ? 56 : 44),
+        anchor: new window.google.maps.Point(isSelected ? 28 : 22, isSelected ? 28 : 22),
+      };
+    },
     []
   );
 
@@ -216,13 +315,38 @@ export default function MapPicker({
         // Fail open — dot pins for everyone, map still fully usable.
       }
 
+      // Composite marker icons before dropping pins so photo pins land
+      // styled (circle + ring + anchor tail) rather than as raw squares.
+      // Hard-capped: a photo host that never settles (no load OR error
+      // event) must not hold the entire pin drop hostage — those pins fall
+      // back to the raw thumbnail icon.
+      await Promise.all(
+        [...previewsRef.current.values()]
+          .map((p) => p.topPhoto.url)
+          .filter((url) => !iconCacheRef.current.has(url))
+          .map(async (url) => {
+            const built = await Promise.race([
+              buildPhotoMarkerIcons(url),
+              new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
+            ]);
+            if (built) iconCacheRef.current.set(url, built);
+          })
+      );
+
       results.slice(0, 20).forEach((place) => addRestaurantMarker(mapInstance, place));
     },
     [addRestaurantMarker]
   );
 
+  const foundToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showFoundToast = useCallback((msg: string) => {
+    setFoundToast(msg);
+    if (foundToastTimer.current) clearTimeout(foundToastTimer.current);
+    foundToastTimer.current = setTimeout(() => setFoundToast(null), 2200);
+  }, []);
+
   const searchCurrentArea = useCallback(
-    (mapInstance: google.maps.Map) => {
+    (mapInstance: google.maps.Map, opts?: { ensureVisible?: boolean }) => {
       setSearching(true);
       setShowSearchHere(false);
       setSelected(null);
@@ -240,39 +364,93 @@ export default function MapPicker({
       const service = new window.google.maps.places.PlacesService(mapInstance);
       service.nearbySearch(
         { location: center, radius: Math.max(300, radius), type: "restaurant" },
-        (results, status) => {
+        async (rawResults, status) => {
           setSearching(false);
-          if (status !== window.google.maps.places.PlacesServiceStatus.OK || !results) return;
+          const ok =
+            status === window.google.maps.places.PlacesServiceStatus.OK ||
+            status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS;
+          if (!ok) {
+            showFoundToast("Couldn't search this area — try again");
+            return;
+          }
+          // ZERO_RESULTS still proceeds with an empty list: the demo fixture
+          // below must drop its pin even in a viewport where Google's own
+          // search comes back empty (it's excluded from type:"restaurant").
+          const results = rawResults ?? [];
 
           const bounds = mapInstance.getBounds();
           const fixtureLatLng = new window.google.maps.LatLng(TEST_FIXTURE.lat, TEST_FIXTURE.lng);
           const alreadyPresent = results.some((r) => r.place_id === TEST_FIXTURE.placeId);
-          // Prepended, not appended — loadPreviewsAndAddMarkers caps markers
-          // at the first 20 results, and the fixture should never lose that
-          // race to whatever Google happened to return this search.
-          const withFixture =
-            !alreadyPresent && bounds?.contains(fixtureLatLng)
-              ? [
-                  {
-                    place_id: TEST_FIXTURE.placeId,
-                    name: TEST_FIXTURE.name,
-                    vicinity: "Temecula, CA",
-                    geometry: { location: fixtureLatLng },
-                    // Hardcoded demo stats (Kyle: highly reviewed, expensive,
-                    // matching the same override in getRestaurantDetails).
-                    rating: 4.9,
-                    user_ratings_total: 812,
-                    price_level: 4,
-                  } as unknown as google.maps.places.PlaceResult,
-                  ...results,
-                ]
-              : results;
+          // The fixture's Google Place is registered under its old handle
+          // ("qutamicatering") with none of the demo stats — when Google's own
+          // search surfaces it, override the display fields in place (the
+          // stored/Google data itself is left untouched). Otherwise prepend
+          // it (not append — loadPreviewsAndAddMarkers caps markers at the
+          // first 20 results, and the fixture should never lose that race).
+          const fixtureOverride = {
+            name: TEST_FIXTURE.name,
+            // Hardcoded demo stats (Kyle: highly reviewed, expensive,
+            // matching the same override in getRestaurantDetails).
+            rating: 4.9,
+            user_ratings_total: 812,
+            price_level: 4,
+          };
+          const withFixture = alreadyPresent
+            ? results.map((r) =>
+                r.place_id === TEST_FIXTURE.placeId
+                  ? (Object.assign(Object.create(Object.getPrototypeOf(r)), r, fixtureOverride) as google.maps.places.PlaceResult)
+                  : r
+              )
+            : bounds?.contains(fixtureLatLng)
+            ? [
+                {
+                  place_id: TEST_FIXTURE.placeId,
+                  vicinity: "Temecula, CA",
+                  geometry: { location: fixtureLatLng },
+                  ...fixtureOverride,
+                } as unknown as google.maps.places.PlaceResult,
+                ...results,
+              ]
+            : results;
 
-          loadPreviewsAndAddMarkers(mapInstance, withFixture);
+          if (withFixture.length === 0) {
+            // "Nothing here" is an answer too — without it the button just
+            // vanishes and the search looks broken.
+            showFoundToast("No restaurants found here");
+            return;
+          }
+
+          await loadPreviewsAndAddMarkers(mapInstance, withFixture);
+
+          const n = Math.min(withFixture.length, 20);
+          showFoundToast(`${n} restaurant${n === 1 ? "" : "s"} found`);
+
+          // First open only: if the camera landed somewhere with pins all
+          // off-screen, widen to include them — never open onto an empty map.
+          if (opts?.ensureVisible && markersRef.current.length > 0) {
+            const view = mapInstance.getBounds();
+            const anyVisible = markersRef.current.some((m) => {
+              const p = m.getPosition();
+              return !!p && !!view?.contains(p);
+            });
+            if (!anyVisible) {
+              const fit = new window.google.maps.LatLngBounds();
+              markersRef.current.forEach((m) => {
+                const p = m.getPosition();
+                if (p) fit.extend(p);
+              });
+              fit.extend(center);
+              mapInstance.fitBounds(fit, 80);
+              window.google.maps.event.addListenerOnce(mapInstance, "idle", () => {
+                const z = mapInstance.getZoom();
+                if (z !== undefined && z > 16) mapInstance.setZoom(16);
+              });
+            }
+          }
         }
       );
     },
-    [clearMarkers, loadPreviewsAndAddMarkers]
+    [clearMarkers, loadPreviewsAndAddMarkers, showFoundToast]
   );
 
   const initMap = useCallback(() => {
@@ -284,13 +462,21 @@ export default function MapPicker({
     const mapInstance = new window.google.maps.Map(mapRef.current, {
       center,
       zoom,
+      // Matches the custom style's base so unloaded tile regions render dark
+      // instead of Google's default light gray (a dark-only app flashing a
+      // washed-out map for seconds reads as broken).
+      backgroundColor: "#16161c",
       styles: [
         { elementType: "geometry", stylers: [{ color: "#16161c" }] },
         { elementType: "labels.text.stroke", stylers: [{ color: "#16161c" }] },
         { elementType: "labels.text.fill", stylers: [{ color: "#7a7a85" }] },
         { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#9a9aa5" }] },
-        { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#5a5a65" }] },
-        { featureType: "poi.business", elementType: "labels", stylers: [{ visibility: "off" }] },
+        // POI markers (schools, churches, studios…) compete with restaurant
+        // pins in the same visual language — hide them all except parks,
+        // which act as orientation landmarks.
+        { featureType: "poi", stylers: [{ visibility: "off" }] },
+        { featureType: "poi.park", elementType: "geometry", stylers: [{ visibility: "on" }] },
+        { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ visibility: "on" }, { color: "#4a5a50" }] },
         { featureType: "road", elementType: "geometry", stylers: [{ color: "#22222a" }] },
         { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#2a2a35" }] },
         { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#a0a0ad" }] },
@@ -299,7 +485,10 @@ export default function MapPicker({
         { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3a3a48" }] },
       ],
       disableDefaultUI: true,
-      zoomControl: false,
+      // Mouse users expect visible zoom affordances; touch users pinch.
+      // Right-center keeps it clear of the locate FAB (bottom-right).
+      zoomControl: typeof window !== "undefined" && window.matchMedia("(hover: hover) and (pointer: fine)").matches,
+      zoomControlOptions: { position: window.google.maps.ControlPosition.RIGHT_CENTER },
       mapTypeControl: false,
       fullscreenControl: false,
       gestureHandling: "greedy",
@@ -327,7 +516,7 @@ export default function MapPicker({
 
       if (firstIdle) {
         firstIdle = false;
-        searchCurrentArea(mapInstance);
+        searchCurrentArea(mapInstance, { ensureVisible: true });
         return;
       }
       if (moveTimer) clearTimeout(moveTimer);
@@ -400,7 +589,7 @@ export default function MapPicker({
         className="px-3 pb-3 glass border-b border-[var(--border-subtle)]"
         style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 max-w-xl mx-auto">
           <button
             onClick={onClose}
             className="w-10 h-10 flex items-center justify-center rounded-full text-white/65 hover:text-white hover:bg-white/8 active:bg-white/15 transition-colors shrink-0"
@@ -451,8 +640,8 @@ export default function MapPicker({
       </div>
 
       {/* Map area */}
-      <div className="relative flex-1">
-        <div ref={mapRef} className="w-full h-full" />
+      <div className="relative flex-1" style={{ background: "#16161c" }}>
+        <div ref={mapRef} className="w-full h-full" style={{ background: "#16161c" }} />
 
         {ready && showSearchHere && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none fade-up">
@@ -477,12 +666,25 @@ export default function MapPicker({
           </div>
         )}
 
+        {!searching && foundToast && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 fade-in pointer-events-none">
+            <div className="bg-[var(--surface-1)]/95 backdrop-blur text-white/70 text-[12px] font-semibold px-4 py-2.5 rounded-full shadow-xl border border-[var(--border-subtle)]">
+              {foundToast}
+            </div>
+          </div>
+        )}
+
+        {/* Hidden (not just nudged) while the preview sheet is up — the sheet
+            is taller than any offset, so a shifted FAB still ended up buried
+            behind it. */}
         <button
           onClick={handleRecenter}
-          className="absolute bottom-5 right-4 z-10 w-14 h-14 rounded-full glass border border-[var(--border-subtle)] flex items-center justify-center shadow-2xl active:scale-95 transition-transform"
+          className="absolute bottom-5 right-4 z-10 w-14 h-14 rounded-full glass border border-[var(--border-subtle)] flex items-center justify-center shadow-2xl active:scale-95 transition-all"
           style={{
-            transform: selected ? "translateY(-100%)" : "translateY(0)",
-            transition: "transform 380ms var(--ease-spring)",
+            opacity: selected ? 0 : 1,
+            pointerEvents: selected ? "none" : "auto",
+            transform: selected ? "scale(0.85)" : "scale(1)",
+            transition: "opacity 240ms var(--ease-standard), transform 240ms var(--ease-standard)",
           }}
           aria-label="Recenter on my location"
         >
@@ -524,7 +726,7 @@ export default function MapPicker({
                       setSelected(null);
                       setMarkerSelected(null);
                     }}
-                    className="shrink-0 -mt-1 -mr-1 w-7 h-7 rounded-full bg-white/8 hover:bg-white/14 active:bg-white/20 flex items-center justify-center transition-colors"
+                    className="hit-target relative shrink-0 -mt-1 -mr-1 w-7 h-7 rounded-full bg-white/8 hover:bg-white/14 active:bg-white/20 flex items-center justify-center transition-colors"
                     aria-label="Close"
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-white/65">
@@ -562,13 +764,18 @@ export default function MapPicker({
                 )}
 
                 {selected.vicinity && (
-                  <p className="text-white/45 text-[12px] mb-3 truncate font-medium">{selected.vicinity}</p>
+                  <p className="text-white/45 text-[12px] mb-3 truncate font-medium">{formatAddress(selected.vicinity)}</p>
                 )}
 
-                {/* Swipeable top-5 dish strip (PRD §4.4) — only when corpus has photos */}
+                {/* Swipeable top-5 dish strip (PRD §4.4) — only when corpus has
+                    photos. Deduped to one card per dish name: two identical
+                    "Mushroom Pizza" cards side by side read as a glitch, not
+                    as two photos of the same dish. */}
                 {selected.dishes && selected.dishes.length > 0 && (
                   <div className="flex gap-2 overflow-x-auto no-scrollbar mb-3.5 -mx-0.5 px-0.5">
-                    {selected.dishes.map((d) => (
+                    {selected.dishes.filter((d, i, arr) =>
+                      !d.dishName || arr.findIndex((o) => o.dishName === d.dishName) === i
+                    ).map((d) => (
                       <div
                         key={d.id}
                         className="shrink-0 w-20 h-20 rounded-xl overflow-hidden relative bg-[var(--surface-2)]"

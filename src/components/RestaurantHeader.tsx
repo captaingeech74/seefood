@@ -3,6 +3,21 @@
 import { useMemo, useState } from "react";
 import { DishPhoto, Restaurant } from "@/lib/types";
 import { dedupeToPrimary } from "@/lib/dishGrouping";
+import { formatAddress } from "@/lib/labels";
+
+/** Bolds the matched substring inside a search result name. */
+function HighlightMatch({ text, query }: { text: string; query: string }) {
+  const q = query.trim().toLowerCase();
+  const i = q ? text.toLowerCase().indexOf(q) : -1;
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <span className="text-white font-bold">{text.slice(i, i + q.length)}</span>
+      {text.slice(i + q.length)}
+    </>
+  );
+}
 
 function formatReviewCount(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
@@ -39,7 +54,8 @@ export default function RestaurantHeader({
   /** Raw (undeduped) dish photo pool — deduped here to one entry per dish name for the search list. */
   dishes: DishPhoto[];
   onChangeRestaurant: () => void;
-  onSuggestDish: () => void;
+  /** Opens the Add-Missing-Dish modal; optionally prefilled with a dish name (e.g. a failed search query). */
+  onSuggestDish: (initialName?: string) => void;
   /** Same signature TopDishesGrid uses — jumps straight into the Reveal at the matched dish. */
   onOpenReveal: (list: DishPhoto[], index: number, allPhotos: DishPhoto[]) => void;
 }) {
@@ -78,7 +94,7 @@ export default function RestaurantHeader({
 
         <button
           onClick={onChangeRestaurant}
-          className="flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
+          className="hit-target relative flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
           style={{ background: "var(--accent)" }}
           aria-label="Change restaurant — open map"
         >
@@ -98,7 +114,7 @@ export default function RestaurantHeader({
       {/* Restaurant name — tap toggles the address/rating section below */}
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="group flex items-center gap-2 max-w-full -ml-2 pl-2 pr-2.5 py-1 rounded-xl active:scale-[0.98] active:bg-white/8 transition-all"
+        className="group flex items-center gap-2 max-w-full -ml-2 pl-2 pr-2.5 py-2 rounded-xl active:scale-[0.98] active:bg-white/8 transition-all"
         aria-expanded={expanded}
         aria-label={expanded ? "Hide restaurant details" : "Show restaurant details"}
       >
@@ -106,11 +122,11 @@ export default function RestaurantHeader({
           {restaurant.name}
         </h1>
         <span
-          className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+          className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-colors"
           style={{ background: "var(--accent-soft)" }}
         >
           <svg
-            width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
             style={{ color: "var(--accent)", transform: expanded ? "rotate(180deg)" : undefined, transition: "transform 220ms var(--ease-standard)" }}
           >
@@ -204,7 +220,7 @@ export default function RestaurantHeader({
               <button
                 onClick={() => setQuery("")}
                 aria-label="Clear search"
-                className="absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-white/50 active:bg-white/10"
+                className="hit-target absolute top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center text-white/50 active:bg-white/10"
                 style={{ right: 10 }}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -215,11 +231,33 @@ export default function RestaurantHeader({
           </div>
 
           {query.trim() && (
-            <div className="mb-3 max-h-60 overflow-y-auto no-scrollbar rounded-xl fade-in" style={{ background: "var(--surface-1)" }}>
+            <div
+              className="mb-3 max-h-60 overflow-y-auto no-scrollbar rounded-xl fade-in"
+              style={{
+                background: "var(--surface-1)",
+                maskImage: matches.length > 4 ? "linear-gradient(to bottom, black calc(100% - 20px), transparent)" : undefined,
+              }}
+            >
               {matches.length === 0 ? (
-                <p className="text-white/35 text-[13px] px-3 py-4 text-center">
-                  No dishes match &ldquo;{query}&rdquo;
-                </p>
+                <div className="px-3 py-4 text-center">
+                  <p className="text-white/50 text-[13px] mb-2.5">
+                    No dishes match &ldquo;{query}&rdquo;
+                  </p>
+                  <button
+                    onClick={() => {
+                      onSuggestDish(query.trim());
+                      setQuery("");
+                      setExpanded(false);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12.5px] font-bold text-white active:scale-95 transition-transform"
+                    style={{ background: "var(--accent)" }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Add it as a missing dish
+                  </button>
+                </div>
               ) : (
                 matches.map((d) => (
                   <button
@@ -230,14 +268,14 @@ export default function RestaurantHeader({
                       setQuery("");
                       setExpanded(false);
                     }}
-                    className="w-full flex items-center gap-3 px-3 py-2 active:bg-white/8 transition-colors"
+                    className="w-full flex items-center gap-3 px-3 py-2 min-h-[48px] active:bg-white/8 transition-colors"
                   >
                     <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0" style={{ background: "var(--surface-2)" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={d.url} alt="" className="w-full h-full object-cover" />
                     </div>
-                    <span className="text-white/85 text-[13.5px] font-semibold truncate text-left">
-                      {d.dishName}
+                    <span className="text-white/70 text-[13.5px] font-semibold truncate text-left">
+                      <HighlightMatch text={d.dishName ?? ""} query={query} />
                     </span>
                   </button>
                 ))
@@ -245,13 +283,27 @@ export default function RestaurantHeader({
             </div>
           )}
 
-          <p className="text-[12px] text-white/35 truncate font-medium">
-            {restaurant.address}
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[12px] text-white/35 truncate font-medium">
+              {formatAddress(restaurant.address)}
+            </p>
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(restaurant.address || restaurant.name)}${restaurant.placeId ? `&destination_place_id=${restaurant.placeId}` : ""}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hit-target relative shrink-0 flex items-center gap-1 text-[12px] font-bold"
+              style={{ color: "var(--accent)" }}
+            >
+              Directions
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 17 17 7M7 7h10v10" />
+              </svg>
+            </a>
+          </div>
           <div className="flex justify-end mt-2.5">
             <button
-              onClick={onSuggestDish}
-              className="flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
+              onClick={() => onSuggestDish()}
+              className="hit-target relative flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
               style={{ background: "var(--accent)" }}
               aria-label="Add a missing photo or menu item"
             >
