@@ -79,7 +79,10 @@ export default function RestaurantHeader({
   return (
     <header
       className="sticky top-0 z-20 glass border-b border-[var(--border-subtle)] px-4 pb-3"
-      style={{ paddingTop: "max(14px, env(safe-area-inset-top))" }}
+      // Higher-opacity glass than the default 0.72: grid text scrolling
+      // beneath must never be readable through the header, even in
+      // environments that support backdrop-filter but degrade the blur.
+      style={{ paddingTop: "max(14px, env(safe-area-inset-top))", background: "rgba(10,10,10,0.92)" }}
     >
       {/* Top row: "YOU'RE AT" eyebrow + Change Restaurant pill */}
       <div className="flex items-center justify-between gap-2 mb-1.5">
