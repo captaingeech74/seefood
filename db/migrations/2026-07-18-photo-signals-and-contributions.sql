@@ -72,7 +72,7 @@ set
     p.is_orderable
     and not coalesce(p.is_storefront, false)
     and not coalesce(p.is_menu_photo, false)
-    and coalesce(p.gemini_label, '') <> ''
+    and (p.menu_item_id is not null or coalesce(p.gemini_label, '') <> '')
     and p.photo_quality_score >= 55
 from dish_counts d
 where p.restaurant_id = d.restaurant_id
