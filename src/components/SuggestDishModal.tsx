@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DishPhoto, Restaurant } from "@/lib/types";
+import { trackEvent } from "@/lib/analytics";
 import PhotoSourceSheet from "./PhotoSourceSheet";
 
 interface SuggestDishModalProps {
@@ -78,6 +79,7 @@ export default function SuggestDishModal({ restaurant, initialName, onClose, onA
 
       setResult({ photo: data.photo, aiWrote: !!data.aiWrote, scoutCount });
       onAdded(data.photo);
+      trackEvent("photo_add", restaurant.placeId || restaurant.id, { surface: "missing_dish" });
     } catch {
       setError("Upload failed — check your connection and try again.");
     } finally {

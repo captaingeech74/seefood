@@ -6,6 +6,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { DishPhoto, MenuItemData, Restaurant } from "./types";
 import { dedupeToPrimary } from "./dishGrouping";
+import type { AnalyticsEventName } from "./analytics";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -118,6 +119,202 @@ export interface MapDishPreview {
   dishes: DishPhoto[]; // top ~5, tier-ordered, for the bottom-sheet strip
   /** Distinct-dish count (same dedup the grid uses) — for "See all dishes (#)". */
   totalDishCount: number;
+}
+
+export interface CoverageActivity {
+  opens: number;
+  uniqueVisitors: number;
+  loves: number;
+  shares: number;
+  photoAdds: number;
+}
+
+export interface CoverageMetrics {
+  restaurantCount: number;
+  averageMenuItems: number;
+  averagePhotos: number;
+  matchedPhotoPercentage: number;
+  seeFoodPhotoPercentage: number;
+  sourceBreakdown: Array<{ source: string; count: number; percentage: number }>;
+  activity: { week: CoverageActivity; month: CoverageActivity };
+  trackingStartedAt: string | null;
+}
+
+interface CoverageRestaurantRow {
+  place_id: string;
+  lat: number | null;
+  lng: number | null;
+}
+
+interface CoveragePhotoRow {
+  restaurant_id: string;
+  source: string;
+  menu_item_id: number | null;
+}
+
+interface AppEventRow {
+  event_name: AnalyticsEventName;
+  visitor_id: string;
+  restaurant_id: string | null;
+  created_at: string;
+}
+
+function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const rad = Math.PI / 180;
+  const dLat = (bLat - aLat) * rad;
+  const dLng = (bLng - aLng) * rad;
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(aLat * rad) * Math.cos(bLat * rad) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+function emptyActivity(): CoverageActivity {
+  return { opens: 0, uniqueVisitors: 0, loves: 0, shares: 0, photoAdds: 0 };
+}
+
+function summarizeActivity(events: AppEventRow[], since: number): CoverageActivity {
+  const result = emptyActivity();
+  const visitors = new Set<string>();
+  for (const event of events) {
+    if (new Date(event.created_at).getTime() < since) continue;
+    if (event.event_name === "app_open") {
+      result.opens += 1;
+      visitors.add(event.visitor_id);
+    } else if (event.event_name === "love") result.loves += 1;
+    else if (event.event_name === "share") result.shares += 1;
+    else if (event.event_name === "photo_add") result.photoAdds += 1;
+  }
+  result.uniqueVisitors = visitors.size;
+  return result;
+}
+
+export async function recordAppEvent(input: {
+  eventName: AnalyticsEventName;
+  visitorId: string;
+  restaurantId?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  const { error } = await supabase.from("app_events").insert({
+    event_name: input.eventName,
+    visitor_id: input.visitorId,
+    restaurant_id: input.restaurantId ?? null,
+    metadata: input.metadata ?? {},
+  });
+  if (error) throw error;
+}
+
+export async function getCoverageMetrics(
+  lat: number,
+  lng: number,
+  radiusKm = 15
+): Promise<CoverageMetrics> {
+  const restaurants: CoverageRestaurantRow[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("restaurants")
+      .select("place_id,lat,lng")
+      .not("lat", "is", null)
+      .not("lng", "is", null)
+      .range(from, from + 999);
+    if (error) throw error;
+    restaurants.push(...((data ?? []) as CoverageRestaurantRow[]));
+    if (!data || data.length < 1000) break;
+  }
+
+  const nearbyIds = restaurants
+    .filter((r) => r.lat !== null && r.lng !== null && haversineKm(lat, lng, r.lat, r.lng) <= radiusKm)
+    .map((r) => r.place_id);
+
+  if (nearbyIds.length === 0) {
+    return {
+      restaurantCount: 0,
+      averageMenuItems: 0,
+      averagePhotos: 0,
+      matchedPhotoPercentage: 0,
+      seeFoodPhotoPercentage: 0,
+      sourceBreakdown: [],
+      activity: { week: emptyActivity(), month: emptyActivity() },
+      trackingStartedAt: null,
+    };
+  }
+
+  const menuCounts = new Map<string, number>();
+  const photos: CoveragePhotoRow[] = [];
+  const monthAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const events: AppEventRow[] = [];
+
+  for (let i = 0; i < nearbyIds.length; i += 100) {
+    const ids = nearbyIds.slice(i, i + 100);
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from("menu_items")
+        .select("restaurant_id")
+        .in("restaurant_id", ids)
+        .range(from, from + 999);
+      if (error) throw error;
+      for (const row of data ?? []) {
+        menuCounts.set(row.restaurant_id, (menuCounts.get(row.restaurant_id) ?? 0) + 1);
+      }
+      if (!data || data.length < 1000) break;
+    }
+
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from("photos")
+        .select("restaurant_id,source,menu_item_id")
+        .in("restaurant_id", ids)
+        .range(from, from + 999);
+      if (error) throw error;
+      photos.push(...((data ?? []) as CoveragePhotoRow[]));
+      if (!data || data.length < 1000) break;
+    }
+
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from("app_events")
+        .select("event_name,visitor_id,restaurant_id,created_at")
+        .in("restaurant_id", ids)
+        .gte("created_at", monthAgoIso)
+        .range(from, from + 999);
+      if (error && error.code !== "42P01") throw error;
+      if (error?.code === "42P01") break;
+      events.push(...((data ?? []) as AppEventRow[]));
+      if (!data || data.length < 1000) break;
+    }
+  }
+
+  const sourceCounts = new Map<string, number>();
+  let matchedPhotos = 0;
+  let seeFoodPhotos = 0;
+  for (const photo of photos) {
+    sourceCounts.set(photo.source, (sourceCounts.get(photo.source) ?? 0) + 1);
+    if (photo.menu_item_id !== null) matchedPhotos += 1;
+    if (photo.source === "user_upload" || photo.source === "user_suggested") seeFoodPhotos += 1;
+  }
+
+  const totalPhotos = photos.length;
+  const totalMenuItems = [...menuCounts.values()].reduce((sum, count) => sum + count, 0);
+  const percentage = (count: number) => (totalPhotos ? Math.round((count / totalPhotos) * 1000) / 10 : 0);
+  const sourceBreakdown = [...sourceCounts.entries()]
+    .map(([source, count]) => ({ source, count, percentage: percentage(count) }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    restaurantCount: nearbyIds.length,
+    averageMenuItems: Math.round((totalMenuItems / nearbyIds.length) * 10) / 10,
+    averagePhotos: Math.round((totalPhotos / nearbyIds.length) * 10) / 10,
+    matchedPhotoPercentage: percentage(matchedPhotos),
+    seeFoodPhotoPercentage: percentage(seeFoodPhotos),
+    sourceBreakdown,
+    activity: {
+      week: summarizeActivity(events, Date.now() - 7 * 24 * 60 * 60 * 1000),
+      month: summarizeActivity(events, Date.now() - 30 * 24 * 60 * 60 * 1000),
+    },
+    trackingStartedAt: events.length
+      ? events.reduce((oldest, event) => event.created_at < oldest ? event.created_at : oldest, events[0].created_at)
+      : null,
+  };
 }
 
 /**

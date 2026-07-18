@@ -2,43 +2,29 @@
 
 import { DishPhoto } from "@/lib/types";
 import { SOURCE_LABELS } from "@/lib/labels";
+import type { DishSourceMix } from "@/lib/dishGrouping";
 import { useEffect, useRef, useState } from "react";
 
-/** PRD §4.2/§4.3 provenance badge — one of three labels per dish. */
+/** PRD §4.2/§4.3 provenance label used in the immersive Reveal. */
 export function provenanceLabel(dish: DishPhoto): string {
   if (dish.isMenuMatch) return "Menu Match";
   if (dish.attribution === "owner") return "From management";
   return "Spotted here";
 }
 
-/**
- * Which provenance badge a tile WOULD earn in the grid. Menu-match is the
- * baseline expectation ("this is a menu dish") so it never badges a tile;
- * management-provided and diner-contributed photos are the differentiating
- * cases. The grid then suppresses whichever label is the MAJORITY for the
- * current restaurant (see TopDishesGrid) — a badge repeated on nearly every
- * tile is the house norm, not information. The Reveal still shows full
- * provenance for every photo.
- */
-export function tileBadge(dish: DishPhoto): string | null {
-  if (dish.attribution === "owner") return "From management";
-  if (dish.source === "user_upload" || dish.source === "user_suggested") return "Spotted here";
-  return null;
-}
-
 export default function DishTile({
   dish,
   hero = false,
   variantCount = 1,
-  hiddenBadge = null,
+  sourceMix,
   onOpen,
 }: {
   dish: DishPhoto;
   hero?: boolean;
   /** How many photos exist of this same dish — renders a small "multiple photos" badge when > 1. */
   variantCount?: number;
-  /** Badge label suppressed grid-wide because it's this restaurant's majority provenance (see TopDishesGrid). */
-  hiddenBadge?: string | null;
+  /** Mgmt/customer coverage for the dish, including SeeFood's promoted customer subset. */
+  sourceMix?: DishSourceMix;
   onOpen: () => void;
 }) {
   const [loaded, setLoaded] = useState(false);
@@ -57,6 +43,7 @@ export default function DishTile({
   const hasName = !!dish.dishName;
   const aspectRatio = dish.width && dish.height ? dish.width / dish.height : 1;
   const hasMultiple = variantCount > 1;
+  const canCompare = !!sourceMix && sourceMix.management > 0 && sourceMix.customers > 0;
 
   return (
     <div className={`relative ${hero ? "" : "mb-2.5"}`}>
@@ -107,6 +94,22 @@ export default function DishTile({
             >
               {dish.dishName}
             </p>
+            {sourceMix && (
+              <p className={`mt-0.5 max-w-full truncate text-white/60 font-semibold ${hero ? "text-[10.5px]" : "text-[8.5px]"}`}>
+                {sourceMix.management > 0 && sourceMix.customers > 0
+                  ? `Mgmt ${sourceMix.management} · Customers ${sourceMix.customers}`
+                  : sourceMix.management > 0
+                  ? `Mgmt photo${sourceMix.management === 1 ? "" : `s · ${sourceMix.management}`}`
+                  : sourceMix.customers > 0
+                  ? `Customer photo${sourceMix.customers === 1 ? "" : `s · ${sourceMix.customers}`}`
+                  : "Be first to add a photo"}
+                {sourceMix.seeFood > 0 && (
+                  <span className="ml-1 rounded-full px-1 py-0.5 border border-[var(--accent)] text-white/90">
+                    {hero ? `${sourceMix.seeFood} on SF` : "SF"}
+                  </span>
+                )}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -125,10 +128,8 @@ export default function DishTile({
         </div>
       )}
 
-      {/* Provenance badge — top-left. Only once a dish is actually
-          identified; showing "Spotted here" on an unlabeled loading
-          placeholder claimed a provenance that wasn't real yet. On the hero
-          tile, a "Most Popular" tag stacks above it explaining the #1 spot. */}
+      {/* Source coverage now lives with the dish name. The top-left is kept
+          for rank context so the image never becomes a wall of badges. */}
       {loaded && hasName && (
         <div className="absolute top-2 left-2 flex flex-col items-start gap-1 pointer-events-none">
           {hero && (
@@ -139,25 +140,6 @@ export default function DishTile({
               Most Popular
             </div>
           )}
-          {(() => {
-            const badge = tileBadge(dish);
-            if (!badge || badge === hiddenBadge) return null;
-            const owner = dish.attribution === "owner";
-            return (
-              <div
-                className={`text-[10px] font-extrabold uppercase px-2 py-1 rounded-md leading-none ${
-                  owner ? "text-[#0a0a0a]" : "text-white/85"
-                }`}
-                style={{
-                  background: owner ? "rgba(251,191,36,0.96)" : "rgba(0,0,0,0.55)",
-                  backdropFilter: owner ? undefined : "blur(6px)",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                {badge}
-              </div>
-            );
-          })()}
         </div>
       )}
 
@@ -183,12 +165,19 @@ export default function DishTile({
             className="glass rounded-full flex items-center gap-1 px-1.5 py-1"
             style={{ background: "rgba(0,0,0,0.55)" }}
           >
-            <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="7" width="14" height="14" rx="2" />
-              <path d="M7 7V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-3" />
-            </svg>
+            {canCompare ? (
+              <span className="flex gap-0.5" aria-hidden>
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
+              </span>
+            ) : (
+              <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="7" width="14" height="14" rx="2" />
+                <path d="M7 7V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-3" />
+              </svg>
+            )}
             <span className="text-white/90 text-[10px] font-bold leading-none tabular-nums">
-              {variantCount}
+              {canCompare ? `Compare ${variantCount}` : variantCount}
             </span>
           </div>
         </div>

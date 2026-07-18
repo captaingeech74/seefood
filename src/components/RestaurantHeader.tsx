@@ -95,23 +95,34 @@ export default function RestaurantHeader({
           </span>
         </div>
 
-        <button
-          onClick={onChangeRestaurant}
-          className="hit-target relative flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
-          style={{ background: "var(--accent)" }}
-          aria-label="Change restaurant — open map"
-        >
-          <svg
-            width="13" height="13" viewBox="0 0 24 24" fill="none"
-            stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+        <div className="flex items-center gap-1.5">
+          <a
+            href={`/pulse?lat=${restaurant.lat}&lng=${restaurant.lng}`}
+            className="relative hit-target w-8 h-8 rounded-full flex items-center justify-center text-white/28 active:bg-white/8"
+            aria-label="Open development coverage analytics"
           >
-            <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
-          <span className="text-[12.5px] font-bold text-white whitespace-nowrap">
-            Change Restaurant
-          </span>
-        </button>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19V9M10 19V5M16 19v-7M22 19V3" />
+            </svg>
+          </a>
+          <button
+            onClick={onChangeRestaurant}
+            className="hit-target relative flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
+            style={{ background: "var(--accent)" }}
+            aria-label="Change restaurant — open map"
+          >
+            <svg
+              width="13" height="13" viewBox="0 0 24 24" fill="none"
+              stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            >
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            <span className="text-[12.5px] font-bold text-white whitespace-nowrap">
+              Change Restaurant
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Restaurant name — tap toggles the address/rating section below */}
@@ -196,6 +207,23 @@ export default function RestaurantHeader({
           to find it. */}
       {expanded && (
         <div className="mt-3 fade-in">
+          <div className="flex items-center justify-between gap-3 mb-2.5">
+            <p className="text-[12px] text-white/35 truncate font-medium">
+              {formatAddress(restaurant.address)}
+            </p>
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(restaurant.address || restaurant.name)}${restaurant.placeId ? `&destination_place_id=${restaurant.placeId}` : ""}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hit-target relative shrink-0 flex items-center gap-1 text-[12px] font-bold"
+              style={{ color: "var(--accent)" }}
+            >
+              Directions
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 17 17 7M7 7h10v10" />
+              </svg>
+            </a>
+          </div>
           <div className="relative mb-2">
             <svg
               width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -286,23 +314,6 @@ export default function RestaurantHeader({
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[12px] text-white/35 truncate font-medium">
-              {formatAddress(restaurant.address)}
-            </p>
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(restaurant.address || restaurant.name)}${restaurant.placeId ? `&destination_place_id=${restaurant.placeId}` : ""}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hit-target relative shrink-0 flex items-center gap-1 text-[12px] font-bold"
-              style={{ color: "var(--accent)" }}
-            >
-              Directions
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 17 17 7M7 7h10v10" />
-              </svg>
-            </a>
-          </div>
           <div className="flex justify-end mt-2.5">
             <button
               onClick={() => onSuggestDish()}

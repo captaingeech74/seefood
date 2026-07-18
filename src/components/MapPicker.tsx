@@ -43,6 +43,13 @@ interface MapPreview {
   totalDishCount: number;
 }
 
+interface NearbyDish {
+  placeId: string;
+  restaurantName: string;
+  rating?: number;
+  photo: DishPhoto;
+}
+
 // LRay's Kitchen (status='test_fixture') is a real Google Place that isn't
 // classified as an active restaurant — that's exactly why it was safe to
 // pick as a permanent demo fixture, but it also means Google's own
@@ -170,6 +177,7 @@ export default function MapPicker({
   const [searching, setSearching] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [selected, setSelected] = useState<SelectedPlace | null>(null);
+  const [nearbyDishes, setNearbyDishes] = useState<NearbyDish[]>([]);
   /** Post-search feedback ("7 restaurants found"), auto-dismissed. */
   const [foundToast, setFoundToast] = useState<string | null>(null);
 
@@ -315,6 +323,20 @@ export default function MapPicker({
         // Fail open — dot pins for everyone, map still fully usable.
       }
 
+      const nearby: NearbyDish[] = [];
+      for (const place of results) {
+        const preview = place.place_id ? previewsRef.current.get(place.place_id) : undefined;
+        if (!preview || !place.place_id) continue;
+        nearby.push({
+          placeId: place.place_id,
+          restaurantName: place.name || "Restaurant",
+          rating: place.rating ?? undefined,
+          photo: preview.topPhoto,
+        });
+        if (nearby.length === 8) break;
+      }
+      setNearbyDishes(nearby);
+
       // Composite marker icons before dropping pins so photo pins land
       // styled (circle + ring + anchor tail) rather than as raw squares.
       // Hard-capped: a photo host that never settles (no load OR error
@@ -350,6 +372,7 @@ export default function MapPicker({
       setSearching(true);
       setShowSearchHere(false);
       setSelected(null);
+      setNearbyDishes([]);
       clearMarkers();
 
       const center = mapInstance.getCenter();
@@ -457,7 +480,7 @@ export default function MapPicker({
     if (!mapRef.current || !window.google) return;
 
     const center = initialView ?? { lat, lng };
-    const zoom = initialView?.zoom ?? 15; // 15 = ~1250m radius; shows multiple restaurants vs 16 = ~625m (too tight in suburbs)
+    const zoom = initialView?.zoom ?? 13; // Wide enough for Best Nearby to represent multiple restaurants, even in suburbs.
 
     const mapInstance = new window.google.maps.Map(mapRef.current, {
       center,
@@ -578,7 +601,7 @@ export default function MapPicker({
     const map = mapInstanceRef.current;
     if (!map) return;
     map.panTo({ lat, lng });
-    map.setZoom(15);
+    map.setZoom(13);
     setTimeout(() => searchCurrentArea(map), 250);
   }, [lat, lng, searchCurrentArea]);
 
@@ -586,7 +609,7 @@ export default function MapPicker({
     <div className="fixed inset-0 z-50 bg-[var(--surface-0)] flex flex-col">
       {/* Header — search bar */}
       <div
-        className="px-3 pb-3 glass border-b border-[var(--border-subtle)]"
+        className="relative z-30 px-3 pb-3 glass border-b border-[var(--border-subtle)]"
         style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}
       >
         <div className="flex items-center gap-2 max-w-xl mx-auto">
@@ -640,8 +663,17 @@ export default function MapPicker({
       </div>
 
       {/* Map area */}
-      <div className="relative flex-1" style={{ background: "#16161c" }}>
-        <div ref={mapRef} className="w-full h-full" style={{ background: "#16161c" }} />
+      <div className="relative flex-1 overflow-hidden" style={{ background: "#16161c" }}>
+        <div
+          ref={mapRef}
+          className="absolute"
+          style={{
+            background: "#16161c",
+            inset: "-3% -4% -7%",
+            transform: "perspective(1000px) rotateX(5deg) scale(1.04)",
+            transformOrigin: "50% 0%",
+          }}
+        />
 
         {ready && showSearchHere && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none fade-up">
@@ -684,6 +716,7 @@ export default function MapPicker({
             opacity: selected ? 0 : 1,
             pointerEvents: selected ? "none" : "auto",
             transform: selected ? "scale(0.85)" : "scale(1)",
+            bottom: !selected && nearbyDishes.length > 0 ? 178 : 20,
             transition: "opacity 240ms var(--ease-standard), transform 240ms var(--ease-standard)",
           }}
           aria-label="Recenter on my location"
@@ -693,6 +726,50 @@ export default function MapPicker({
             <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
           </svg>
         </button>
+
+        {!selected && nearbyDishes.length > 0 && (
+          <div
+            className="absolute inset-x-0 bottom-0 z-20 pt-12 pb-3 fade-up"
+            style={{
+              paddingBottom: "max(12px, env(safe-area-inset-bottom))",
+              background: "linear-gradient(to top, rgba(10,10,10,0.98) 0%, rgba(10,10,10,0.82) 66%, transparent 100%)",
+            }}
+          >
+            <div className="flex items-end justify-between gap-3 px-4 mb-2.5">
+              <div>
+                <p className="text-white text-[17px] font-bold tracking-tight">Best nearby</p>
+                <p className="text-white/38 text-[11px] font-medium">Top dishes from restaurants around you</p>
+              </div>
+              <span className="text-white/28 text-[10px] uppercase tracking-[0.1em] font-bold">Tap to visit</span>
+            </div>
+            <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-4 pb-1" style={{ perspective: 800 }}>
+              {nearbyDishes.map((item, index) => (
+                <button
+                  key={item.placeId}
+                  type="button"
+                  onClick={() => onSelectRestaurant(item.placeId, item.restaurantName)}
+                  className="relative shrink-0 w-[132px] h-[104px] rounded-2xl overflow-hidden text-left border border-white/12 shadow-2xl active:scale-[0.97] transition-transform"
+                  style={{
+                    background: "var(--surface-2)",
+                    transform: `rotateY(${index % 2 === 0 ? -3 : 3}deg) translateY(${index % 3 === 1 ? 3 : 0}px)`,
+                    transformOrigin: "bottom center",
+                  }}
+                  aria-label={`Open ${item.photo.dishName || "top dishes"} at ${item.restaurantName}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={item.photo.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 p-2.5">
+                    <p className="text-white text-[12px] leading-tight font-bold line-clamp-1">{item.photo.dishName || "Top dish"}</p>
+                    <p className="text-white/58 text-[9.5px] leading-tight mt-0.5 truncate">
+                      {item.restaurantName}{item.rating ? ` · ${item.rating.toFixed(1)} ★` : ""}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Bottom sheet — restaurant preview + dish strip (PRD §4.4) */}
         {selected && (

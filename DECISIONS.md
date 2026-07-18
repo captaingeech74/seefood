@@ -1291,3 +1291,29 @@ silently failing, or just not worth the residential-IP complexity anymore
 (e.g. if DoorDash/Grubhub hit rates stay near zero after a fair trial),
 say so plainly and recommend fix / upgrade / kill with the reasoning —
 this job should never be allowed to just quietly rot unexamined.
+
+---
+
+## Mgmt vs Customers comparison + coverage pulse (July 18, 2026)
+
+Founder decision: photo comparison has exactly two top-level groups:
+**Mgmt** and **Customers**. A photo uploaded directly through seeFood remains
+a Customer photo, but receives the orange seeFood mark as promoted social
+proof. The detail drawer always exposes both groups, including an honest empty
+state, so comparison readiness is understandable and contribution gaps are
+visible. Grid tiles summarize the same source mix and only show the paired
+"Compare" cue when both groups exist.
+
+Map Explore remains restaurant navigation, but its default state now leads
+with a multi-restaurant **Best nearby** shelf: one top dish per nearby
+restaurant, each opening that restaurant directly. The base map gets a subtle
+perspective treatment while preserving Google Maps interaction and the
+existing photo pins/search/recenter behavior.
+
+The first admin surface is deliberately a coverage dashboard, not a broad
+product funnel. It measures a searched city/ZIP or current location: corpus
+restaurant count, average menu items and photos per restaurant, menu-match
+rate, seeFood-upload rate, photo-source breakdown, plus 7/30-day opens, unique
+visitors, loves, shares, and photo adds. First-party activity collection begins
+with this release; the UI explicitly says historical activity is unavailable
+rather than manufacturing a baseline.

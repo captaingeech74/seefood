@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DishPhoto } from "@/lib/types";
 import { dedupeToPrimary } from "@/lib/dishGrouping";
-import DishTile, { tileBadge } from "./DishTile";
+import DishTile from "./DishTile";
 
 const INITIAL_VISIBLE = 30;
 const BATCH_SIZE = 20;
@@ -56,7 +56,7 @@ export default function TopDishesGrid({
 
   // Dishes arrive pre-sorted by priority score from the server; dedupe to
   // one tile per dish, then bucket by tier without re-sorting within each.
-  const { primary, variantCounts } = useMemo(() => dedupeToPrimary(dishes), [dishes]);
+  const { primary, variantCounts, sourceMixes } = useMemo(() => dedupeToPrimary(dishes), [dishes]);
 
   const { tier1, tier2, tier3 } = useMemo(
     () => ({
@@ -71,22 +71,6 @@ export default function TopDishesGrid({
   // tier2, then tier3 — rather than a manual "More photos" click gate.
   const rankedList = useMemo(() => [...tier1, ...tier2, ...tier3], [tier1, tier2, tier3]);
 
-  // A provenance badge stamped on most of the grid is the restaurant's norm,
-  // not signal (LRay's: everything "From management") — suppress the label
-  // when it would appear on more than half the tiles, so only the
-  // exceptional provenance stands out.
-  const hiddenBadge = useMemo(() => {
-    if (primary.length < 4) return null;
-    const counts = new Map<string, number>();
-    for (const d of primary) {
-      const b = tileBadge(d);
-      if (b) counts.set(b, (counts.get(b) ?? 0) + 1);
-    }
-    for (const [label, n] of counts) {
-      if (n > primary.length / 2) return label;
-    }
-    return null;
-  }, [primary]);
   const maxVisible = Math.min(rankedList.length, MAX_VISIBLE);
   const canGrow = visibleCount < maxVisible;
 
@@ -180,7 +164,7 @@ export default function TopDishesGrid({
               key={dish.id}
               dish={dish}
               variantCount={variantCounts.get(dish.id) ?? 1}
-              hiddenBadge={hiddenBadge}
+              sourceMix={sourceMixes.get(dish.id)}
               onOpen={() => onOpenReveal(primary, i, dishes)}
             />
           ))}
@@ -200,7 +184,7 @@ export default function TopDishesGrid({
             dish={hero}
             hero
             variantCount={variantCounts.get(hero.id) ?? 1}
-              hiddenBadge={hiddenBadge}
+            sourceMix={sourceMixes.get(hero.id)}
             onOpen={() => onOpenReveal(rankedList, 0, dishes)}
           />
         </div>
@@ -213,7 +197,7 @@ export default function TopDishesGrid({
               key={dish.id}
               dish={dish}
               variantCount={variantCounts.get(dish.id) ?? 1}
-              hiddenBadge={hiddenBadge}
+              sourceMix={sourceMixes.get(dish.id)}
               onOpen={() => onOpenReveal(rankedList, i + 1, dishes)}
             />
           ))}

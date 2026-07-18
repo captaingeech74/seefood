@@ -5,7 +5,7 @@ import { DishPhoto, Restaurant } from "@/lib/types";
 import { provenanceLabel } from "./DishTile";
 import { shareDish } from "@/lib/share";
 import { pickPrimary } from "@/lib/dishGrouping";
-import { SOURCE_LABELS } from "@/lib/labels";
+import { trackEvent } from "@/lib/analytics";
 import PhotoSourceSheet from "./PhotoSourceSheet";
 
 interface RevealProps {
@@ -54,6 +54,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   const [isHAnimating, setIsHAnimating] = useState(false);
   const [isHResetting, setIsHResetting] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [detailSource, setDetailSource] = useState<"management" | "customers">("customers");
   const [variantIndex, setVariantIndex] = useState(0);
   const [uploadedPhotos, setUploadedPhotos] = useState<DishPhoto[]>([]);
   // Once true, the swipe-right-only hint upgrades to show both directions —
@@ -318,13 +319,32 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     }
   };
 
-  // "SeeFood" moment (Kyle's idea): when a dish has photos from BOTH
-  // management and real diners, let people compare the ad shot to what
-  // actually showed up on their table — split into two labeled carousels
-  // instead of one flat strip. Falls back to the flat strip otherwise.
-  const managementPhotos = useMemo(() => variants.filter((p) => p.attribution === "owner"), [variants]);
-  const dinerPhotos = useMemo(() => variants.filter((p) => p.attribution === "user"), [variants]);
-  const canCompare = managementPhotos.length > 0 && dinerPhotos.length > 0;
+  // The product comparison stays deliberately two-sided: management versus
+  // customers. SeeFood uploads are a promoted subset of customer photos,
+  // never a third mode the user has to understand.
+  const managementPhotos = useMemo(
+    () => variants.filter((p) => p.attribution === "owner" && p.source !== "user_upload" && p.source !== "user_suggested"),
+    [variants]
+  );
+  const customerPhotos = useMemo(
+    () => variants.filter((p) => p.attribution === "user" || p.source === "user_upload" || p.source === "user_suggested"),
+    [variants]
+  );
+  const detailPhotos = detailSource === "management" ? managementPhotos : customerPhotos;
+
+  useEffect(() => {
+    if (!detailOpen || !activePhoto) return;
+    const seeFoodPhoto = activePhoto.source === "user_upload" || activePhoto.source === "user_suggested";
+    setDetailSource(activePhoto.attribution === "owner" && !seeFoodPhoto ? "management" : "customers");
+  }, [detailOpen, activePhoto]);
+
+  const chooseDetailSource = (source: "management" | "customers") => {
+    setDetailSource(source);
+    const first = source === "management" ? managementPhotos[0] : customerPhotos[0];
+    if (!first) return;
+    const i = variants.indexOf(first);
+    if (i >= 0) setVariantIndex(i);
+  };
 
   const [sharing, setSharing] = useState(false);
   const handleShare = async () => {
@@ -332,6 +352,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     setSharing(true);
     try {
       await shareDish(activePhoto, restaurant);
+      trackEvent("share", restaurant.placeId || restaurant.id, { photoId: activePhoto.id });
     } finally {
       setSharing(false);
     }
@@ -373,6 +394,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         body: JSON.stringify({ photoId: activePhoto.id, unlove: !next || undefined }),
       });
       if (!res.ok) throw new Error("failed");
+      if (next) trackEvent("love", restaurant.placeId || restaurant.id, { photoId: activePhoto.id });
     } catch {
       setLoved(!next);
       setLoveCount((c) => Math.max(0, c + (next ? -1 : 1)));
@@ -428,6 +450,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         const newIndex = variants.length;
         setUploadedPhotos((prev) => [...prev, data.photo]);
         setVariantIndex(newIndex);
+        trackEvent("photo_add", restaurant.placeId || restaurant.id, { surface: "dish_detail" });
       } else {
         alert(data.error || "Upload failed — please try again.");
       }
@@ -746,38 +769,57 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
             <p className="text-white/65 text-[14px] leading-relaxed">{photo.dishDescription}</p>
           )}
 
-          {/* Visual separation between the description and the photo carousels below */}
+          {/* Visual separation between the description and comparison controls below */}
           <div className="h-px bg-white/10 my-4" />
 
-          {canCompare ? (
-            <div className="mb-4 space-y-3">
-              <PhotoStrip label="Photos - Management" photos={managementPhotos} activeId={activePhoto.id} onPick={(p) => {
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-white/6 mb-2" role="group" aria-label="Photo source">
+            <button
+              type="button"
+              onClick={() => chooseDetailSource("management")}
+              aria-pressed={detailSource === "management"}
+              className="min-h-10 rounded-lg text-[13px] font-bold transition-colors"
+              style={{
+                background: detailSource === "management" ? "rgba(255,255,255,0.12)" : "transparent",
+                color: detailSource === "management" ? "white" : "rgba(255,255,255,0.45)",
+              }}
+            >
+              Mgmt <span className="text-white/35">{managementPhotos.length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => chooseDetailSource("customers")}
+              aria-pressed={detailSource === "customers"}
+              className="min-h-10 rounded-lg text-[13px] font-bold transition-colors"
+              style={{
+                background: detailSource === "customers" ? "var(--accent)" : "transparent",
+                color: detailSource === "customers" ? "white" : "rgba(255,255,255,0.45)",
+              }}
+            >
+              Customers <span className={detailSource === "customers" ? "text-white/65" : "text-white/35"}>{customerPhotos.length}</span>
+            </button>
+          </div>
+
+          <p className="text-white/42 text-[11.5px] leading-relaxed mb-3">
+            {detailSource === "management"
+              ? "Photos shared by management."
+              : "Photos shared by customers. The orange mark shows seeFood-user photos!"}
+          </p>
+
+          <div className="mb-4 min-h-16">
+            {detailPhotos.length > 0 ? (
+              <PhotoStrip photos={detailPhotos} activeId={activePhoto.id} onPick={(p) => {
                 const i = variants.indexOf(p);
                 if (i >= 0) setVariantIndex(i);
               }} />
-              <PhotoStrip label="Photos - Real Diners" photos={dinerPhotos} activeId={activePhoto.id} onPick={(p) => {
-                const i = variants.indexOf(p);
-                if (i >= 0) setVariantIndex(i);
-              }} accent />
-            </div>
-          ) : (
-            variants.length > 1 && (
-              <div className="mb-4">
-                <p className="text-[10px] uppercase font-bold text-white/35 mb-2" style={{ letterSpacing: "0.14em" }}>
-                  More photos of this dish
-                </p>
-                <PhotoStrip photos={variants} activeId={activePhoto.id} onPick={(p) => {
-                  const i = variants.indexOf(p);
-                  if (i >= 0) setVariantIndex(i);
-                }} />
-              </div>
-            )
-          )}
-
-          <div className="mb-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-white/8 text-white/55">
-              {SOURCE_LABELS[activePhoto.source]}
-            </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setPhotoSourceOpen(true)}
+                className="w-full min-h-16 rounded-xl border border-dashed border-white/15 text-white/45 text-[12px] font-semibold active:bg-white/5"
+              >
+                {detailSource === "management" ? "No management photos yet" : "Be the first customer to add one"}
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-2.5 mb-1">
@@ -907,41 +949,38 @@ function HSlide({
 }
 
 function PhotoStrip({
-  label,
   photos,
   activeId,
   onPick,
-  accent = false,
 }: {
-  label?: string;
   photos: DishPhoto[];
   activeId: string;
   onPick: (p: DishPhoto) => void;
-  accent?: boolean;
 }) {
   return (
-    <div>
-      {label && (
-        <p
-          className="text-[10px] font-bold uppercase mb-1.5"
-          style={{ letterSpacing: "0.1em", color: accent ? "var(--accent)" : "rgba(255,255,255,0.4)" }}
-        >
-          {label}
-        </p>
-      )}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
         {photos.map((p) => (
           <button
             key={p.id}
             onClick={() => onPick(p)}
-            className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2"
-            style={{ borderColor: p.id === activeId ? "var(--accent)" : "transparent" }}
+            className="relative shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2"
+            style={{
+              borderColor: p.source === "user_upload" || p.source === "user_suggested"
+                ? "var(--accent)"
+                : p.id === activeId ? "rgba(255,255,255,0.8)" : "transparent",
+              boxShadow: p.id === activeId ? "0 0 0 2px rgba(255,255,255,0.18)" : undefined,
+            }}
+            aria-label={`View ${p.source === "user_upload" || p.source === "user_suggested" ? "seeFood user" : p.attribution === "owner" ? "management" : "customer"} photo`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.url} alt="" className="w-full h-full object-cover" />
+            {(p.source === "user_upload" || p.source === "user_suggested") && (
+              <span className="absolute right-1 bottom-1 rounded-full bg-[var(--accent)] text-white text-[8px] leading-none font-extrabold px-1.5 py-1 shadow-lg">
+                SF
+              </span>
+            )}
           </button>
         ))}
-      </div>
     </div>
   );
 }

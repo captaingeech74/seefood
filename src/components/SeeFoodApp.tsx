@@ -9,6 +9,7 @@ import PopularDishes from "@/components/PopularDishes";
 import MapPicker, { MapView } from "@/components/MapPicker";
 import LoadingScreen from "@/components/LoadingScreen";
 import SuggestDishModal from "@/components/SuggestDishModal";
+import { trackAppOpen } from "@/lib/analytics";
 
 type AppState =
   | "locating"
@@ -189,6 +190,10 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
     // are stable for the lifetime of this decision.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (restaurant) trackAppOpen(restaurant.placeId || restaurant.id);
+  }, [restaurant]);
 
   const handleSelectRestaurant = useCallback(
     (placeId: string, _name: string) => {

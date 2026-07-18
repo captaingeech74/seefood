@@ -31,7 +31,17 @@ export function pickPrimary(group: DishPhoto[]): DishPhoto {
  * original first-occurrence order, plus a variant-count map keyed by the
  * representative's id, for the grid's "multiple photos" badge.
  */
-export function dedupeToPrimary(photos: DishPhoto[]): { primary: DishPhoto[]; variantCounts: Map<string, number> } {
+export interface DishSourceMix {
+  management: number;
+  customers: number;
+  seeFood: number;
+}
+
+export function dedupeToPrimary(photos: DishPhoto[]): {
+  primary: DishPhoto[];
+  variantCounts: Map<string, number>;
+  sourceMixes: Map<string, DishSourceMix>;
+} {
   const groups = new Map<string, DishPhoto[]>();
   const order: string[] = [];
   photos.forEach((p) => {
@@ -45,11 +55,17 @@ export function dedupeToPrimary(photos: DishPhoto[]): { primary: DishPhoto[]; va
 
   const primary: DishPhoto[] = [];
   const variantCounts = new Map<string, number>();
+  const sourceMixes = new Map<string, DishSourceMix>();
   for (const key of order) {
     const group = groups.get(key)!;
     const best = pickPrimary(group);
     primary.push(best);
     variantCounts.set(best.id, group.length);
+    sourceMixes.set(best.id, {
+      management: group.filter((photo) => photo.attribution === "owner" && photo.source !== "user_upload" && photo.source !== "user_suggested").length,
+      customers: group.filter((photo) => photo.attribution === "user" || photo.source === "user_upload" || photo.source === "user_suggested").length,
+      seeFood: group.filter((photo) => photo.source === "user_upload" || photo.source === "user_suggested").length,
+    });
   }
-  return { primary, variantCounts };
+  return { primary, variantCounts, sourceMixes };
 }
