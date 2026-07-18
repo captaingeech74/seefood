@@ -1,6 +1,7 @@
 import { Restaurant, DishPhoto, MenuItemData, DataSource } from "./types";
 import { extractPopularDishes } from "./reviewParser";
 import { fetchMenuFromUrl } from "./menuSources";
+import { defaultPhotoQuality, heroScore, withPhotoSignals } from "./photoSignals";
 
 const API_KEY   = process.env.GOOGLE_MAPS_API_KEY!.trim();
 const VISION_KEY = (process.env.VISION_API_KEY || API_KEY).trim();
@@ -296,6 +297,9 @@ interface GeminiResult {
   /** Marketing graphic (logo/price text/collage), not a photo of the served dish. Conservative — see the prompt. */
   isPromotional: boolean;
   isMenuPhoto: boolean;
+  isStorefront: boolean;
+  /** 0-100 visual quality: sharpness, lighting, framing, appetizing presentation. */
+  photoQualityScore: number;
   /** Original analysisUrls index of an earlier near-duplicate photo, or null. */
   duplicateOfIndex: number | null;
 }
@@ -332,6 +336,8 @@ async function analyzePhotosWithGeminiBatch(
     isOrderable: true, // fail-open: keep the photo unlabeled rather than hide it on a Gemini outage
     isPromotional: false,
     isMenuPhoto: false,
+    isStorefront: false,
+    photoQualityScore: 55,
     duplicateOfIndex: null,
   };
   if (analysisUrls.length === 0) return [];
@@ -355,7 +361,7 @@ ${
         .map((name, i) => `${i + 1}. ${name}`)
         .join("\n")}\n\n`
     : ""
-}For EACH photo, first decide: is this something a customer would actually order and be excited to eat — a plated dish, a drink made for them, a dessert? NOT a fridge of assorted bottled/canned drinks, a storefront, an interior/decor shot, a menu board, a golf course or other non-food facility shot, or a group of unrelated items. Set isOrderable to false for all of those, even if food is technically visible.
+}For EACH photo, first decide: is this something a customer would actually order and be excited to eat — a plated dish, a drink made for them, a dessert? NOT a fridge of assorted bottled/canned drinks, a storefront, an interior/decor shot, a menu board, a golf course or other non-food facility shot, or a group of unrelated items. Set isOrderable to false for all of those, even if food is technically visible. Set "isStorefront" true only for an exterior/storefront photo.
 
 Also decide "isPromotional": true if the image is clearly a marketing graphic rather than a photo of the actual served dish — e.g. it has bold overlaid price/promo text, a brand logo watermark, a solid-color ad background, or is a collage of multiple items arranged for advertising (a classic example: a delivery-app "3 MEAT TREAT $6" style pizza-chain ad graphic). A single real plated dish, drink, or dessert is NEVER promotional, even if professionally lit or styled — when in doubt, set isPromotional to false. Wrongly letting an ad through is much better than wrongly hiding a real food photo.
 
@@ -367,10 +373,12 @@ If isOrderable is true AND isPromotional is false for a photo:
 
 Otherwise set "name" and "description" to null.
 
+Set "photoQualityScore" from 0 to 100 based on sharpness, lighting, composition, clear visibility of the dish, and how appetizing the actual food looks. Ignore whether the photo is professional or customer-shot; score the visible result.
+
 Also decide "duplicateOfPhotoNumber": if this photo is a near-identical or duplicate shot of an EARLIER photo in this set (the same physical plate/moment — e.g. Google assigned two photo IDs to what's really one upload), return that earlier photo's number; otherwise null. Two different photos of the same dish type taken by different people are NOT duplicates — only flag true same-shot duplicates.
 
 Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one per photo in order, no markdown fences, no explanation:
-[{"isFood": boolean, "isOrderable": boolean, "isPromotional": boolean, "isMenuPhoto": boolean, "name": string|null, "description": string|null, "duplicateOfPhotoNumber": number|null}, ...]`;
+[{"isFood": boolean, "isOrderable": boolean, "isPromotional": boolean, "isMenuPhoto": boolean, "isStorefront": boolean, "photoQualityScore": number, "name": string|null, "description": string|null, "duplicateOfPhotoNumber": number|null}, ...]`;
 
   const parts: unknown[] = [{ text: promptIntro }];
   validIndices.forEach((idx, n) => {
@@ -429,6 +437,8 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
         isOrderable?: boolean;
         isPromotional?: boolean;
         isMenuPhoto?: boolean;
+        isStorefront?: boolean;
+        photoQualityScore?: number;
         name?: string | null;
         description?: string | null;
         duplicateOfPhotoNumber?: number | null;
@@ -470,6 +480,8 @@ function resolveGeminiEntry(
         isOrderable?: boolean;
         isPromotional?: boolean;
         isMenuPhoto?: boolean;
+        isStorefront?: boolean;
+        photoQualityScore?: number;
         name?: string | null;
         description?: string | null;
       }
@@ -486,6 +498,8 @@ function resolveGeminiEntry(
     isOrderable: true,
     isPromotional: false,
     isMenuPhoto: false,
+    isStorefront: false,
+    photoQualityScore: 55,
     duplicateOfIndex: null,
   };
   if (!entry) return fallback;
@@ -498,6 +512,8 @@ function resolveGeminiEntry(
       isOrderable: !!entry.isOrderable,
       isPromotional: !!entry.isPromotional,
       isMenuPhoto: !!entry.isMenuPhoto,
+      isStorefront: !!entry.isStorefront,
+      photoQualityScore: Math.min(100, Math.max(0, Number(entry.photoQualityScore) || 40)),
       duplicateOfIndex: null,
     };
   }
@@ -512,6 +528,8 @@ function resolveGeminiEntry(
       isOrderable: true,
       isPromotional: false,
       isMenuPhoto: false,
+      isStorefront: false,
+      photoQualityScore: Math.min(100, Math.max(0, Number(entry.photoQualityScore) || 55)),
       duplicateOfIndex: null,
     };
   }
@@ -544,6 +562,8 @@ function resolveGeminiEntry(
     isOrderable: true,
     isPromotional: false,
     isMenuPhoto: false,
+    isStorefront: false,
+    photoQualityScore: Math.min(100, Math.max(0, Number(entry.photoQualityScore) || 55)),
     duplicateOfIndex: null,
   };
 }
@@ -561,13 +581,14 @@ function resolveGeminiEntry(
 interface PreLabeledQualityResult {
   isPromotional: boolean;
   duplicateOfIndex: number | null; // index within `photos` of an earlier duplicate, or null
+  photoQualityScore: number;
 }
 
 async function assessPreLabeledPhotos(
   photos: DishPhoto[],
   restaurantName: string
 ): Promise<PreLabeledQualityResult[]> {
-  const fallback: PreLabeledQualityResult = { isPromotional: false, duplicateOfIndex: null };
+  const fallback: PreLabeledQualityResult = { isPromotional: false, duplicateOfIndex: null, photoQualityScore: 70 };
   if (photos.length === 0) return [];
 
   const images = await Promise.all(photos.map((p) => fetchImageAsBase64(p.url)));
@@ -580,8 +601,10 @@ For EACH photo, decide "isPromotional": true ONLY if the image is clearly a mark
 
 Also decide "duplicateOfPhotoNumber": if this photo is a near-identical or duplicate shot of an EARLIER photo in this set (the same physical dish/plate/moment — not just a similar dish), return that earlier photo's number; otherwise null.
 
+Set "photoQualityScore" from 0 to 100 based on sharpness, lighting, composition, clear visibility of the dish, and how appetizing the actual food looks.
+
 Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one per photo in order, no markdown fences, no explanation:
-[{"isPromotional": boolean, "duplicateOfPhotoNumber": number|null}, ...]`;
+[{"isPromotional": boolean, "photoQualityScore": number, "duplicateOfPhotoNumber": number|null}, ...]`;
 
   const parts: unknown[] = [{ text: promptIntro }];
   validIndices.forEach((idx, n) => {
@@ -620,7 +643,7 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
       const json = await res.json();
       const rawText: string = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
 
-      let parsed: Array<{ isPromotional?: boolean; duplicateOfPhotoNumber?: number | null }>;
+      let parsed: Array<{ isPromotional?: boolean; photoQualityScore?: number; duplicateOfPhotoNumber?: number | null }>;
       try {
         parsed = JSON.parse(rawText);
         if (!Array.isArray(parsed)) throw new Error("not an array");
@@ -639,7 +662,11 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
           (typeof dupNum === "number" && dupNum >= 1 && dupNum <= validIndices.length && validIndices[dupNum - 1] !== originalIdx
             ? validIndices[dupNum - 1]
             : null);
-        out[originalIdx] = { isPromotional: !!entry?.isPromotional, duplicateOfIndex: dupOriginalIdx };
+        out[originalIdx] = {
+          isPromotional: !!entry?.isPromotional,
+          duplicateOfIndex: dupOriginalIdx,
+          photoQualityScore: Math.min(100, Math.max(0, Number(entry?.photoQualityScore) || 70)),
+        };
       });
       return out;
     } catch (e) {
@@ -757,6 +784,16 @@ function computePriorityScore(
   if (isMenuMatch)              return 50;
   if (isPopular)                return 30 + Math.max(0, 8 - popIndex);
   return 10;
+}
+
+function computeDishPopularityScore(dishName: string | null, popularDishes: string[]): number {
+  if (!dishName) return 0;
+  const lower = dishName.toLowerCase();
+  const index = popularDishes.findIndex((candidate) => {
+    const normalized = candidate.toLowerCase();
+    return normalized === lower || normalized.includes(lower) || lower.includes(normalized);
+  });
+  return index < 0 ? 8 : Math.max(45, 100 - index * 8);
 }
 
 /** Confidence pyramid (PRD §4.2): score → grid tier. Mirrors computePriorityScore's bands. */
@@ -1051,6 +1088,8 @@ export async function finalizeWithGemini(
       isOrderable: true,
       isPromotional: false,
       isMenuPhoto: false,
+      isStorefront: false,
+      photoQualityScore: 55,
       duplicateOfIndex: null,
     };
     // Drop non-food, non-orderable (facility/decor/fridge shots), promotional
@@ -1062,8 +1101,7 @@ export async function finalizeWithGemini(
     if (!result.isFood || !result.isOrderable || result.isPromotional || result.isMenuPhoto) return;
     if (result.duplicateOfIndex !== null) return; // near-identical shot of an earlier photo — drop it, not the original
     const score = computePriorityScore(result.dishName, result.isMenuMatch, popularDishes);
-    geminiPhotos.push({
-      photo: {
+    const photo = withPhotoSignals({
         id: `raw-${placeId}-${i}`,
         url: candidate.displayUrl,
         dishName: result.dishName,
@@ -1075,9 +1113,16 @@ export async function finalizeWithGemini(
         width: candidate.width,
         height: candidate.height,
         loveCount: 0,
-      primaryVotes: 0,
-      },
-      score,
+        primaryVotes: 0,
+        photoQualityScore: result.photoQualityScore,
+        dishPopularityScore: computeDishPopularityScore(result.dishName, popularDishes),
+        isHeroCandidate: !!result.dishName && !result.isStorefront && result.photoQualityScore >= 55,
+        isStorefront: result.isStorefront,
+        isMenuPhoto: result.isMenuPhoto,
+      });
+    geminiPhotos.push({
+      photo,
+      score: heroScore(photo),
     });
   });
 
@@ -1093,9 +1138,22 @@ export async function finalizeWithGemini(
   const scoredPreLabeled = preLabeledPhotos
     .map((photo, i) => ({ photo, quality: preLabeledQuality[i] }))
     .filter(({ quality }) => !quality?.isPromotional && quality?.duplicateOfIndex === null)
-    .map(({ photo }) => ({ photo: { ...photo, tier: scoreToTier(PRE_LABELED_SCORE) }, score: PRE_LABELED_SCORE }));
+    .map(({ photo, quality }) => {
+      const signaled = withPhotoSignals({
+        ...photo,
+        tier: scoreToTier(PRE_LABELED_SCORE),
+        photoQualityScore: quality?.photoQualityScore ?? defaultPhotoQuality(photo),
+        dishPopularityScore: computeDishPopularityScore(photo.dishName, popularDishes),
+        isHeroCandidate: !!photo.dishName && (quality?.photoQualityScore ?? 70) >= 55,
+        isStorefront: false,
+        isMenuPhoto: false,
+      });
+      return { photo: signaled, score: heroScore(signaled) };
+    });
 
   const all = [...scoredPreLabeled, ...geminiPhotos];
+
+  all.sort((a, b) => b.score - a.score);
 
   return { photos: all.map((e) => e.photo), menuItems: allMenuItems };
 }

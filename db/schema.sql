@@ -36,6 +36,10 @@ create table if not exists photos (
   origin_url        text,        -- source URL (used until copied to R2)
   source            text not null,
   attribution       text default 'owner', -- 'owner' | 'user'
+  source_platform   text,
+  photo_author_type text, -- 'management' | 'customer' | 'unknown'
+  trust_label       text,
+  attribution_confidence numeric default 0.5,
   tier               int default 2,        -- 1 = menu-matched/pre-labeled, 2 = AI-identified, 3 = low-confidence
   gemini_label      text,
   is_orderable      boolean default true,
@@ -43,6 +47,17 @@ create table if not exists photos (
   height            int,
   love_count        int default 0,  -- "I Loved This" tap count (no accounts — dedup is per-browser via localStorage only)
   primary_votes     int default 0,  -- thumbs-up while browsing same-dish variants — promotes which photo represents the dish in the grid (see computePrimaryPhoto)
+  photo_quality_score numeric default 0,
+  dish_popularity_score numeric default 0,
+  is_hero_candidate boolean default false,
+  is_storefront     boolean default false,
+  is_menu_photo     boolean default false,
+  comparison_ready boolean default false,
+  contributor_id   text,
+  submitted_at      timestamptz,
+  moderation_status text default 'approved',
+  duplicate_hash   text,
+  abuse_flags      jsonb default '[]'::jsonb,
   created_at        timestamptz default now()
 );
 

@@ -7,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 import { DishPhoto, MenuItemData, Restaurant } from "./types";
 import { dedupeToPrimary } from "./dishGrouping";
 import type { AnalyticsEventName } from "./analytics";
+import { normalizePhotoAuthor, trustLabel, withPhotoSignals } from "./photoSignals";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -40,12 +41,60 @@ interface PhotoRow {
   menu_item_id: number | null;
   love_count: number | null;
   primary_votes: number | null;
+  source_platform: string | null;
+  photo_author_type: string | null;
+  trust_label: string | null;
+  photo_quality_score: number | null;
+  dish_popularity_score: number | null;
+  is_hero_candidate: boolean | null;
+  is_storefront: boolean | null;
+  is_menu_photo: boolean | null;
+  comparison_ready: boolean | null;
+  contributor_id: string | null;
+  submitted_at: string | null;
+  moderation_status: string | null;
+  duplicate_hash: string | null;
+  abuse_flags: string[] | null;
 }
 
 interface MenuItemRow {
   id: number;
   name: string;
   description: string | null;
+}
+
+function rowToDishPhoto(p: PhotoRow, menuItem?: MenuItemRow): DishPhoto {
+  const source = p.source as DishPhoto["source"];
+  const legacyAttribution = p.attribution as DishPhoto["attribution"];
+  const authorType = (p.photo_author_type as DishPhoto["photoAuthorType"]) ?? normalizePhotoAuthor(source, legacyAttribution);
+  return withPhotoSignals({
+    id: `corpus-${p.id}`,
+    url: p.storage_url ?? p.origin_url ?? "",
+    dishName: menuItem?.name ?? p.gemini_label ?? null,
+    dishDescription: menuItem?.description ?? null,
+    isMenuMatch: !!menuItem,
+    source,
+    attribution: legacyAttribution,
+    sourcePlatform: (p.source_platform as DishPhoto["sourcePlatform"]) ?? source,
+    photoAuthorType: authorType,
+    trustLabel: (p.trust_label as DishPhoto["trustLabel"]) ?? trustLabel(source, authorType ?? "unknown"),
+    tier: (p.tier ?? (menuItem ? 1 : p.gemini_label ? 2 : 3)) as 1 | 2 | 3,
+    width: p.width ?? 800,
+    height: p.height ?? 600,
+    loveCount: p.love_count ?? 0,
+    primaryVotes: p.primary_votes ?? 0,
+    photoQualityScore: p.photo_quality_score ?? undefined,
+    dishPopularityScore: p.dish_popularity_score ?? undefined,
+    isHeroCandidate: p.is_hero_candidate ?? undefined,
+    isStorefront: p.is_storefront ?? false,
+    isMenuPhoto: p.is_menu_photo ?? false,
+    comparisonReady: p.comparison_ready ?? false,
+    contributorId: p.contributor_id,
+    submittedAt: p.submitted_at,
+    moderationStatus: (p.moderation_status as DishPhoto["moderationStatus"]) ?? "approved",
+    duplicateHash: p.duplicate_hash,
+    abuseFlags: p.abuse_flags ?? [],
+  });
 }
 
 /**
@@ -92,20 +141,7 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
 
   const photos: DishPhoto[] = (photoRows as PhotoRow[]).map((p) => {
     const menuItem = p.menu_item_id ? menuItemsById.get(p.menu_item_id) : undefined;
-    return {
-      id: `corpus-${p.id}`,
-      url: p.storage_url ?? p.origin_url ?? "",
-      dishName: menuItem?.name ?? p.gemini_label ?? null,
-      dishDescription: menuItem?.description ?? null,
-      isMenuMatch: !!menuItem,
-      source: p.source as DishPhoto["source"],
-      attribution: p.attribution as DishPhoto["attribution"],
-      tier: (p.tier ?? (menuItem ? 1 : p.gemini_label ? 2 : 3)) as 1 | 2 | 3,
-      width: p.width ?? 800,
-      height: p.height ?? 600,
-      loveCount: p.love_count ?? 0,
-      primaryVotes: p.primary_votes ?? 0,
-    };
+    return rowToDishPhoto(p, menuItem);
   });
 
   const ageMs = Date.now() - new Date(restaurant.updated_at).getTime();
@@ -345,20 +381,7 @@ export async function getMapPhotosForPlaceIds(
   const byRestaurant = new Map<string, DishPhoto[]>();
   for (const p of photoRows as (PhotoRow & { restaurant_id: string })[]) {
     const menuItem = p.menu_item_id ? menuItemsById.get(p.menu_item_id) : undefined;
-    const photo: DishPhoto = {
-      id: `corpus-${p.id}`,
-      url: p.storage_url ?? p.origin_url ?? "",
-      dishName: menuItem?.name ?? p.gemini_label ?? null,
-      dishDescription: menuItem?.description ?? null,
-      isMenuMatch: !!menuItem,
-      source: p.source as DishPhoto["source"],
-      attribution: p.attribution as DishPhoto["attribution"],
-      tier: (p.tier ?? (menuItem ? 1 : p.gemini_label ? 2 : 3)) as 1 | 2 | 3,
-      width: p.width ?? 800,
-      height: p.height ?? 600,
-      loveCount: p.love_count ?? 0,
-      primaryVotes: p.primary_votes ?? 0,
-    };
+    const photo = rowToDishPhoto(p, menuItem);
     const list = byRestaurant.get(p.restaurant_id) ?? [];
     list.push(photo);
     byRestaurant.set(p.restaurant_id, list);
@@ -367,7 +390,7 @@ export async function getMapPhotosForPlaceIds(
   for (const [placeId, photos] of byRestaurant) {
     if (photos.length === 0) continue;
     const { primary } = dedupeToPrimary(photos);
-    result.set(placeId, { topPhoto: photos[0], dishes: photos.slice(0, 5), totalDishCount: primary.length });
+    result.set(placeId, { topPhoto: primary[0], dishes: primary.slice(0, 5), totalDishCount: primary.length });
   }
   return result;
 }
@@ -574,6 +597,61 @@ export async function findExistingMenuItemByName(placeId: string, name: string):
   return match?.id ?? null;
 }
 
+export async function hasDuplicatePhoto(placeId: string, duplicateHash: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("photos")
+    .select("id")
+    .eq("restaurant_id", placeId)
+    .eq("duplicate_hash", duplicateHash)
+    .limit(1);
+  return (data?.length ?? 0) > 0;
+}
+
+async function refreshRestaurantPhotoSignals(placeId: string): Promise<void> {
+  const { data } = await supabase
+    .from("photos")
+    .select("id,menu_item_id,gemini_label,photo_author_type,source,attribution,love_count,primary_votes")
+    .eq("restaurant_id", placeId);
+  if (!data) return;
+
+  const groups = new Map<string, typeof data>();
+  for (const photo of data) {
+    const key = photo.menu_item_id
+      ? `menu-${photo.menu_item_id}`
+      : photo.gemini_label
+      ? `label-${photo.gemini_label.toLowerCase().trim()}`
+      : `photo-${photo.id}`;
+    const group = groups.get(key) ?? [];
+    group.push(photo);
+    groups.set(key, group);
+  }
+
+  const comparisonBuckets = new Map<boolean, number[]>();
+  const popularityBuckets = new Map<number, number[]>();
+  for (const group of groups.values()) {
+    const authors = group.map((photo) =>
+      photo.photo_author_type ?? normalizePhotoAuthor(photo.source as DishPhoto["source"], photo.attribution)
+    );
+    const comparisonReady = authors.includes("management") && authors.includes("customer");
+    const popularity = Math.min(
+      100,
+      group.length * 7 + group.reduce((sum, photo) => sum + (photo.love_count ?? 0) * 3 + (photo.primary_votes ?? 0) * 4, 0)
+    );
+    const ids = group.map((photo) => photo.id);
+    comparisonBuckets.set(comparisonReady, [...(comparisonBuckets.get(comparisonReady) ?? []), ...ids]);
+    popularityBuckets.set(popularity, [...(popularityBuckets.get(popularity) ?? []), ...ids]);
+  }
+
+  await Promise.all([
+    ...[...comparisonBuckets].map(([comparisonReady, ids]) =>
+      supabase.from("photos").update({ comparison_ready: comparisonReady }).in("id", ids)
+    ),
+    ...[...popularityBuckets].map(([popularity, ids]) =>
+      supabase.from("photos").update({ dish_popularity_score: popularity }).in("id", ids)
+    ),
+  ]);
+}
+
 /** Persist menu items, returns a name→id map for linking photos to items. */
 export async function saveMenuItems(
   placeId: string,
@@ -616,6 +694,11 @@ export async function savePhotos(
     height: number;
     geminiLabel?: string | null;
     menuItemId?: number;
+    photoQualityScore?: number;
+    dishPopularityScore?: number;
+    isHeroCandidate?: boolean;
+    isStorefront?: boolean;
+    isMenuPhoto?: boolean;
   }>
 ): Promise<void> {
   if (photos.length === 0) return;
@@ -636,19 +719,31 @@ export async function savePhotos(
     return true;
   });
 
-  const rows = deduped.map((p) => ({
-    restaurant_id: placeId,
-    origin_url: p.originUrl,
-    storage_url: p.storageUrl ?? null,
-    source: p.source,
-    attribution: p.attribution,
-    is_orderable: p.isOrderable,
-    tier: p.tier,
-    width: p.width,
-    height: p.height,
-    gemini_label: p.geminiLabel ?? null,
-    menu_item_id: p.menuItemId ?? null,
-  }));
+  const rows = deduped.map((p) => {
+    const source = p.source as DishPhoto["source"];
+    const authorType = normalizePhotoAuthor(source, p.attribution as DishPhoto["attribution"]);
+    return {
+      restaurant_id: placeId,
+      origin_url: p.originUrl,
+      storage_url: p.storageUrl ?? null,
+      source: p.source,
+      attribution: p.attribution,
+      source_platform: p.source,
+      photo_author_type: authorType,
+      trust_label: trustLabel(source, authorType),
+      is_orderable: p.isOrderable,
+      tier: p.tier,
+      width: p.width,
+      height: p.height,
+      gemini_label: p.geminiLabel ?? null,
+      menu_item_id: p.menuItemId ?? null,
+      photo_quality_score: p.photoQualityScore ?? 0,
+      dish_popularity_score: p.dishPopularityScore ?? 0,
+      is_hero_candidate: p.isHeroCandidate ?? false,
+      is_storefront: p.isStorefront ?? false,
+      is_menu_photo: p.isMenuPhoto ?? false,
+    };
+  });
   // Upsert on (restaurant_id, origin_url), not insert: every repeat crawl/live
   // re-persist of an already-seen restaurant used to append a full duplicate
   // copy of every photo (see db/schema.sql migration note). The unique index
@@ -657,6 +752,7 @@ export async function savePhotos(
     .from("photos")
     .upsert(rows, { onConflict: "restaurant_id,origin_url" });
   if (error) console.error("[corpus] savePhotos failed:", error.message);
+  else await refreshRestaurantPhotoSignals(placeId);
 }
 
 /**
@@ -720,7 +816,10 @@ export async function saveUserUploadedPhoto(input: {
   menuItemId?: number;
   width: number;
   height: number;
+  contributorId?: string;
+  duplicateHash?: string;
 }): Promise<DishPhoto | null> {
+  const photoQualityScore = 82;
   const { data, error } = await supabase
     .from("photos")
     .insert({
@@ -728,16 +827,32 @@ export async function saveUserUploadedPhoto(input: {
       origin_url: input.originUrl,
       source: "user_upload",
       attribution: "user",
+      source_platform: "user_upload",
+      photo_author_type: "customer",
+      trust_label: "seefood_photo",
+      attribution_confidence: 1,
       tier: input.tier,
       is_orderable: true,
       width: input.width,
       height: input.height,
       gemini_label: input.dishName,
       menu_item_id: input.menuItemId ?? null,
+      photo_quality_score: photoQualityScore,
+      dish_popularity_score: 7,
+      is_hero_candidate: !!input.dishName,
+      is_storefront: false,
+      is_menu_photo: false,
+      contributor_id: input.contributorId ?? null,
+      submitted_at: new Date().toISOString(),
+      moderation_status: "approved",
+      duplicate_hash: input.duplicateHash ?? null,
+      abuse_flags: [],
     })
     .select("id")
     .single();
   if (error || !data) { console.error("[corpus] saveUserUploadedPhoto failed:", error?.message); return null; }
+
+  await refreshRestaurantPhotoSignals(input.placeId);
 
   return {
     id: `corpus-${data.id}`,
@@ -752,6 +867,20 @@ export async function saveUserUploadedPhoto(input: {
     height: input.height,
     loveCount: 0,
     primaryVotes: 0,
+    sourcePlatform: "user_upload",
+    photoAuthorType: "customer",
+    trustLabel: "seefood_photo",
+    photoQualityScore,
+    dishPopularityScore: 7,
+    isHeroCandidate: !!input.dishName,
+    isStorefront: false,
+    isMenuPhoto: false,
+    comparisonReady: false,
+    contributorId: input.contributorId ?? null,
+    submittedAt: new Date().toISOString(),
+    moderationStatus: "approved",
+    duplicateHash: input.duplicateHash ?? null,
+    abuseFlags: [],
   };
 }
 
@@ -830,6 +959,11 @@ export async function persistPipelineResult(input: {
       height: p.height,
       geminiLabel: p.dishName,
       menuItemId: p.dishName ? nameToId.get(p.dishName) : undefined,
+      photoQualityScore: p.photoQualityScore,
+      dishPopularityScore: p.dishPopularityScore,
+      isHeroCandidate: p.isHeroCandidate,
+      isStorefront: p.isStorefront,
+      isMenuPhoto: p.isMenuPhoto,
     }))
   );
 }

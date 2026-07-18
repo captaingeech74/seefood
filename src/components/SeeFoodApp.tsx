@@ -10,6 +10,7 @@ import MapPicker, { MapView } from "@/components/MapPicker";
 import LoadingScreen from "@/components/LoadingScreen";
 import SuggestDishModal from "@/components/SuggestDishModal";
 import { trackAppOpen } from "@/lib/analytics";
+import { contributionDraftKey, parseContributionDraft } from "@/lib/contributionDraft";
 
 type AppState =
   | "locating"
@@ -194,6 +195,13 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
   useEffect(() => {
     if (restaurant) trackAppOpen(restaurant.placeId || restaurant.id);
   }, [restaurant]);
+
+  useEffect(() => {
+    if (!restaurant || suggest) return;
+    const id = restaurant.placeId || restaurant.id;
+    const draft = parseContributionDraft(sessionStorage.getItem(contributionDraftKey(id)));
+    if (draft) setSuggest({ initialName: draft.dishName || undefined });
+  }, [restaurant, suggest]);
 
   const handleSelectRestaurant = useCallback(
     (placeId: string, _name: string) => {

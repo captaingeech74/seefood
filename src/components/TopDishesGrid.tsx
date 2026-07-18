@@ -58,18 +58,13 @@ export default function TopDishesGrid({
   // one tile per dish, then bucket by tier without re-sorting within each.
   const { primary, variantCounts, sourceMixes } = useMemo(() => dedupeToPrimary(dishes), [dishes]);
 
-  const { tier1, tier2, tier3 } = useMemo(
-    () => ({
-      tier1: primary.filter((d) => d.tier === 1),
-      tier2: primary.filter((d) => d.tier === 2),
-      tier3: primary.filter((d) => d.tier === 3),
-    }),
+  // `dedupeToPrimary` applies the shared hero score. Keep low-confidence tier
+  // 3 at the end, but allow a beautiful, popular tier-2 customer photo to
+  // outrank a mediocre tier-1 management image.
+  const rankedList = useMemo(
+    () => [...primary.filter((dish) => dish.tier !== 3), ...primary.filter((dish) => dish.tier === 3)],
     [primary]
   );
-
-  // Continuous scroll through the whole confidence pyramid — tier1, then
-  // tier2, then tier3 — rather than a manual "More photos" click gate.
-  const rankedList = useMemo(() => [...tier1, ...tier2, ...tier3], [tier1, tier2, tier3]);
 
   const maxVisible = Math.min(rankedList.length, MAX_VISIBLE);
   const canGrow = visibleCount < maxVisible;

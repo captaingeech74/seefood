@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DishPhoto, Restaurant } from "@/lib/types";
-import { trackEvent } from "@/lib/analytics";
+import { getVisitorId, trackEvent } from "@/lib/analytics";
 import PhotoSourceSheet from "./PhotoSourceSheet";
+import { contributionDraftKey, parseContributionDraft } from "@/lib/contributionDraft";
 
 interface SuggestDishModalProps {
   restaurant: Restaurant;
@@ -34,20 +35,54 @@ export default function SuggestDishModal({ restaurant, initialName, onClose, onA
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ photo: DishPhoto; aiWrote: boolean; scoutCount: number } | null>(null);
+  const restaurantId = restaurant.placeId || restaurant.id;
+  const draftKey = contributionDraftKey(restaurantId);
+
+  useEffect(() => {
+    let restored = null;
+    try { restored = parseContributionDraft(sessionStorage.getItem(draftKey)); } catch {}
+    if (!restored) return;
+    if (!initialName && restored.dishName) setDishName(restored.dishName);
+    if (restored.dishDescription) setDishDescription(restored.dishDescription);
+  }, [draftKey, initialName]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(draftKey, JSON.stringify({
+        active: true,
+        dishName,
+        dishDescription,
+        pickerActive: photoSourceOpen,
+        updatedAt: Date.now(),
+      }));
+    } catch {}
+  }, [dishDescription, dishName, draftKey, photoSourceOpen]);
+
+  const close = useCallback(() => {
+    try { sessionStorage.removeItem(draftKey); } catch {}
+    onClose();
+  }, [draftKey, onClose]);
 
   // Escape dismisses (backdrop tap already does; a sheet with no keyboard
   // exit is a trap on desktop).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") close();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  }, [close]);
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const handleFileSelected = (f: File) => {
     setFile(f);
-    setPreviewUrl(URL.createObjectURL(f));
+    setPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return URL.createObjectURL(f);
+    });
   };
 
   const canSubmit = dishName.trim().length > 0 && !!file && !submitting;
@@ -63,6 +98,7 @@ export default function SuggestDishModal({ restaurant, initialName, onClose, onA
       form.append("dishName", dishName.trim());
       form.append("dishDescription", dishDescription.trim());
       form.append("attested", "true");
+      form.append("contributorId", getVisitorId());
       const res = await fetch("/api/suggest-dish", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok || !data.photo) {
@@ -88,7 +124,7 @@ export default function SuggestDishModal({ restaurant, initialName, onClose, onA
   };
 
   return (
-    <div className="fixed inset-0 z-[110] bg-black/80 flex items-end justify-center fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-[110] bg-black/80 flex items-end justify-center fade-in" onClick={close}>
       <div
         className="w-full max-w-3xl glass rounded-t-3xl px-6 pt-6 slide-up max-h-[88vh] overflow-y-auto"
         style={{ background: "rgba(10,10,10,0.96)", paddingBottom: "max(28px, env(safe-area-inset-bottom))" }}
@@ -97,13 +133,13 @@ export default function SuggestDishModal({ restaurant, initialName, onClose, onA
         <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-5" />
 
         {result ? (
-          <SuccessState result={result} onDone={onClose} />
+          <SuccessState result={result} onDone={close} />
         ) : (
           <>
             <div className="flex items-start justify-between gap-3 mb-6">
               <h2 className="text-white text-[22px] font-bold tracking-tight">Add a Missing Photo or Menu Item</h2>
               <button
-                onClick={onClose}
+                onClick={close}
                 className="hit-target relative shrink-0 mt-0.5 w-8 h-8 rounded-full bg-white/8 hover:bg-white/14 active:bg-white/20 flex items-center justify-center transition-colors"
                 aria-label="Close"
               >

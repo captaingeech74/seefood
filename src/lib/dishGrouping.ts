@@ -1,4 +1,5 @@
 import { DishPhoto } from "./types";
+import { heroScore, withPhotoSignals } from "./photoSignals";
 
 /** Grouping key — unnamed (unidentified) photos are never grouped with each other, each stays its own entry. */
 function dishKey(photo: DishPhoto): string {
@@ -13,10 +14,13 @@ function dishKey(photo: DishPhoto): string {
  * original order.
  */
 export function pickPrimary(group: DishPhoto[]): DishPhoto {
-  return [...group].sort((a, b) => {
+  const signaled = group.map(withPhotoSignals);
+  return [...signaled].sort((a, b) => {
     if (b.primaryVotes !== a.primaryVotes) return b.primaryVotes - a.primaryVotes;
+    const qualityDelta = (b.photoQualityScore ?? 0) - (a.photoQualityScore ?? 0);
+    if (qualityDelta !== 0) return qualityDelta;
     if (a.tier !== b.tier) return a.tier - b.tier;
-    return group.indexOf(a) - group.indexOf(b);
+    return signaled.indexOf(a) - signaled.indexOf(b);
   })[0];
 }
 
@@ -59,13 +63,23 @@ export function dedupeToPrimary(photos: DishPhoto[]): {
   for (const key of order) {
     const group = groups.get(key)!;
     const best = pickPrimary(group);
-    primary.push(best);
-    variantCounts.set(best.id, group.length);
-    sourceMixes.set(best.id, {
-      management: group.filter((photo) => photo.attribution === "owner" && photo.source !== "user_upload" && photo.source !== "user_suggested").length,
-      customers: group.filter((photo) => photo.attribution === "user" || photo.source === "user_upload" || photo.source === "user_suggested").length,
+    const management = group.filter((photo) => withPhotoSignals(photo).photoAuthorType === "management").length;
+    const customers = group.filter((photo) => withPhotoSignals(photo).photoAuthorType === "customer").length;
+    const comparisonReady = management > 0 && customers > 0;
+    const signaledBest = { ...best, comparisonReady };
+    primary.push(signaledBest);
+    variantCounts.set(signaledBest.id, group.length);
+    sourceMixes.set(signaledBest.id, {
+      management,
+      customers,
       seeFood: group.filter((photo) => photo.source === "user_upload" || photo.source === "user_suggested").length,
     });
   }
+  primary.sort((a, b) => {
+    const scoreDelta = heroScore(b, variantCounts.get(b.id) ?? 1) - heroScore(a, variantCounts.get(a.id) ?? 1);
+    if (scoreDelta !== 0) return scoreDelta;
+    if (a.tier !== b.tier) return a.tier - b.tier;
+    return order.indexOf(dishKey(a)) - order.indexOf(dishKey(b));
+  });
   return { primary, variantCounts, sourceMixes };
 }

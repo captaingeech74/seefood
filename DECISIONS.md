@@ -1317,3 +1317,30 @@ rate, seeFood-upload rate, photo-source breakdown, plus 7/30-day opens, unique
 visitors, loves, shares, and photo adds. First-party activity collection begins
 with this release; the UI explicitly says historical activity is unavailable
 rather than manufacturing a baseline.
+
+---
+
+## Normalized photo trust + explicit hero ranking (July 18, 2026)
+
+Photo provenance now has two independent facts: `source_platform` says where
+the bytes entered the corpus, while `photo_author_type` says who supplied the
+photo (`management`, `customer`, or `unknown`). `user_upload` and
+`user_suggested` always normalize to Customer, regardless of bad legacy
+`attribution`; ordering-platform and restaurant-website photography normalize
+to Management; Google retains its contributor/owner signal. `trust_label` is
+the display-ready interpretation, including the promoted `seefood_photo`
+subset. Legacy `source` and `attribution` remain for compatibility.
+
+Hero selection is no longer equivalent to source order or menu tier. A shared
+score combines photo quality (36%), dish popularity (29%), menu confidence,
+love/primary-photo validation, number of independent photos, and a small real-
+customer bonus. Storefronts, menu boards, unnamed photos, and explicit low-
+quality candidates score zero. Tier 3 remains below confident content, while a
+beautiful popular tier-2 customer photo can now beat a mediocre tier-1
+management image. Grid, Reveal order, and Map top dishes share this ranker.
+
+Contributions now persist a device-local contributor ID, upload timestamp,
+moderation status, SHA-256 duplicate hash, and abuse flags. No account is
+required. Exact duplicate bytes are rejected before storage. The photo picker
+is portaled outside the dismissible contribution drawer, and the active draft
+is session-persisted and restored after a mobile camera/browser round trip.

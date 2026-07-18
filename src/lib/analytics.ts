@@ -1,6 +1,6 @@
 export type AnalyticsEventName = "app_open" | "love" | "share" | "photo_add";
 
-function visitorId(): string {
+export function getVisitorId(): string {
   const key = "seefood-visitor-id";
   try {
     const existing = localStorage.getItem(key);
@@ -21,7 +21,7 @@ export function trackEvent(
   void fetch("/api/events", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ eventName, visitorId: visitorId(), restaurantId, metadata }),
+    body: JSON.stringify({ eventName, visitorId: getVisitorId(), restaurantId, metadata }),
     keepalive: true,
   }).catch(() => {});
 }

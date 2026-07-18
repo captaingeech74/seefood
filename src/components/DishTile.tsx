@@ -4,11 +4,12 @@ import { DishPhoto } from "@/lib/types";
 import { SOURCE_LABELS } from "@/lib/labels";
 import type { DishSourceMix } from "@/lib/dishGrouping";
 import { useEffect, useRef, useState } from "react";
+import { withPhotoSignals } from "@/lib/photoSignals";
 
 /** PRD §4.2/§4.3 provenance label used in the immersive Reveal. */
 export function provenanceLabel(dish: DishPhoto): string {
   if (dish.isMenuMatch) return "Menu Match";
-  if (dish.attribution === "owner") return "From management";
+  if (withPhotoSignals(dish).photoAuthorType === "management") return "From management";
   return "Spotted here";
 }
 

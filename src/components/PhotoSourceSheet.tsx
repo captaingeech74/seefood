@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * Explicit Camera-vs-Library chooser — two dedicated <input type=file>
@@ -30,21 +31,32 @@ export default function PhotoSourceSheet({
 }) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    onClose();
     if (file) onPick(file);
+    onClose();
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <>
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleChange} />
       <input ref={libraryInputRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
 
       {open && (
-        <div className="fixed inset-0 z-[200] bg-black/60 flex items-end justify-center fade-in" onClick={onClose}>
+        <div
+          className="fixed inset-0 z-[200] bg-black/60 flex items-end justify-center fade-in"
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
+        >
           <div
             className="w-full max-w-3xl glass rounded-t-3xl p-4 slide-up"
             style={{ background: "rgba(20,20,20,0.97)", paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}
@@ -88,6 +100,7 @@ export default function PhotoSourceSheet({
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }

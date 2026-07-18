@@ -5,7 +5,8 @@ import { DishPhoto, Restaurant } from "@/lib/types";
 import { provenanceLabel } from "./DishTile";
 import { shareDish } from "@/lib/share";
 import { pickPrimary } from "@/lib/dishGrouping";
-import { trackEvent } from "@/lib/analytics";
+import { getVisitorId, trackEvent } from "@/lib/analytics";
+import { withPhotoSignals } from "@/lib/photoSignals";
 import PhotoSourceSheet from "./PhotoSourceSheet";
 
 interface RevealProps {
@@ -323,19 +324,18 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   // customers. SeeFood uploads are a promoted subset of customer photos,
   // never a third mode the user has to understand.
   const managementPhotos = useMemo(
-    () => variants.filter((p) => p.attribution === "owner" && p.source !== "user_upload" && p.source !== "user_suggested"),
+    () => variants.filter((photo) => withPhotoSignals(photo).photoAuthorType === "management"),
     [variants]
   );
   const customerPhotos = useMemo(
-    () => variants.filter((p) => p.attribution === "user" || p.source === "user_upload" || p.source === "user_suggested"),
+    () => variants.filter((photo) => withPhotoSignals(photo).photoAuthorType === "customer"),
     [variants]
   );
   const detailPhotos = detailSource === "management" ? managementPhotos : customerPhotos;
 
   useEffect(() => {
     if (!detailOpen || !activePhoto) return;
-    const seeFoodPhoto = activePhoto.source === "user_upload" || activePhoto.source === "user_suggested";
-    setDetailSource(activePhoto.attribution === "owner" && !seeFoodPhoto ? "management" : "customers");
+    setDetailSource(withPhotoSignals(activePhoto).photoAuthorType === "management" ? "management" : "customers");
   }, [detailOpen, activePhoto]);
 
   const chooseDetailSource = (source: "management" | "customers") => {
@@ -439,6 +439,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     try {
       const form = new FormData();
       form.append("photo", file);
+      form.append("contributorId", getVisitorId());
       form.append("placeId", restaurant.placeId || restaurant.id);
       if (activePhoto.dishName) form.append("dishName", activePhoto.dishName);
       if (activePhoto.dishDescription) form.append("dishDescription", activePhoto.dishDescription);
@@ -970,7 +971,7 @@ function PhotoStrip({
                 : p.id === activeId ? "rgba(255,255,255,0.8)" : "transparent",
               boxShadow: p.id === activeId ? "0 0 0 2px rgba(255,255,255,0.18)" : undefined,
             }}
-            aria-label={`View ${p.source === "user_upload" || p.source === "user_suggested" ? "seeFood user" : p.attribution === "owner" ? "management" : "customer"} photo`}
+            aria-label={`View ${p.source === "user_upload" || p.source === "user_suggested" ? "seeFood user" : withPhotoSignals(p).photoAuthorType} photo`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.url} alt="" className="w-full h-full object-cover" />

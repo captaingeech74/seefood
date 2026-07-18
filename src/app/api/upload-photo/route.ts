@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveUserUploadedPhoto } from "@/lib/db";
+import { hasDuplicatePhoto, saveUserUploadedPhoto } from "@/lib/db";
 import { uploadPhotoBuffer } from "@/lib/storage";
+import { createHash } from "crypto";
 
 // "Take Photo of Dish" (experimental — PRD's long-term user-contribution
 // vision, scoped down: no accounts/moderation yet, just a real working
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
   const isMenuMatch = form.get("isMenuMatch") === "true";
   const tierRaw = form.get("tier");
   const menuItemIdRaw = form.get("menuItemId");
+  const contributorId = form.get("contributorId");
 
   if (!(file instanceof File) || typeof placeId !== "string" || !placeId) {
     return NextResponse.json({ error: "photo and placeId are required" }, { status: 400 });
@@ -32,6 +34,10 @@ export async function POST(req: NextRequest) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  const duplicateHash = createHash("sha256").update(buffer).digest("hex");
+  if (await hasDuplicatePhoto(placeId, duplicateHash)) {
+    return NextResponse.json({ error: "That photo is already on SeeFood." }, { status: 409 });
+  }
   const ext = file.type.split("/")[1]?.split("+")[0] || "jpg";
   const key = `user-uploads/${placeId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
@@ -53,6 +59,8 @@ export async function POST(req: NextRequest) {
     menuItemId,
     width: 1200,
     height: 1200,
+    contributorId: typeof contributorId === "string" ? contributorId.slice(0, 100) : undefined,
+    duplicateHash,
   });
 
   if (!photo) return NextResponse.json({ error: "Saved the image but failed to record it — please retry" }, { status: 500 });

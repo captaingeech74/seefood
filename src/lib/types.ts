@@ -15,6 +15,15 @@ export type DataSource =
   | "user_upload"
   | "user_suggested";
 
+export type PhotoAuthorType = "management" | "customer" | "unknown";
+export type PhotoTrustLabel =
+  | "management_photo"
+  | "customer_photo"
+  | "seefood_photo"
+  | "google_photo"
+  | "web_photo";
+export type ModerationStatus = "pending" | "approved" | "rejected" | "flagged";
+
 /**
  * A single menu item sourced from any data provider.
  * Carried through the pipeline so description and imageUrl travel
@@ -39,6 +48,10 @@ export interface DishPhoto {
   source: DataSource;
   /** who contributed it — "owner" = restaurant/management, "user" = customer */
   attribution: "user" | "owner";
+  /** Normalized provenance. Legacy attribution remains during the migration window. */
+  sourcePlatform?: DataSource;
+  photoAuthorType?: PhotoAuthorType;
+  trustLabel?: PhotoTrustLabel;
   /** confidence pyramid (PRD §4.2/§4.3): 1 = menu-matched/pre-labeled (hero-eligible),
    *  2 = confident AI-identified, 3 = low-confidence — collapsed under "More photos". */
   tier: 1 | 2 | 3;
@@ -48,6 +61,19 @@ export interface DishPhoto {
   loveCount: number;
   /** Thumbs-up count from browsing same-dish variants — see computePrimaryPhoto. */
   primaryVotes: number;
+  /** Persisted signals used by the shared hero/grid/map ranking pipeline. */
+  photoQualityScore?: number;
+  dishPopularityScore?: number;
+  isHeroCandidate?: boolean;
+  isStorefront?: boolean;
+  isMenuPhoto?: boolean;
+  comparisonReady?: boolean;
+  /** Future-compatible contribution integrity fields. */
+  contributorId?: string | null;
+  submittedAt?: string | null;
+  moderationStatus?: ModerationStatus;
+  duplicateHash?: string | null;
+  abuseFlags?: string[];
 }
 
 export interface Restaurant {
