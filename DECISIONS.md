@@ -1373,3 +1373,40 @@ is tapped. Its cards reserve the image corner for rating and the lower caption
 for the full restaurant identity. The restaurant header's expanded dish search
 uses the product accent and stronger contrast so it reads immediately as an
 input rather than passive header chrome.
+
+---
+
+## V1 corpus platform and merchant claim (July 19, 2026)
+
+SeeFood owns a durable restaurant entity ID. Google, OpenStreetMap, and future
+providers attach as identities on that entity; no provider ID is the corpus's
+long-term identity. Regional discovery combines Google Nearby with OSM and
+cross-links strong name-and-distance matches. Google remains the primary live
+acquisition path, while unmatched OSM restaurants are retained as identity-only
+coverage rather than discarded.
+
+Every automatic source run creates an independent snapshot. A source can update
+only its own records, so a sparse Google response cannot erase DoorDash,
+merchant, or customer contributions. Missing records remain active until three
+successful consecutive snapshots omit them. Empty responses are recorded, and
+expired acquisition leases automatically return to the queue. Grubhub is paused
+after 270 zero-yield runs; Yelp is disabled for V1. Their adapters and history
+remain intact for future re-evaluation.
+
+Canonical dishes belong to a restaurant entity and connect source-specific menu
+rows and photos. V1 uses conservative normalized-name matching; the proposed
+scored multimodal matcher remains intentionally deferred. Chains may inherit a
+brand menu template, while location overrides and customer photos always stay
+attached to the individual restaurant location.
+
+The coverage ladder is operational: L0 identity only, L1 menu known, L2 at
+least five matched photos, and L3 at least one dish with both management and
+customer photography. Regional acquisition is queued against this corpus rather
+than a hard-coded city list.
+
+Restaurant management may submit a claim from the restaurant-name dropdown.
+Standard is $99/month for verification, menu/description control, management
+photo publishing, and basic insights. Growth is $499/month and adds priority
+refresh, dish analytics, up to five locations, and seasonal/featured controls.
+V1 records authority and payment-intent attestations as a pending claim; it does
+not activate access or billing until manual verification.

@@ -5,7 +5,7 @@ import { DataSource } from "@/lib/types";
 export const SOURCE_LABELS: Record<DataSource, string> = {
   google: "Google", doordash: "DoorDash", grubhub: "Grubhub", menufy: "Menufy",
   schema_org: "Restaurant", toast: "Toast", square: "Square", clover: "Clover",
-  chownow: "ChowNow", olo: "Olo", popmenu: "PopMenu", menu_ocr: "Menu",
+  chownow: "ChowNow", olo: "Olo", popmenu: "PopMenu", menu_ocr: "Menu", merchant: "Management",
   user_upload: "SeeFood",
   user_suggested: "SeeFood",
 };

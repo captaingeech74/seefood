@@ -12,6 +12,7 @@ const MANAGEMENT_SOURCES = new Set<DataSource>([
   "chownow",
   "olo",
   "popmenu",
+  "merchant",
 ]);
 
 export function normalizePhotoAuthor(

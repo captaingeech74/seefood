@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { DishPhoto, Restaurant } from "@/lib/types";
 import { dedupeToPrimary } from "@/lib/dishGrouping";
 import { formatAddress } from "@/lib/labels";
+import MerchantClaimModal from "@/components/MerchantClaimModal";
 
 /** Bolds the matched substring inside a search result name. */
 function HighlightMatch({ text, query }: { text: string; query: string }) {
@@ -61,6 +62,7 @@ export default function RestaurantHeader({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
+  const [claimOpen, setClaimOpen] = useState(false);
 
   const { primary } = useMemo(() => dedupeToPrimary(dishes), [dishes]);
   const matches = useMemo(() => {
@@ -316,7 +318,14 @@ export default function RestaurantHeader({
             </div>
           )}
 
-          <div className="flex justify-end mt-2.5">
+          <div className="flex items-center justify-between gap-3 mt-2.5">
+            <button
+              type="button"
+              onClick={() => setClaimOpen(true)}
+              className="min-h-9 text-[10.5px] font-semibold text-white/30 hover:text-white/55 transition-colors"
+            >
+              Own this restaurant?
+            </button>
             <button
               onClick={() => onSuggestDish()}
               className="hit-target relative flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
@@ -333,6 +342,7 @@ export default function RestaurantHeader({
           </div>
         </div>
       )}
+      {claimOpen && <MerchantClaimModal restaurant={restaurant} onClose={() => setClaimOpen(false)} />}
     </header>
   );
 }

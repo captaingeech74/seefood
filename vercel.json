@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/cron/saturate-temecula",
+      "path": "/api/cron/acquire",
       "schedule": "0 9 * * *"
     }
   ]

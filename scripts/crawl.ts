@@ -129,7 +129,7 @@ async function main() {
   // process.env, since these modules read env vars at module-load time.
   const { extractDoorDashItems, extractGrubhubItems, parseGrubhubSearchUrl, parseNextDataMenuItems, parseNextFlightMenuItems, getGooglePhotosAndReviews } =
     await import("../src/lib/google");
-  const { persistPipelineResult, saveMenuItems, savePhotos, logSourceRun, getCorpusSnapshot, getDoorDashStoreUrl, saveDoorDashStoreUrl } =
+  const { persistPipelineResult, persistSourceMenuItems, isSourceEnabled, logSourceRun, getCorpusSnapshot, getDoorDashStoreUrl, saveDoorDashStoreUrl } =
     await import("../src/lib/db");
   const { ensurePythonEnv, pythonFetch } = await import("../src/crawler/pythonFetch");
   const { loadStoreSitemap, findDoorDashStoreUrlInSitemap } = await import("../src/crawler/doordashSitemap");
@@ -252,8 +252,13 @@ async function main() {
     console.log(`  [pipeline] ${photos.length} photos, ${menuItems.length} menu items`);
 
     async function crawlAndPersist(source: "doordash" | "grubhub", crawlFn: () => Promise<MenuItemData[]>) {
+      if (!(await isSourceEnabled(source))) {
+        console.log(`  [${source}] paused in source registry — skipping`);
+        return [];
+      }
       const sourceStart = Date.now();
       const items = await crawlFn();
+      await persistSourceMenuItems(target.placeId, source, items);
       await logSourceRun({
         placeId: target.placeId,
         source,
@@ -263,32 +268,17 @@ async function main() {
         latencyMs: Date.now() - sourceStart,
       }).catch(() => {});
 
-      if (items.length > 0) {
-        const nameToId = await saveMenuItems(target.placeId, items);
-        await savePhotos(
-          target.placeId,
-          items
-            .filter((i) => i.imageUrl)
-            .map((i) => ({
-              originUrl: i.imageUrl!,
-              source,
-              attribution: "owner",
-              isOrderable: true,
-              tier: 1, // DoorDash/Grubhub items are pre-labeled name+photo pairs — menu-matched by construction
-              width: 800,
-              height: 600,
-              geminiLabel: i.name,
-              menuItemId: nameToId.get(i.name),
-            }))
-        );
-      }
       return items;
     }
 
     // DoorDash + Grubhub — Python/Camoufox, crawler-exclusive (see DECISIONS.md
     // for why each is banned/broken on the live Scrapfly path).
     await crawlAndPersist("doordash", () => crawlDoorDash(target));
-    await crawlAndPersist("grubhub", () => crawlGrubhub(target));
+    if (await isSourceEnabled("grubhub")) {
+      await crawlAndPersist("grubhub", () => crawlGrubhub(target));
+    } else {
+      console.log("  [grubhub] paused after sustained zero yield");
+    }
 
     await persistPipelineResult({
       placeId: target.placeId,

@@ -937,10 +937,13 @@ export async function fetchStreamingCandidates(
   // path for. The Scrapfly-based fetch helper was removed entirely.
   const website = websiteUrl ? await fetchMenuFromUrl(websiteUrl) : { items: [], photoUrls: [] };
   const websiteMenuItems = website.items;
+  const inheritedMenuItems = await import("./db")
+    .then(({ getInheritedMenuItems }) => getInheritedMenuItems(placeId))
+    .catch(() => []);
 
   console.log(`[pipeline] "${restaurantName}" — website:${websiteMenuItems.length} photos:${website.photoUrls.length}`);
 
-  const allMenuItems = deduplicateMenuItems(websiteMenuItems);
+  const allMenuItems = deduplicateMenuItems([...websiteMenuItems, ...inheritedMenuItems]);
   const popularDishes = extractPopularDishes(reviews as GoogleReview[]);
 
   // Pre-labeled photos — schema.org MenuItem.image, Grubhub/Menufy photos. Now

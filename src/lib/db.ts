@@ -55,6 +55,7 @@ interface PhotoRow {
   moderation_status: string | null;
   duplicate_hash: string | null;
   abuse_flags: string[] | null;
+  active?: boolean | null;
 }
 
 interface MenuItemRow {
@@ -127,9 +128,10 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
       .from("photos")
       .select("*")
       .eq("restaurant_id", placeId)
+      .eq("active", true)
       .order("tier", { ascending: true })
       .order("id", { ascending: true }),
-    supabase.from("menu_items").select("id,name,description").eq("restaurant_id", placeId),
+    supabase.from("menu_items").select("id,name,description").eq("restaurant_id", placeId).eq("active", true),
   ]);
   if (!photoRows || photoRows.length === 0) {
     return isTestFixture ? { photos: [], popularDishes: [], isFresh: true } : null;
@@ -174,10 +176,12 @@ export interface CoverageMetrics {
   sourceBreakdown: Array<{ source: string; count: number; percentage: number }>;
   activity: { week: CoverageActivity; month: CoverageActivity };
   trackingStartedAt: string | null;
+  coverageLevels: Array<{ level: 0 | 1 | 2 | 3; count: number; label: string }>;
 }
 
 interface CoverageRestaurantRow {
   place_id: string;
+  entity_id: string | null;
   lat: number | null;
   lng: number | null;
 }
@@ -186,6 +190,7 @@ interface CoveragePhotoRow {
   restaurant_id: string;
   source: string;
   menu_item_id: number | null;
+  canonical_dish_id: string | null;
 }
 
 interface AppEventRow {
@@ -249,7 +254,7 @@ export async function getCoverageMetrics(
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
       .from("restaurants")
-      .select("place_id,lat,lng")
+      .select("place_id,entity_id,lat,lng")
       .not("lat", "is", null)
       .not("lng", "is", null)
       .range(from, from + 999);
@@ -261,6 +266,9 @@ export async function getCoverageMetrics(
   const nearbyIds = restaurants
     .filter((r) => r.lat !== null && r.lng !== null && haversineKm(lat, lng, r.lat, r.lng) <= radiusKm)
     .map((r) => r.place_id);
+  const nearbyEntityIds = restaurants
+    .filter((r) => r.entity_id && r.lat !== null && r.lng !== null && haversineKm(lat, lng, r.lat, r.lng) <= radiusKm)
+    .map((r) => r.entity_id!);
 
   if (nearbyIds.length === 0) {
     return {
@@ -272,10 +280,16 @@ export async function getCoverageMetrics(
       sourceBreakdown: [],
       activity: { week: emptyActivity(), month: emptyActivity() },
       trackingStartedAt: null,
+      coverageLevels: [
+        { level: 0, count: 0, label: "Identity only" },
+        { level: 1, count: 0, label: "Menu known" },
+        { level: 2, count: 0, label: "5+ matched photos" },
+        { level: 3, count: 0, label: "Comparison ready" },
+      ],
     };
   }
 
-  const menuCounts = new Map<string, number>();
+  const menuSets = new Map<string, Set<string>>();
   const photos: CoveragePhotoRow[] = [];
   const monthAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const events: AppEventRow[] = [];
@@ -285,12 +299,15 @@ export async function getCoverageMetrics(
     for (let from = 0; ; from += 1000) {
       const { data, error } = await supabase
         .from("menu_items")
-        .select("restaurant_id")
+        .select("restaurant_id,canonical_dish_id")
         .in("restaurant_id", ids)
+        .eq("active", true)
         .range(from, from + 999);
       if (error) throw error;
       for (const row of data ?? []) {
-        menuCounts.set(row.restaurant_id, (menuCounts.get(row.restaurant_id) ?? 0) + 1);
+        const set = menuSets.get(row.restaurant_id) ?? new Set<string>();
+        set.add(row.canonical_dish_id ?? `legacy-${row.restaurant_id}-${from}-${set.size}`);
+        menuSets.set(row.restaurant_id, set);
       }
       if (!data || data.length < 1000) break;
     }
@@ -298,8 +315,9 @@ export async function getCoverageMetrics(
     for (let from = 0; ; from += 1000) {
       const { data, error } = await supabase
         .from("photos")
-        .select("restaurant_id,source,menu_item_id")
+        .select("restaurant_id,source,menu_item_id,canonical_dish_id")
         .in("restaurant_id", ids)
+        .eq("active", true)
         .range(from, from + 999);
       if (error) throw error;
       photos.push(...((data ?? []) as CoveragePhotoRow[]));
@@ -325,16 +343,24 @@ export async function getCoverageMetrics(
   let seeFoodPhotos = 0;
   for (const photo of photos) {
     sourceCounts.set(photo.source, (sourceCounts.get(photo.source) ?? 0) + 1);
-    if (photo.menu_item_id !== null) matchedPhotos += 1;
+    if (photo.menu_item_id !== null || photo.canonical_dish_id !== null) matchedPhotos += 1;
     if (photo.source === "user_upload" || photo.source === "user_suggested") seeFoodPhotos += 1;
   }
 
   const totalPhotos = photos.length;
-  const totalMenuItems = [...menuCounts.values()].reduce((sum, count) => sum + count, 0);
+  const totalMenuItems = [...menuSets.values()].reduce((sum, set) => sum + set.size, 0);
   const percentage = (count: number) => (totalPhotos ? Math.round((count / totalPhotos) * 1000) / 10 : 0);
   const sourceBreakdown = [...sourceCounts.entries()]
     .map(([source, count]) => ({ source, count, percentage: percentage(count) }))
     .sort((a, b) => b.count - a.count);
+  const levelCounts = new Map<number, number>([[0, 0], [1, 0], [2, 0], [3, 0]]);
+  if (nearbyEntityIds.length > 0) {
+    const { data: coverageRows } = await supabase
+      .from("restaurant_coverage_levels")
+      .select("coverage_level")
+      .in("entity_id", nearbyEntityIds);
+    for (const row of coverageRows ?? []) levelCounts.set(row.coverage_level, (levelCounts.get(row.coverage_level) ?? 0) + 1);
+  }
 
   return {
     restaurantCount: nearbyIds.length,
@@ -350,6 +376,12 @@ export async function getCoverageMetrics(
     trackingStartedAt: events.length
       ? events.reduce((oldest, event) => event.created_at < oldest ? event.created_at : oldest, events[0].created_at)
       : null,
+    coverageLevels: [
+      { level: 0, count: levelCounts.get(0) ?? 0, label: "Identity only" },
+      { level: 1, count: levelCounts.get(1) ?? 0, label: "Menu known" },
+      { level: 2, count: levelCounts.get(2) ?? 0, label: "5+ matched photos" },
+      { level: 3, count: levelCounts.get(3) ?? 0, label: "Comparison ready" },
+    ],
   };
 }
 
@@ -408,19 +440,17 @@ export async function enqueueForCrawl(place: {
   lng: number;
   address: string;
 }): Promise<void> {
-  await supabase
-    .from("restaurants")
-    .upsert(
-      {
-        place_id: place.placeId,
-        name: place.name,
-        lat: place.lat,
-        lng: place.lng,
-        address: place.address,
-        status: "queued",
-      },
-      { onConflict: "place_id", ignoreDuplicates: true }
-    );
+  const { data: existing } = await supabase.from("restaurants").select("place_id").eq("place_id", place.placeId).maybeSingle();
+  if (existing) return;
+  await upsertRestaurant({
+    id: place.placeId,
+    placeId: place.placeId,
+    name: place.name,
+    lat: place.lat,
+    lng: place.lng,
+    address: place.address,
+  });
+  await supabase.from("restaurants").update({ status: "queued" }).eq("place_id", place.placeId);
 }
 
 // Menus ~weekly, photos ~monthly per PRD §5.1 freshness policy — coarse
@@ -473,6 +503,78 @@ export async function getSaturationBatch(limit: number): Promise<SaturationTarge
   return targets;
 }
 
+export interface AcquisitionTarget extends SaturationTarget {
+  jobId: string;
+  entityId: string;
+  source: string;
+}
+
+export async function getAcquisitionBatch(limit: number): Promise<AcquisitionTarget[]> {
+  const now = new Date().toISOString();
+  // A function can time out after leasing work but before reporting a result.
+  // Put expired leases back into circulation so regional queues cannot stall.
+  await supabase
+    .from("acquisition_jobs")
+    .update({ status: "queued", leased_until: null, updated_at: now })
+    .eq("status", "leased")
+    .lt("leased_until", now);
+
+  const { data: jobs } = await supabase
+    .from("acquisition_jobs")
+    .select("id,entity_id,source,priority")
+    .eq("status", "queued")
+    .lte("available_at", now)
+    .order("priority", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (!jobs?.length) return [];
+
+  const entityIds = jobs.map((job) => job.entity_id);
+  const [{ data: entities }, { data: identities }] = await Promise.all([
+    supabase.from("restaurant_entities").select("id,name,address,lat,lng").in("id", entityIds),
+    supabase.from("restaurant_identities").select("entity_id,provider_id").in("entity_id", entityIds).eq("provider", "google").eq("active", true),
+  ]);
+  const entityMap = new Map((entities ?? []).map((entity) => [entity.id, entity]));
+  const googleMap = new Map((identities ?? []).map((identity) => [identity.entity_id, identity.provider_id]));
+  const targets: AcquisitionTarget[] = [];
+  for (const job of jobs) {
+    const entity = entityMap.get(job.entity_id);
+    const placeId = googleMap.get(job.entity_id);
+    if (!entity || !placeId || !(await isSourceEnabled(job.source))) continue;
+    targets.push({
+      jobId: job.id,
+      entityId: job.entity_id,
+      source: job.source,
+      placeId,
+      name: entity.name,
+      address: entity.address ?? "",
+      lat: entity.lat ?? 0,
+      lng: entity.lng ?? 0,
+    });
+  }
+  if (targets.length > 0) {
+    await supabase.from("acquisition_jobs").update({
+      status: "leased",
+      leased_until: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      updated_at: now,
+    }).in("id", targets.map((target) => target.jobId));
+  }
+  return targets;
+}
+
+export async function completeAcquisitionJob(jobId: string, ok: boolean, error?: string): Promise<void> {
+  const { data: job } = await supabase.from("acquisition_jobs").select("attempts").eq("id", jobId).maybeSingle();
+  const attempts = (job?.attempts ?? 0) + 1;
+  await supabase.from("acquisition_jobs").update({
+    status: ok ? "complete" : attempts >= 3 ? "failed" : "queued",
+    attempts,
+    available_at: ok ? new Date().toISOString() : new Date(Date.now() + attempts * 60 * 60 * 1000).toISOString(),
+    leased_until: null,
+    last_error: error ?? null,
+    updated_at: new Date().toISOString(),
+  }).eq("id", jobId);
+}
+
 /** Marks a restaurant as successfully processed by Track A so it drops out of the queue. */
 export async function markSaturated(placeId: string): Promise<void> {
   const { error } = await supabase.from("restaurants").update({ status: "active" }).eq("place_id", placeId);
@@ -503,7 +605,7 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
   const placeId = restaurant.placeId ?? restaurant.id;
   const { data: existing } = await supabase
     .from("restaurants")
-    .select("slug")
+    .select("slug,entity_id")
     .eq("place_id", placeId)
     .maybeSingle();
 
@@ -514,6 +616,31 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
   // permanently baked its run-tag into the restaurant's stored name.
   const cleanName = restaurant.name.replace(/\s*\[bench-[^\]]*\]\s*$/i, "").trim();
 
+  let entityId = existing?.entity_id as string | null | undefined;
+  if (!entityId) {
+    const { data: existingEntity } = await supabase
+      .from("restaurant_entities")
+      .select("id")
+      .eq("legacy_place_id", placeId)
+      .maybeSingle();
+    entityId = existingEntity?.id;
+  }
+  if (!entityId) {
+    const { data: createdEntity } = await supabase
+      .from("restaurant_entities")
+      .insert({
+        legacy_place_id: placeId,
+        name: cleanName,
+        normalized_name: cleanName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(),
+        address: restaurant.address,
+        lat: restaurant.lat,
+        lng: restaurant.lng,
+      })
+      .select("id")
+      .single();
+    entityId = createdEntity?.id;
+  }
+
   const baseSlug = existing?.slug ?? slugifyRestaurant(cleanName, restaurant.address);
   const row = {
     place_id: placeId,
@@ -521,6 +648,7 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
     lat: restaurant.lat,
     lng: restaurant.lng,
     address: restaurant.address,
+    entity_id: entityId ?? null,
     updated_at: new Date().toISOString(),
   };
 
@@ -536,6 +664,31 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
     await supabase.from("restaurants").upsert({ ...row, slug: suffixed }, { onConflict: "place_id" });
   } else if (error) {
     console.error("[corpus] upsertRestaurant failed:", error.message);
+  }
+
+  if (entityId) {
+    await Promise.all([
+      supabase.from("restaurant_entities").update({
+        name: cleanName,
+        normalized_name: cleanName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(),
+        address: restaurant.address,
+        lat: restaurant.lat,
+        lng: restaurant.lng,
+        updated_at: new Date().toISOString(),
+      }).eq("id", entityId),
+      supabase.from("restaurant_identities").upsert({
+        entity_id: entityId,
+        provider: "google",
+        provider_id: placeId,
+        name: cleanName,
+        address: restaurant.address,
+        lat: restaurant.lat,
+        lng: restaurant.lng,
+        confidence: 1,
+        last_seen_at: new Date().toISOString(),
+        active: true,
+      }, { onConflict: "provider,provider_id" }),
+    ]);
   }
 }
 
@@ -559,6 +712,46 @@ export async function getPlaceIdBySlug(slug: string): Promise<string | null> {
 export async function getSlugForPlaceId(placeId: string, name: string, address: string): Promise<string> {
   const { data } = await supabase.from("restaurants").select("slug").eq("place_id", placeId).maybeSingle();
   return data?.slug ?? slugifyRestaurant(name, address);
+}
+
+export async function createMerchantClaim(input: {
+  placeId: string;
+  contactName: string;
+  email: string;
+  phone?: string;
+  businessRole: string;
+  plan: "standard" | "growth";
+  authorityAttested: boolean;
+  paymentAttested: boolean;
+}): Promise<string | null> {
+  const entityId = await getEntityId(input.placeId);
+  if (!entityId) return null;
+  const { data: existing } = await supabase
+    .from("merchant_claims")
+    .select("id")
+    .eq("entity_id", entityId)
+    .eq("email", input.email.toLowerCase())
+    .eq("status", "pending")
+    .maybeSingle();
+  if (existing?.id) return existing.id;
+  const { data, error } = await supabase.from("merchant_claims").insert({
+    entity_id: entityId,
+    place_id: input.placeId,
+    contact_name: input.contactName,
+    email: input.email.toLowerCase(),
+    phone: input.phone || null,
+    business_role: input.businessRole,
+    plan: input.plan,
+    monthly_price: input.plan === "growth" ? 499 : 99,
+    authority_attested: input.authorityAttested,
+    payment_attested: input.paymentAttested,
+    status: "pending",
+  }).select("id").single();
+  if (error) {
+    console.error("[merchant claim] save failed:", error.message);
+    return null;
+  }
+  return data?.id ?? null;
 }
 
 /**
@@ -652,20 +845,167 @@ async function refreshRestaurantPhotoSignals(placeId: string): Promise<void> {
   ]);
 }
 
+const SOURCE_RETIREMENT_MISSES = 3;
+
+function normalizeDishName(name: string): string {
+  return name.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+async function getEntityId(placeId: string): Promise<string | null> {
+  const { data } = await supabase.from("restaurants").select("entity_id").eq("place_id", placeId).maybeSingle();
+  return data?.entity_id ?? null;
+}
+
+async function ensureCanonicalDishes(
+  placeId: string,
+  items: Array<{ name: string; description?: string | null }>
+): Promise<Map<string, string>> {
+  const entityId = await getEntityId(placeId);
+  const result = new Map<string, string>();
+  if (!entityId || items.length === 0) return result;
+
+  const byNormalized = new Map<string, { name: string; description?: string | null }>();
+  for (const item of items) {
+    const normalized = normalizeDishName(item.name);
+    if (normalized && !byNormalized.has(normalized)) byNormalized.set(normalized, item);
+  }
+  if (byNormalized.size === 0) return result;
+
+  await supabase.from("canonical_dishes").upsert(
+    [...byNormalized].map(([normalized, item]) => ({
+      entity_id: entityId,
+      name: item.name,
+      normalized_name: normalized,
+      description: item.description ?? null,
+      active: true,
+      updated_at: new Date().toISOString(),
+    })),
+    { onConflict: "entity_id,normalized_name" }
+  );
+
+  const { data } = await supabase
+    .from("canonical_dishes")
+    .select("id,normalized_name")
+    .eq("entity_id", entityId)
+    .in("normalized_name", [...byNormalized.keys()]);
+  for (const row of data ?? []) result.set(row.normalized_name, row.id);
+  return result;
+}
+
+export async function isSourceEnabled(source: string): Promise<boolean> {
+  const { data } = await supabase.from("source_registry").select("enabled").eq("source", source).maybeSingle();
+  return data?.enabled !== false;
+}
+
+async function beginSourceSnapshot(placeId: string, source: string): Promise<{ id: string; entityId: string } | null> {
+  const entityId = await getEntityId(placeId);
+  if (!entityId) return null;
+  const { data, error } = await supabase
+    .from("source_snapshots")
+    .insert({ entity_id: entityId, source, status: "running" })
+    .select("id")
+    .single();
+  if (error || !data) return null;
+  return { id: data.id, entityId };
+}
+
+async function retireMissingSourceRows(
+  table: "menu_items" | "photos",
+  placeId: string,
+  source: string,
+  seenValues: string[],
+  key: "source_key" | "origin_url"
+): Promise<void> {
+  const { data } = await supabase
+    .from(table)
+    .select(`id,${key},missing_streak`)
+    .eq("restaurant_id", placeId)
+    .eq("source", source)
+    .eq("active", true);
+  const seen = new Set(seenValues);
+  const missing = (data ?? []).filter((row) => !seen.has(String((row as Record<string, unknown>)[key])));
+  for (const row of missing) {
+    const next = (row.missing_streak ?? 0) + 1;
+    await supabase.from(table).update({
+      missing_streak: next,
+      active: next < SOURCE_RETIREMENT_MISSES,
+    }).eq("id", row.id);
+  }
+}
+
+async function finishSourceSnapshot(input: {
+  snapshotId: string;
+  entityId: string;
+  placeId: string;
+  source: string;
+  itemCount: number;
+  photoCount: number;
+  ok: boolean;
+  error?: string;
+}): Promise<void> {
+  const now = new Date().toISOString();
+  const { data: previous } = await supabase
+    .from("source_states")
+    .select("consecutive_empty")
+    .eq("entity_id", input.entityId)
+    .eq("source", input.source)
+    .maybeSingle();
+  const isEmpty = input.ok && input.itemCount === 0 && input.photoCount === 0;
+  const consecutiveEmpty = isEmpty ? (previous?.consecutive_empty ?? 0) + 1 : 0;
+
+  const [{ count: retainedItems }, { count: retainedPhotos }] = await Promise.all([
+    supabase.from("menu_items").select("id", { count: "exact", head: true }).eq("restaurant_id", input.placeId).eq("source", input.source).eq("active", true),
+    supabase.from("photos").select("id", { count: "exact", head: true }).eq("restaurant_id", input.placeId).eq("source", input.source).eq("active", true),
+  ]);
+  await Promise.all([
+    supabase.from("source_snapshots").update({
+      status: input.ok ? "succeeded" : "failed",
+      completed_at: now,
+      discovered_item_count: input.itemCount,
+      discovered_photo_count: input.photoCount,
+      accepted_item_count: input.itemCount,
+      accepted_photo_count: input.photoCount,
+      retained_item_count: retainedItems ?? 0,
+      retained_photo_count: retainedPhotos ?? 0,
+      error_detail: input.error ?? null,
+    }).eq("id", input.snapshotId),
+    supabase.from("source_states").upsert({
+      entity_id: input.entityId,
+      source: input.source,
+      last_attempt_at: now,
+      last_success_at: input.ok ? now : undefined,
+      last_nonempty_at: input.ok && !isEmpty ? now : undefined,
+      consecutive_empty: consecutiveEmpty,
+      last_item_count: input.itemCount,
+      last_photo_count: input.photoCount,
+      last_error: input.error ?? null,
+    }, { onConflict: "entity_id,source" }),
+  ]);
+}
+
 /** Persist menu items, returns a name→id map for linking photos to items. */
 export async function saveMenuItems(
   placeId: string,
-  items: MenuItemData[]
+  items: MenuItemData[],
+  options: { snapshotId?: string } = {}
 ): Promise<Map<string, number>> {
   const nameToId = new Map<string, number>();
   if (items.length === 0) return nameToId;
 
+  const canonical = await ensureCanonicalDishes(placeId, items);
+  const now = new Date().toISOString();
   const rows = items.map((item) => ({
     restaurant_id: placeId,
     name: item.name,
     description: item.description ?? null,
     price_captured: item.price ?? null,
     source: item.source ?? "unknown",
+    canonical_dish_id: canonical.get(normalizeDishName(item.name)) ?? null,
+    source_snapshot_id: options.snapshotId ?? null,
+    source_key: normalizeDishName(item.name),
+    active: true,
+    last_seen_at: now,
+    missing_streak: 0,
   }));
 
   const { data, error } = await supabase
@@ -699,7 +1039,8 @@ export async function savePhotos(
     isHeroCandidate?: boolean;
     isStorefront?: boolean;
     isMenuPhoto?: boolean;
-  }>
+  }>,
+  options: { snapshotId?: string } = {}
 ): Promise<void> {
   if (photos.length === 0) return;
 
@@ -719,6 +1060,11 @@ export async function savePhotos(
     return true;
   });
 
+  const canonical = await ensureCanonicalDishes(
+    placeId,
+    deduped.filter((p) => p.geminiLabel).map((p) => ({ name: p.geminiLabel! }))
+  );
+  const now = new Date().toISOString();
   const rows = deduped.map((p) => {
     const source = p.source as DishPhoto["source"];
     const authorType = normalizePhotoAuthor(source, p.attribution as DishPhoto["attribution"]);
@@ -737,6 +1083,11 @@ export async function savePhotos(
       height: p.height,
       gemini_label: p.geminiLabel ?? null,
       menu_item_id: p.menuItemId ?? null,
+      canonical_dish_id: p.geminiLabel ? canonical.get(normalizeDishName(p.geminiLabel)) ?? null : null,
+      source_snapshot_id: options.snapshotId ?? null,
+      active: true,
+      last_seen_at: now,
+      missing_streak: 0,
       photo_quality_score: p.photoQualityScore ?? 0,
       dish_popularity_score: p.dishPopularityScore ?? 0,
       is_hero_candidate: p.isHeroCandidate ?? false,
@@ -820,6 +1171,9 @@ export async function saveUserUploadedPhoto(input: {
   duplicateHash?: string;
 }): Promise<DishPhoto | null> {
   const photoQualityScore = 82;
+  const canonical = input.dishName
+    ? await ensureCanonicalDishes(input.placeId, [{ name: input.dishName, description: input.dishDescription }])
+    : new Map<string, string>();
   const { data, error } = await supabase
     .from("photos")
     .insert({
@@ -837,6 +1191,7 @@ export async function saveUserUploadedPhoto(input: {
       height: input.height,
       gemini_label: input.dishName,
       menu_item_id: input.menuItemId ?? null,
+      canonical_dish_id: input.dishName ? canonical.get(normalizeDishName(input.dishName)) ?? null : null,
       photo_quality_score: photoQualityScore,
       dish_popularity_score: 7,
       is_hero_candidate: !!input.dishName,
@@ -847,6 +1202,9 @@ export async function saveUserUploadedPhoto(input: {
       moderation_status: "approved",
       duplicate_hash: input.duplicateHash ?? null,
       abuse_flags: [],
+      active: true,
+      last_seen_at: new Date().toISOString(),
+      missing_streak: 0,
     })
     .select("id")
     .single();
@@ -884,6 +1242,136 @@ export async function saveUserUploadedPhoto(input: {
   };
 }
 
+async function syncBrandTemplate(placeId: string, items: MenuItemData[]): Promise<void> {
+  if (items.length === 0) return;
+  const entityId = await getEntityId(placeId);
+  if (!entityId) return;
+  const { data: membership } = await supabase
+    .from("restaurant_brand_memberships")
+    .select("brand_id")
+    .eq("entity_id", entityId)
+    .maybeSingle();
+  if (!membership?.brand_id) return;
+  await supabase.from("brand_menu_templates").upsert(items.map((item) => ({
+    brand_id: membership.brand_id,
+    name: item.name,
+    normalized_name: normalizeDishName(item.name),
+    description: item.description ?? null,
+    source: item.source ?? "unknown",
+    active: true,
+    updated_at: new Date().toISOString(),
+  })), { onConflict: "brand_id,normalized_name" });
+}
+
+export async function getInheritedMenuItems(placeId: string): Promise<MenuItemData[]> {
+  const entityId = await getEntityId(placeId);
+  if (!entityId) return [];
+  const { data: membership } = await supabase
+    .from("restaurant_brand_memberships")
+    .select("brand_id")
+    .eq("entity_id", entityId)
+    .maybeSingle();
+  if (!membership?.brand_id) return [];
+  const [{ data: templates }, { data: overrides }] = await Promise.all([
+    supabase.from("brand_menu_templates").select("id,name,description").eq("brand_id", membership.brand_id).eq("active", true),
+    supabase.from("location_menu_overrides").select("template_item_id,available,name,description").eq("entity_id", entityId),
+  ]);
+  const byTemplate = new Map((overrides ?? []).map((row) => [row.template_item_id, row]));
+  return (templates ?? []).flatMap((template) => {
+    const override = byTemplate.get(template.id);
+    if (override?.available === false) return [];
+    return [{
+      name: override?.name ?? template.name,
+      description: override?.description ?? template.description ?? undefined,
+      source: "merchant" as const,
+    }];
+  });
+}
+
+async function reconcileSourceBatch(
+  placeId: string,
+  source: string,
+  items: MenuItemData[],
+  photos: DishPhoto[]
+): Promise<void> {
+  if (!(await isSourceEnabled(source))) return;
+  const snapshot = await beginSourceSnapshot(placeId, source);
+  if (!snapshot) return;
+  try {
+    const sourceItems = items.map((item) => ({ ...item, source: (item.source ?? source) as MenuItemData["source"] }));
+    const nameToId = await saveMenuItems(placeId, sourceItems, { snapshotId: snapshot.id });
+    await syncBrandTemplate(placeId, sourceItems);
+    await savePhotos(placeId, photos.map((p) => ({
+      originUrl: p.url,
+      source: p.source,
+      attribution: p.attribution,
+      isOrderable: true,
+      tier: p.tier,
+      width: p.width,
+      height: p.height,
+      geminiLabel: p.dishName,
+      menuItemId: p.dishName ? nameToId.get(p.dishName) : undefined,
+      photoQualityScore: p.photoQualityScore,
+      dishPopularityScore: p.dishPopularityScore,
+      isHeroCandidate: p.isHeroCandidate,
+      isStorefront: p.isStorefront,
+      isMenuPhoto: p.isMenuPhoto,
+    })), { snapshotId: snapshot.id });
+
+    if (sourceItems.length > 0) {
+      await retireMissingSourceRows("menu_items", placeId, source, sourceItems.map((item) => normalizeDishName(item.name)), "source_key");
+    } else {
+      await retireMissingSourceRows("menu_items", placeId, source, [], "source_key");
+    }
+    await retireMissingSourceRows("photos", placeId, source, photos.map((photo) => photo.url), "origin_url");
+    await finishSourceSnapshot({
+      snapshotId: snapshot.id,
+      entityId: snapshot.entityId,
+      placeId,
+      source,
+      itemCount: sourceItems.length,
+      photoCount: photos.length,
+      ok: true,
+    });
+  } catch (error) {
+    await finishSourceSnapshot({
+      snapshotId: snapshot.id,
+      entityId: snapshot.entityId,
+      placeId,
+      source,
+      itemCount: items.length,
+      photoCount: photos.length,
+      ok: false,
+      error: String(error),
+    });
+    throw error;
+  }
+}
+
+export async function persistSourceMenuItems(
+  placeId: string,
+  source: "doordash" | "grubhub",
+  items: MenuItemData[]
+): Promise<void> {
+  const photos: DishPhoto[] = items.filter((item) => item.imageUrl).map((item, index) => ({
+    id: `${source}-${placeId}-${index}`,
+    url: item.imageUrl!,
+    dishName: item.name,
+    dishDescription: item.description ?? null,
+    isMenuMatch: true,
+    source,
+    attribution: "owner",
+    tier: 1,
+    width: 800,
+    height: 600,
+    loveCount: 0,
+    primaryVotes: 0,
+    photoAuthorType: "management",
+    trustLabel: "management_photo",
+  }));
+  await reconcileSourceBatch(placeId, source, items, photos);
+}
+
 /**
  * Persist a full pipeline result (restaurant + menu items + photos) to the
  * corpus. Shared by the live /api/dishes path and the Tier 1 crawler CLI, so
@@ -909,63 +1397,35 @@ export async function persistPipelineResult(input: {
     address,
   });
 
-  const nameToId = await saveMenuItems(placeId, menuItems);
-
-  // Google's photo_reference tokens aren't stable across separate Place
-  // Details calls — repeat crawls/live re-persists of the same restaurant
-  // return a fresh top-10 sample under NEW tokens, even for visually
-  // identical photos. The origin_url-based upsert dedup can't catch this
-  // (different URL each time), and the Gemini duplicate-detection pass only
-  // compares photos *within* a single session's batch, never against what a
-  // prior session already wrote — confirmed live: Uncle Bob's accumulated
-  // the same burger-and-fries photo under 3 different tokens across 3
-  // sessions (July 7, July 10 01:37, July 10 22:27), each internally clean
-  // but never compared to the others.
-  //
-  // `photos` here is the FULL, freshly-recomputed set for this run (Google +
-  // website-scraped + pre-labeled all go through fetchStreamingCandidates /
-  // finalizeWithGemini from scratch every time) — so replacing everything,
-  // not just source='google', is the correct semantic. A prior version of
-  // this function only cleared source='google' rows, on the theory that
-  // pre-labeled/website sources have stable URLs and would just upsert in
-  // place; that missed the case where a photo's URL is stable but Gemini's
-  // *verdict* on it changes (e.g. a stricter filter now excludes it) — the
-  // stale row then survives forever since it's never re-inserted to trigger
-  // the upsert. Confirmed live July 2026: Cross Creek Golf Club kept showing
-  // a golf-course photo (source='schema_org') after the isOrderable/
-  // isPromotional filter fix shipped, because that fix correctly stopped
-  // re-emitting it but nothing deleted the old row.
-  //
-  // Excludes source='user_upload': those come from diners via the "Take
-  // Photo of Dish" feature, are never recomputed by this pipeline, and
-  // deleting them here would silently wipe a diner's contribution (plus its
-  // accumulated love_count) on every crawl/re-persist.
-  const { error: clearError } = await supabase
-    .from("photos")
-    .delete()
-    .eq("restaurant_id", placeId)
-    .neq("source", "user_upload");
-  if (clearError) console.error("[corpus] clearing stale photos failed:", clearError.message);
-
-  await savePhotos(
-    placeId,
-    photos.map((p) => ({
-      originUrl: p.url,
-      source: p.source,
-      attribution: p.attribution,
-      isOrderable: true, // non-food already filtered out upstream
-      tier: p.tier,
-      width: p.width,
-      height: p.height,
-      geminiLabel: p.dishName,
-      menuItemId: p.dishName ? nameToId.get(p.dishName) : undefined,
-      photoQualityScore: p.photoQualityScore,
-      dishPopularityScore: p.dishPopularityScore,
-      isHeroCandidate: p.isHeroCandidate,
-      isStorefront: p.isStorefront,
-      isMenuPhoto: p.isMenuPhoto,
-    }))
-  );
+  // Revisit live-pipeline sources that previously contributed active rows so
+  // a later omission counts as a miss. Avoid creating blank snapshots for
+  // every possible adapter on every restaurant.
+  const livePipelineSources = new Set([
+    "google", "website", "schema_org", "menufy", "toast", "square",
+    "clover", "chownow", "olo", "popmenu", "menu_ocr", "unknown",
+  ]);
+  const [{ data: priorMenuSources }, { data: priorPhotoSources }] = await Promise.all([
+    supabase.from("menu_items").select("source").eq("restaurant_id", placeId).eq("active", true),
+    supabase.from("photos").select("source").eq("restaurant_id", placeId).eq("active", true),
+  ]);
+  const previouslyObserved = [...(priorMenuSources ?? []), ...(priorPhotoSources ?? [])]
+    .map((row) => row.source)
+    .filter((source): source is string => livePipelineSources.has(source));
+  const sources = new Set<string>([
+    "google",
+    ...previouslyObserved,
+    ...menuItems.map((item) => item.source ?? "unknown"),
+    ...photos.map((photo) => photo.source),
+  ]);
+  for (const source of sources) {
+    if (source === "user_upload" || source === "user_suggested") continue;
+    await reconcileSourceBatch(
+      placeId,
+      source,
+      menuItems.filter((item) => (item.source ?? "unknown") === source),
+      photos.filter((photo) => photo.source === source)
+    );
+  }
 }
 
 // ── DoorDash store URL cache ─────────────────────────────────────────────────

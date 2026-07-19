@@ -24,6 +24,7 @@ interface CoverageResponse {
   sourceBreakdown: Array<{ source: string; count: number; percentage: number }>;
   activity: { week: ActivityMetrics; month: ActivityMetrics };
   trackingStartedAt: string | null;
+  coverageLevels: Array<{ level: 0 | 1 | 2 | 3; count: number; label: string }>;
 }
 
 function Metric({ label, value, suffix }: { label: string; value: string | number; suffix?: string }) {
@@ -168,6 +169,20 @@ export default function CoverageDashboard() {
                 <Metric label="Photos / restaurant" value={data.averagePhotos} />
                 <Metric label="Matched to menu" value={data.matchedPhotoPercentage} suffix="%" />
                 <Metric label="Uploaded on seeFood" value={data.seeFoodPhotoPercentage} suffix="%" />
+              </div>
+              <div className="mt-5 border-y border-[var(--border-subtle)] py-3">
+                <p className="text-white/35 text-[10px] uppercase tracking-[0.1em] font-bold mb-3">Coverage ladder</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {data.coverageLevels.map((item) => (
+                    <div key={item.level} className="min-w-0">
+                      <div className="h-1.5 bg-white/8 overflow-hidden rounded-full">
+                        <div className="h-full bg-[var(--accent)]" style={{ width: data.restaurantCount ? `${Math.max(4, item.count / data.restaurantCount * 100)}%` : "0%" }} />
+                      </div>
+                      <p className="text-white text-[15px] font-bold mt-2 tabular-nums">{item.count}</p>
+                      <p className="text-white/35 text-[9px] leading-tight mt-0.5">L{item.level} {item.label}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </section>
 

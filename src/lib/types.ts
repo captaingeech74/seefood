@@ -12,6 +12,7 @@ export type DataSource =
   | "olo"
   | "popmenu"
   | "menu_ocr"
+  | "merchant"
   | "user_upload"
   | "user_suggested";
 
