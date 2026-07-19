@@ -1344,3 +1344,20 @@ moderation status, SHA-256 duplicate hash, and abuse flags. No account is
 required. Exact duplicate bytes are rejected before storage. The photo picker
 is portaled outside the dismissible contribution drawer, and the active draft
 is session-persisted and restored after a mobile camera/browser round trip.
+
+---
+
+## Compact photo-first drawer (July 19, 2026)
+
+Grid overlays should not repeat source counts underneath dish names. The hero
+uses one combined `#1 Most Popular` label instead of separate rank and popularity
+badges. The component supports `#2` and `#3`, but those ranks stay hidden until
+real popularity evidence is strong enough to make the ordering credible.
+
+Dish details remain subordinate to the food image: the dish title stays above
+the image when details open, the drawer does not repeat it, tapping either the
+title or description lowers the drawer, and the action row is compact. Photo
+source comparison defaults to **All users**. Mgmt and Customers are optional
+filters over the actual horizontal swipe sequence; tapping the active filter
+again clears it. The thumbnail strip was removed because it consumed image
+space without making the comparison meaningfully clearer.

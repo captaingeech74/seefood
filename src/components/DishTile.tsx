@@ -16,12 +16,15 @@ export function provenanceLabel(dish: DishPhoto): string {
 export default function DishTile({
   dish,
   hero = false,
+  popularityRank,
   variantCount = 1,
   sourceMix,
   onOpen,
 }: {
   dish: DishPhoto;
   hero?: boolean;
+  /** Show only when popularity evidence is strong enough to support the rank. */
+  popularityRank?: 1 | 2 | 3;
   /** How many photos exist of this same dish — renders a small "multiple photos" badge when > 1. */
   variantCount?: number;
   /** Mgmt/customer coverage for the dish, including SeeFood's promoted customer subset. */
@@ -95,22 +98,6 @@ export default function DishTile({
             >
               {dish.dishName}
             </p>
-            {sourceMix && (
-              <p className={`mt-0.5 max-w-full truncate text-white/60 font-semibold ${hero ? "text-[10.5px]" : "text-[8.5px]"}`}>
-                {sourceMix.management > 0 && sourceMix.customers > 0
-                  ? `Mgmt ${sourceMix.management} · Customers ${sourceMix.customers}`
-                  : sourceMix.management > 0
-                  ? `Mgmt photo${sourceMix.management === 1 ? "" : `s · ${sourceMix.management}`}`
-                  : sourceMix.customers > 0
-                  ? `Customer photo${sourceMix.customers === 1 ? "" : `s · ${sourceMix.customers}`}`
-                  : "Be first to add a photo"}
-                {sourceMix.seeFood > 0 && (
-                  <span className="ml-1 rounded-full px-1 py-0.5 border border-[var(--accent)] text-white/90">
-                    {hero ? `${sourceMix.seeFood} on SF` : "SF"}
-                  </span>
-                )}
-              </p>
-            )}
           </div>
         </div>
       )}
@@ -133,35 +120,23 @@ export default function DishTile({
           for rank context so the image never becomes a wall of badges. */}
       {loaded && hasName && (
         <div className="absolute top-2 left-2 flex flex-col items-start gap-1 pointer-events-none">
-          {hero && (
+          {popularityRank && (
             <div
               className="text-[10px] font-extrabold uppercase px-2 py-1 rounded-md leading-none text-white"
               style={{ background: "var(--accent)", letterSpacing: "0.06em" }}
             >
-              Most Popular
+              #{popularityRank} Most Popular
             </div>
           )}
-        </div>
-      )}
-
-      {hero && loaded && (
-        <div className="absolute top-2 right-2.5 pointer-events-none">
-          <span
-            className="glass rounded-full px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.14em] text-white/85"
-            style={{ background: "rgba(0,0,0,0.45)" }}
-          >
-            #1
-          </span>
         </div>
       )}
 
       </button>
 
       {/* Multiple-photos cue — stacked-photos glyph + count, on a scrim so
-          it stays legible over bright photos. (The hero's top-right corner
-          belongs to the #1 chip, so the hero pill sits below it.) */}
+          it stays legible over bright photos. */}
       {loaded && hasMultiple && (
-        <div className={`absolute pointer-events-none ${hero ? "top-9 right-2.5" : "top-2.5 right-2.5"}`}>
+        <div className="absolute pointer-events-none top-2.5 right-2.5">
           <div
             className="glass rounded-full flex items-center gap-1 px-1.5 py-1"
             style={{ background: "rgba(0,0,0,0.55)" }}

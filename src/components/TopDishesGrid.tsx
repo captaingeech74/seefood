@@ -178,6 +178,7 @@ export default function TopDishesGrid({
           <DishTile
             dish={hero}
             hero
+            popularityRank={1}
             variantCount={variantCounts.get(hero.id) ?? 1}
             sourceMix={sourceMixes.get(hero.id)}
             onOpen={() => onOpenReveal(rankedList, 0, dishes)}

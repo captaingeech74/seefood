@@ -55,7 +55,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   const [isHAnimating, setIsHAnimating] = useState(false);
   const [isHResetting, setIsHResetting] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [detailSource, setDetailSource] = useState<"management" | "customers">("customers");
+  const [detailSource, setDetailSource] = useState<"all" | "management" | "customers">("all");
   const [variantIndex, setVariantIndex] = useState(0);
   const [uploadedPhotos, setUploadedPhotos] = useState<DishPhoto[]>([]);
   // Once true, the swipe-right-only hint upgrades to show both directions —
@@ -101,7 +101,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   // practical stand-in). Looked up against the full undeduped pool (not the
   // vertical `photos` list, which only has one photo per dish), plus this
   // session's own uploads.
-  const variants = useMemo(() => {
+  const allVariants = useMemo(() => {
     if (!photo?.dishName) return [photo].filter(Boolean) as DishPhoto[];
     const key = photo.dishName.toLowerCase().trim();
     const fromProps = allPhotos.filter((p) => p.dishName?.toLowerCase().trim() === key);
@@ -109,19 +109,34 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     return [...fromProps, ...fromUploads];
   }, [photo, allPhotos, uploadedPhotos]);
 
+  const managementPhotos = useMemo(
+    () => allVariants.filter((candidate) => withPhotoSignals(candidate).photoAuthorType === "management"),
+    [allVariants]
+  );
+  const customerPhotos = useMemo(
+    () => allVariants.filter((candidate) => withPhotoSignals(candidate).photoAuthorType === "customer"),
+    [allVariants]
+  );
+  const variants = detailSource === "management"
+    ? managementPhotos
+    : detailSource === "customers"
+    ? customerPhotos
+    : allVariants;
+
   const activePhoto = variants[variantIndex] ?? photo;
   const prevVariant = variantIndex > 0 ? variants[variantIndex - 1] : null;
   const nextVariant = variantIndex < variants.length - 1 ? variants[variantIndex + 1] : null;
   // Whichever variant currently represents this dish in the grid (see
   // dedupeToPrimary) — the thumbs-up-to-promote control only shows on the
   // OTHER variants, since promoting the one already primary is a no-op.
-  const primaryPhoto = useMemo(() => (variants.length > 1 ? pickPrimary(variants) : null), [variants]);
+  const primaryPhoto = useMemo(() => (allVariants.length > 1 ? pickPrimary(allVariants) : null), [allVariants]);
 
   // Reset which variant is showing whenever the outer (vertical) dish
   // changes — always land back on the ranked photo for the new dish, not
   // wherever horizontal browsing last left off.
   useEffect(() => {
-    const idx = variants.findIndex((v) => v.id === photo?.id);
+    setDetailSource("all");
+    const idx = allVariants.findIndex((v) => v.id === photo?.id);
     setVariantIndex(idx >= 0 ? idx : 0);
     setDragX(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -320,30 +335,32 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     }
   };
 
-  // The product comparison stays deliberately two-sided: management versus
-  // customers. SeeFood uploads are a promoted subset of customer photos,
-  // never a third mode the user has to understand.
-  const managementPhotos = useMemo(
-    () => variants.filter((photo) => withPhotoSignals(photo).photoAuthorType === "management"),
-    [variants]
-  );
-  const customerPhotos = useMemo(
-    () => variants.filter((photo) => withPhotoSignals(photo).photoAuthorType === "customer"),
-    [variants]
-  );
-  const detailPhotos = detailSource === "management" ? managementPhotos : customerPhotos;
-
-  useEffect(() => {
-    if (!detailOpen || !activePhoto) return;
-    setDetailSource(withPhotoSignals(activePhoto).photoAuthorType === "management" ? "management" : "customers");
-  }, [detailOpen, activePhoto]);
-
   const chooseDetailSource = (source: "management" | "customers") => {
+    if (detailSource === source) {
+      const activeId = activePhoto?.id;
+      setDetailSource("all");
+      const allIndex = allVariants.findIndex((candidate) => candidate.id === activeId);
+      setVariantIndex(allIndex >= 0 ? allIndex : 0);
+      return;
+    }
+    const filtered = source === "management" ? managementPhotos : customerPhotos;
+    if (filtered.length === 0) return;
     setDetailSource(source);
-    const first = source === "management" ? managementPhotos[0] : customerPhotos[0];
-    if (!first) return;
-    const i = variants.indexOf(first);
-    if (i >= 0) setVariantIndex(i);
+    setVariantIndex(0);
+    setDragX(0);
+  };
+
+  const toggleDetail = () => {
+    if (detailOpen) {
+      setDetailOpen(false);
+      return;
+    }
+    const activeId = activePhoto?.id;
+    setDetailSource("all");
+    const allIndex = allVariants.findIndex((candidate) => candidate.id === activeId);
+    setVariantIndex(allIndex >= 0 ? allIndex : 0);
+    setDragX(0);
+    setDetailOpen(true);
   };
 
   const [sharing, setSharing] = useState(false);
@@ -492,7 +509,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         <HSlide
           photo={activePhoto}
           interactive
-          onTap={() => setDetailOpen((v) => !v)}
+          onTap={toggleDetail}
           imgRef={activeImgRef}
           onImgLoad={measureImgBounds}
           style={{ transform: `translateX(${dragX}px)`, transition: hTrackTransition }}
@@ -675,13 +692,17 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
           </div>
         )}
 
-        {!detailOpen && photo.dishName && (
-          <h2
-            className="text-white text-[24px] font-extrabold leading-tight tracking-tight truncate max-w-full text-center"
+        {photo.dishName && (
+          <button
+            type="button"
+            onClick={() => detailOpen && setDetailOpen(false)}
+            disabled={!detailOpen}
+            className="text-white text-[24px] font-extrabold leading-tight tracking-tight truncate max-w-full text-center pointer-events-auto disabled:pointer-events-none"
             style={{ textShadow: "0 2px 10px rgba(0,0,0,0.65)" }}
+            aria-label={detailOpen ? `Lower details for ${photo.dishName}` : undefined}
           >
             {photo.dishName}
-          </h2>
+          </button>
         )}
       </div>
 
@@ -753,32 +774,42 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
             background: "rgba(10,10,10,0.94)",
             borderTop: "1px solid rgba(255,255,255,0.16)",
             boxShadow: "0 -12px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)",
-            maxHeight: "74vh",
+            maxHeight: "56vh",
           }}
         >
           <div
-            className="px-6 pt-7 overflow-y-auto"
+            className="px-4 pt-4 overflow-y-auto"
             style={{
-              maxHeight: "74vh",
-              paddingBottom: "max(24px, env(safe-area-inset-bottom))",
+              maxHeight: "56vh",
+              paddingBottom: "max(16px, env(safe-area-inset-bottom))",
             }}
           >
-          {photo.dishName && (
-            <h3 className="text-white text-[21px] font-bold mb-2 tracking-tight">{photo.dishName}</h3>
-          )}
           {photo.dishDescription && (
-            <p className="text-white/65 text-[14px] leading-relaxed">{photo.dishDescription}</p>
+            <button
+              type="button"
+              onClick={() => setDetailOpen(false)}
+              className="block w-full text-left text-white/65 text-[13.5px] leading-relaxed"
+              aria-label="Lower dish details"
+            >
+              {photo.dishDescription}
+            </button>
           )}
 
-          {/* Visual separation between the description and comparison controls below */}
-          <div className="h-px bg-white/10 my-4" />
+          <div className="flex items-center gap-2.5 my-3" aria-live="polite">
+            <span className="h-px flex-1 bg-white/10" />
+            <p className="shrink-0 text-white/42 text-[11.5px] font-semibold">
+              View photos from: <span className="text-white/75">{detailSource === "all" ? "All users" : detailSource === "management" ? "Management" : "Customers"}</span>
+            </p>
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
 
-          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-white/6 mb-2" role="group" aria-label="Photo source">
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-white/6 mb-3" role="group" aria-label="Filter photos by source">
             <button
               type="button"
               onClick={() => chooseDetailSource("management")}
+              disabled={managementPhotos.length === 0}
               aria-pressed={detailSource === "management"}
-              className="min-h-10 rounded-lg text-[13px] font-bold transition-colors"
+              className="min-h-9 rounded-lg text-[12.5px] font-bold transition-colors disabled:opacity-30"
               style={{
                 background: detailSource === "management" ? "rgba(255,255,255,0.12)" : "transparent",
                 color: detailSource === "management" ? "white" : "rgba(255,255,255,0.45)",
@@ -789,8 +820,9 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
             <button
               type="button"
               onClick={() => chooseDetailSource("customers")}
+              disabled={customerPhotos.length === 0}
               aria-pressed={detailSource === "customers"}
-              className="min-h-10 rounded-lg text-[13px] font-bold transition-colors"
+              className="min-h-9 rounded-lg text-[12.5px] font-bold transition-colors disabled:opacity-30"
               style={{
                 background: detailSource === "customers" ? "var(--accent)" : "transparent",
                 color: detailSource === "customers" ? "white" : "rgba(255,255,255,0.45)",
@@ -800,41 +832,18 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
             </button>
           </div>
 
-          <p className="text-white/42 text-[11.5px] leading-relaxed mb-3">
-            {detailSource === "management"
-              ? "Photos shared by management."
-              : "Photos shared by customers. The orange mark shows seeFood-user photos!"}
-          </p>
-
-          <div className="mb-4 min-h-16">
-            {detailPhotos.length > 0 ? (
-              <PhotoStrip photos={detailPhotos} activeId={activePhoto.id} onPick={(p) => {
-                const i = variants.indexOf(p);
-                if (i >= 0) setVariantIndex(i);
-              }} />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setPhotoSourceOpen(true)}
-                className="w-full min-h-16 rounded-xl border border-dashed border-white/15 text-white/45 text-[12px] font-semibold active:bg-white/5"
-              >
-                {detailSource === "management" ? "No management photos yet" : "Be the first customer to add one"}
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-3 gap-2.5 mb-1">
+          <div className="grid grid-cols-3 gap-2 mb-1">
             <button
               onClick={() => setPhotoSourceOpen(true)}
               disabled={uploading}
-              className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border active:scale-[0.96] transition-all disabled:opacity-50"
+              className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border active:scale-[0.96] transition-all disabled:opacity-50"
               style={{ background: "var(--surface-2)", borderColor: "rgba(255,255,255,0.1)" }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-white/85">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-white/85">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/>
                 <circle cx="12" cy="13" r="4"/>
               </svg>
-              <span className="text-[11.5px] font-bold text-white/85 text-center leading-tight">
+              <span className="text-[10.5px] font-bold text-white/85 text-center leading-tight">
                 {uploading ? "Uploading…" : "Add a Photo"}
               </span>
             </button>
@@ -842,14 +851,14 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
             <button
               onClick={handleLove}
               aria-pressed={loved}
-              className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl border active:scale-[0.96] transition-all"
+              className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border active:scale-[0.96] transition-all"
               style={{
                 background: loved ? "var(--accent-soft)" : "var(--surface-2)",
                 borderColor: loved ? "rgba(255,107,53,0.45)" : "rgba(255,255,255,0.1)",
               }}
             >
               <svg
-                width="20" height="20" viewBox="0 0 24 24"
+                width="18" height="18" viewBox="0 0 24 24"
                 fill={loved ? "var(--accent)" : "none"}
                 stroke="currentColor" strokeWidth="2"
                 strokeLinecap="round" strokeLinejoin="round"
@@ -861,7 +870,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
               >
                 <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
               </svg>
-              <span className="text-[11.5px] font-bold text-center leading-tight" style={{ color: loved ? "var(--accent)" : "rgba(255,255,255,0.85)" }}>
+              <span className="text-[10.5px] font-bold text-center leading-tight" style={{ color: loved ? "var(--accent)" : "rgba(255,255,255,0.85)" }}>
                 I Loved This{loveCount > 0 ? ` · ${loveCount}` : ""}
               </span>
             </button>
@@ -869,13 +878,13 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
             <button
               onClick={handleShare}
               disabled={sharing}
-              className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-2xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white active:scale-[0.96] transition-all disabled:opacity-50"
+              className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white active:scale-[0.96] transition-all disabled:opacity-50"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                 <path d="m8.6 13.5 6.8 3.9M15.4 6.6 8.6 10.5"/>
               </svg>
-              <span className="text-[11.5px] font-bold text-center leading-tight">Share</span>
+              <span className="text-[10.5px] font-bold text-center leading-tight">Share</span>
             </button>
           </div>
           </div>
@@ -945,43 +954,6 @@ function HSlide({
       ) : (
         img
       )}
-    </div>
-  );
-}
-
-function PhotoStrip({
-  photos,
-  activeId,
-  onPick,
-}: {
-  photos: DishPhoto[];
-  activeId: string;
-  onPick: (p: DishPhoto) => void;
-}) {
-  return (
-    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-        {photos.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => onPick(p)}
-            className="relative shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2"
-            style={{
-              borderColor: p.source === "user_upload" || p.source === "user_suggested"
-                ? "var(--accent)"
-                : p.id === activeId ? "rgba(255,255,255,0.8)" : "transparent",
-              boxShadow: p.id === activeId ? "0 0 0 2px rgba(255,255,255,0.18)" : undefined,
-            }}
-            aria-label={`View ${p.source === "user_upload" || p.source === "user_suggested" ? "seeFood user" : withPhotoSignals(p).photoAuthorType} photo`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.url} alt="" className="w-full h-full object-cover" />
-            {(p.source === "user_upload" || p.source === "user_suggested") && (
-              <span className="absolute right-1 bottom-1 rounded-full bg-[var(--accent)] text-white text-[8px] leading-none font-extrabold px-1.5 py-1 shadow-lg">
-                SF
-              </span>
-            )}
-          </button>
-        ))}
     </div>
   );
 }
