@@ -791,6 +791,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
               className="block w-full text-left text-white/65 text-[13.5px] leading-relaxed"
               aria-label="Lower dish details"
             >
+              <span className="font-bold text-white">Description:</span>{" "}
               {photo.dishDescription}
             </button>
           )}
@@ -798,7 +799,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
           <div className="flex items-center gap-2.5 my-3" aria-live="polite">
             <span className="h-px flex-1 bg-white/10" />
             <p className="shrink-0 text-white/42 text-[11.5px] font-semibold">
-              View photos from: <span className="text-white/75">{detailSource === "all" ? "All users" : detailSource === "management" ? "Management" : "Customers"}</span>
+              Viewing pictures from: <span className="text-white/75">{detailSource === "all" ? "All users" : detailSource === "management" ? "Management" : "Customers"}</span>
             </p>
             <span className="h-px flex-1 bg-white/10" />
           </div>
@@ -811,11 +812,11 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
               aria-pressed={detailSource === "management"}
               className="min-h-9 rounded-lg text-[12.5px] font-bold transition-colors disabled:opacity-30"
               style={{
-                background: detailSource === "management" ? "rgba(255,255,255,0.12)" : "transparent",
+                background: detailSource === "management" ? "var(--accent)" : "transparent",
                 color: detailSource === "management" ? "white" : "rgba(255,255,255,0.45)",
               }}
             >
-              Mgmt <span className="text-white/35">{managementPhotos.length}</span>
+              Management <span className={detailSource === "management" ? "text-white/65" : "text-white/35"}>{managementPhotos.length}</span>
             </button>
             <button
               type="button"

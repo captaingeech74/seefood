@@ -178,6 +178,7 @@ export default function MapPicker({
   const [searchText, setSearchText] = useState("");
   const [selected, setSelected] = useState<SelectedPlace | null>(null);
   const [nearbyDishes, setNearbyDishes] = useState<NearbyDish[]>([]);
+  const [bestNearbyExpanded, setBestNearbyExpanded] = useState(false);
   /** Post-search feedback ("7 restaurants found"), auto-dismissed. */
   const [foundToast, setFoundToast] = useState<string | null>(null);
 
@@ -669,9 +670,9 @@ export default function MapPicker({
           className="absolute"
           style={{
             background: "#16161c",
-            inset: "-3% -4% -7%",
-            transform: "perspective(1000px) rotateX(5deg) scale(1.04)",
-            transformOrigin: "50% 0%",
+            inset: "-5% -7% -12%",
+            transform: "perspective(1100px) rotateX(7deg) scale(1.08)",
+            transformOrigin: "50% 18%",
           }}
         />
 
@@ -716,7 +717,7 @@ export default function MapPicker({
             opacity: selected ? 0 : 1,
             pointerEvents: selected ? "none" : "auto",
             transform: selected ? "scale(0.85)" : "scale(1)",
-            bottom: !selected && nearbyDishes.length > 0 ? 178 : 20,
+            bottom: !selected && nearbyDishes.length > 0 ? (bestNearbyExpanded ? 326 : 178) : 20,
             transition: "opacity 240ms var(--ease-standard), transform 240ms var(--ease-standard)",
           }}
           aria-label="Recenter on my location"
@@ -729,20 +730,49 @@ export default function MapPicker({
 
         {!selected && nearbyDishes.length > 0 && (
           <div
-            className="absolute inset-x-0 bottom-0 z-20 pt-12 pb-3 fade-up"
+            className="absolute inset-x-0 bottom-0 z-20 pt-10 pb-3 fade-up transition-[max-height] duration-300 overflow-hidden"
             style={{
+              maxHeight: bestNearbyExpanded ? 326 : 178,
               paddingBottom: "max(12px, env(safe-area-inset-bottom))",
               background: "linear-gradient(to top, rgba(10,10,10,0.98) 0%, rgba(10,10,10,0.82) 66%, transparent 100%)",
             }}
           >
-            <div className="flex items-end justify-between gap-3 px-4 mb-2.5">
+            <button
+              type="button"
+              onClick={() => setBestNearbyExpanded((value) => !value)}
+              className="w-full flex items-end justify-between gap-3 px-4 mb-2.5 text-left active:opacity-75 transition-opacity"
+              aria-expanded={bestNearbyExpanded}
+              aria-controls="best-nearby-dishes"
+            >
               <div>
                 <p className="text-white text-[17px] font-bold tracking-tight">Best nearby</p>
                 <p className="text-white/38 text-[11px] font-medium">Top dishes from restaurants around you</p>
               </div>
-              <span className="text-white/28 text-[10px] uppercase tracking-[0.1em] font-bold">Tap to visit</span>
-            </div>
-            <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-4 pb-1" style={{ perspective: 800 }}>
+              <span className="shrink-0 flex items-center gap-1.5 text-white/50 text-[10px] uppercase tracking-[0.08em] font-bold">
+                {bestNearbyExpanded ? "Show less" : "See more"}
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`transition-transform duration-300 ${bestNearbyExpanded ? "rotate-180" : ""}`}
+                  aria-hidden="true"
+                >
+                  <path d="m6 15 6-6 6 6" />
+                </svg>
+              </span>
+            </button>
+            <div
+              id="best-nearby-dishes"
+              className={bestNearbyExpanded
+                ? "grid grid-flow-col grid-rows-2 auto-cols-[132px] gap-2.5 overflow-x-auto no-scrollbar px-4 pb-1"
+                : "flex gap-2.5 overflow-x-auto no-scrollbar px-4 pb-1"}
+              style={{ perspective: 800 }}
+            >
               {nearbyDishes.map((item, index) => (
                 <button
                   key={item.placeId}
@@ -759,10 +789,15 @@ export default function MapPicker({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={item.photo.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
+                  {item.rating && (
+                    <span className="absolute top-2 right-2 rounded-md bg-black/72 px-1.5 py-1 text-[9.5px] leading-none font-bold text-white shadow-lg backdrop-blur-sm">
+                      {item.rating.toFixed(1)} ★
+                    </span>
+                  )}
                   <div className="absolute inset-x-0 bottom-0 p-2.5">
                     <p className="text-white text-[12px] leading-tight font-bold line-clamp-1">{item.photo.dishName || "Top dish"}</p>
-                    <p className="text-white/58 text-[9.5px] leading-tight mt-0.5 truncate">
-                      {item.restaurantName}{item.rating ? ` · ${item.rating.toFixed(1)} ★` : ""}
+                    <p className="text-white/65 text-[9.5px] leading-tight mt-0.5 truncate">
+                      {item.restaurantName}
                     </p>
                   </div>
                 </button>

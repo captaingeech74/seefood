@@ -1361,3 +1361,15 @@ source comparison defaults to **All users**. Mgmt and Customers are optional
 filters over the actual horizontal swipe sequence; tapping the active filter
 again clears it. The thumbnail strip was removed because it consumed image
 space without making the comparison meaningfully clearer.
+
+---
+
+## Dimensional map browser + expandable nearby shelf (July 19, 2026)
+
+Map Explore uses a restrained perspective tilt so the geography feels more
+dimensional while remaining legible and fully interactive. **Best nearby** is
+a two-state shelf: one horizontal row by default, then two rows when its header
+is tapped. Its cards reserve the image corner for rating and the lower caption
+for the full restaurant identity. The restaurant header's expanded dish search
+uses the product accent and stronger contrast so it reads immediately as an
+input rather than passive header chrome.

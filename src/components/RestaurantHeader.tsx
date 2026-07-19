@@ -228,7 +228,7 @@ export default function RestaurantHeader({
             <svg
               width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-              className="absolute top-1/2 -translate-y-1/2 text-white/35 pointer-events-none"
+              className="absolute top-1/2 -translate-y-1/2 text-[var(--accent)] pointer-events-none"
               style={{ left: 12 }}
             >
               <circle cx="11" cy="11" r="8" />
@@ -238,9 +238,11 @@ export default function RestaurantHeader({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search dishes…"
-              className="w-full rounded-xl text-white text-[14px] font-medium outline-none focus:ring-2 focus:ring-[var(--accent-ring)] placeholder:text-white/30"
+              className="w-full rounded-xl text-white text-[14px] font-semibold outline-none focus:ring-2 focus:ring-[var(--accent-ring)] placeholder:text-white/55 transition-shadow"
               style={{
-                background: "var(--surface-2)",
+                background: "rgba(255,255,255,0.08)",
+                border: "1px solid rgba(255,107,53,0.42)",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
                 paddingLeft: 36,
                 paddingRight: 32,
                 paddingTop: 10,
