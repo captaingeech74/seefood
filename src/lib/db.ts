@@ -1581,6 +1581,7 @@ export async function getDoorDashReplayTargets(limit = 250): Promise<SaturationT
     .not("lat", "is", null)
     .not("lng", "is", null)
     .neq("status", "test_fixture")
+    .order("name", { ascending: true })
     .limit(limit);
   if (error) throw error;
   return (data ?? []).map((row) => ({ placeId: row.place_id, name: row.name, lat: row.lat, lng: row.lng, address: row.address ?? "" }));
