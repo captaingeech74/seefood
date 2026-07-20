@@ -257,6 +257,8 @@ export async function getCoverageMetrics(
   lng: number,
   radiusKm = 15
 ): Promise<CoverageMetrics> {
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / Math.max(20, 111 * Math.cos(lat * Math.PI / 180));
   const restaurants: CoverageRestaurantRow[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
@@ -264,6 +266,10 @@ export async function getCoverageMetrics(
       .select("place_id,entity_id,lat,lng")
       .not("lat", "is", null)
       .not("lng", "is", null)
+      .gte("lat", lat - latDelta)
+      .lte("lat", lat + latDelta)
+      .gte("lng", lng - lngDelta)
+      .lte("lng", lng + lngDelta)
       .range(from, from + 999);
     if (error) throw error;
     restaurants.push(...((data ?? []) as CoverageRestaurantRow[]));
@@ -272,7 +278,11 @@ export async function getCoverageMetrics(
 
   const entities: Array<{ id: string; lat: number; lng: number }> = [];
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase.from("restaurant_entities").select("id,lat,lng").not("lat", "is", null).not("lng", "is", null).range(from, from + 999);
+    const { data, error } = await supabase.from("restaurant_entities").select("id,lat,lng")
+      .not("lat", "is", null).not("lng", "is", null)
+      .gte("lat", lat - latDelta).lte("lat", lat + latDelta)
+      .gte("lng", lng - lngDelta).lte("lng", lng + lngDelta)
+      .range(from, from + 999);
     if (error) throw error;
     entities.push(...((data ?? []) as Array<{ id: string; lat: number; lng: number }>));
     if (!data || data.length < 1000) break;
