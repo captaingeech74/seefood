@@ -161,6 +161,11 @@ async function main() {
 
   async function crawlDoorDash(target: CrawlTarget): Promise<MenuItemData[]> {
     let storeUrl = await getDoorDashStoreUrl(target.placeId).catch(() => null);
+    if (storeUrl && !findDoorDashStoreUrlInSitemap([storeUrl], target.name, DOORDASH_CITY)) {
+      console.log(`  [doordash] rejecting stale cached URL that no longer matches "${target.name}"`);
+      await saveDoorDashStoreUrl(target.placeId, null).catch(() => {});
+      storeUrl = null;
+    }
     if (storeUrl) {
       console.log(`  [doordash] using cached store URL: ${storeUrl}`);
     } else {

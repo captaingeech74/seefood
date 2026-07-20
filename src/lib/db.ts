@@ -1560,7 +1560,7 @@ export async function getDoorDashStoreUrl(placeId: string): Promise<string | nul
   return data?.doordash_store_url ?? null;
 }
 
-export async function saveDoorDashStoreUrl(placeId: string, url: string): Promise<void> {
+export async function saveDoorDashStoreUrl(placeId: string, url: string | null): Promise<void> {
   await supabase.from("restaurants").update({ doordash_store_url: url }).eq("place_id", placeId);
 }
 
