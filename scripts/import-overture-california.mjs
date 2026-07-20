@@ -59,7 +59,9 @@ async function flush() {
       on conflict(provider,provider_id) do update set entity_id=excluded.entity_id,name=excluded.name,address=excluded.address,lat=excluded.lat,lng=excluded.lng,website=excluded.website,confidence=excluded.confidence,raw_metadata=excluded.raw_metadata,last_seen_at=now(),active=true`,[JSON.stringify(idRows)]);
     if (siteRows.length) await client.query(`with incoming as (select distinct "entityId"::uuid entity_id,url,regexp_replace(lower(split_part(regexp_replace(url,'^https?://','','i'),'/',1)),'^www\\.','') domain from jsonb_to_recordset($1::jsonb) as x("entityId" text,url text)),
       sites as (insert into restaurant_websites(entity_id,url,domain,source) select entity_id,url,domain,'overture' from incoming on conflict(entity_id,url) do update set active=true,updated_at=now() returning id,entity_id)
-      insert into web_crawl_jobs(entity_id,website_id,source,status,priority) select entity_id,id,'live','queued',30 from sites on conflict(website_id,source) do nothing`,[JSON.stringify(siteRows)]);
+      insert into web_crawl_jobs(entity_id,website_id,source,status,priority)
+      select entity_id,id,source,'queued',priority from sites cross join (values ('live',30),('common_crawl',60)) as jobs(source,priority)
+      on conflict(website_id,source) do nothing`,[JSON.stringify(siteRows)]);
     await client.query("commit");
   } catch(error) { await client.query("rollback"); throw error; }
   batch=[];

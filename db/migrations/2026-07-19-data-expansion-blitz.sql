@@ -63,6 +63,12 @@ create table if not exists web_crawl_jobs (
 );
 create index if not exists idx_web_crawl_jobs_queue on web_crawl_jobs(status, priority, created_at);
 
+insert into web_crawl_jobs(entity_id,website_id,source,status,priority)
+select entity_id,id,'common_crawl','queued',60
+from restaurant_websites
+where source = 'overture'
+on conflict(website_id,source) do nothing;
+
 create table if not exists merchant_connections (
   id uuid primary key default gen_random_uuid(),
   entity_id uuid not null references restaurant_entities(id) on delete cascade,
