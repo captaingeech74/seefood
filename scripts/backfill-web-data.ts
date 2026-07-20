@@ -38,8 +38,12 @@ if (!archiveOnly && targets.length < limit) {
 let commonCrawlEndpoint: string | null | undefined;
 async function commonCrawl(url: string) {
   if (commonCrawlEndpoint === undefined) {
-    const indexList = await fetch("https://index.commoncrawl.org/collinfo.json", { signal: AbortSignal.timeout(20000) }).then((response) => response.json()) as Array<{ id: string; "cdx-api": string }>;
-    commonCrawlEndpoint = indexList[0]?.["cdx-api"] ?? null;
+    try {
+      const indexList = await fetch("https://index.commoncrawl.org/collinfo.json", { signal: AbortSignal.timeout(20000) }).then((response) => response.json()) as Array<{ id: string; "cdx-api": string }>;
+      commonCrawlEndpoint = indexList[0]?.["cdx-api"] ?? null;
+    } catch {
+      commonCrawlEndpoint = null;
+    }
   }
   const endpoint = commonCrawlEndpoint;
   if (!endpoint) return null;
