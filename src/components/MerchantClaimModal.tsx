@@ -28,12 +28,21 @@ export default function MerchantClaimModal({ restaurant, onClose }: { restaurant
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [providers, setProviders] = useState<Array<{ id: string; name: string; value: string; available: boolean }>>([]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!submitted) return;
+    void fetch("/api/merchant-connections/providers")
+      .then((response) => response.json())
+      .then((result) => setProviders(result.providers ?? []))
+      .catch(() => setProviders([]));
+  }, [submitted]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -75,6 +84,20 @@ export default function MerchantClaimModal({ restaurant, onClose }: { restaurant
             <div className="mx-auto w-12 h-12 rounded-full bg-emerald-400/15 text-emerald-400 flex items-center justify-center text-2xl">✓</div>
             <h3 className="text-white text-lg font-bold mt-4">Claim received</h3>
             <p className="text-white/55 text-sm mt-2">We’ll review your connection to the restaurant before activating management controls or billing.</p>
+            {providers.length > 0 && (
+              <div className="mt-6 text-left border-t border-white/10 pt-4">
+                <p className="text-white text-sm font-bold">Connect your menu system</p>
+                <p className="text-white/40 text-[11px] mt-1">Available after developer access and claim approval.</p>
+                <div className="mt-3 space-y-2">
+                  {providers.map((provider) => (
+                    <button key={provider.id} disabled className="w-full min-h-12 px-3 border border-white/10 bg-white/[0.035] flex items-center justify-between gap-3 text-left opacity-70">
+                      <span><span className="block text-white text-[12px] font-bold">{provider.name}</span><span className="block text-white/40 text-[10px] mt-0.5">{provider.value}</span></span>
+                      <span className="text-white/30 text-[10px] font-bold">Coming online</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <button onClick={onClose} className="mt-6 w-full min-h-11 rounded-xl bg-[var(--accent)] text-white font-bold">Done</button>
           </div>
         ) : (

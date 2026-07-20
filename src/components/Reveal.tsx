@@ -605,7 +605,13 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
       )}
       {!isDragging && imgBounds && !nextPhoto && (
         <button
-          onClick={backToTop}
+          onPointerDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+          onTouchEnd={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            backToTop();
+          }}
           className="absolute left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 pl-2.5 pr-3.5 py-1.5 rounded-full bg-black/45 backdrop-blur-sm active:scale-95 transition-transform"
           style={{ top: Math.min(imgBounds.bottom + 4, (typeof window !== "undefined" ? window.innerHeight : 800) - 96) }}
           aria-label="Back to top"

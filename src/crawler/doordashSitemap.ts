@@ -150,7 +150,11 @@ export function findDoorDashStoreUrlInSitemap(
   // Require at least half the restaurant name's significant words to match —
   // otherwise a single common word ("grill", "cafe") could pair with the
   // wrong restaurant entirely.
-  if (best && best.score >= Math.max(1, Math.ceil(nameWords.length / 2))) {
+  // Multi-word names must also share their leading brand word. Without this,
+  // "Villa Italian Kitchen" can incorrectly match "Francesca's Italian
+  // Kitchen": two generic cuisine words satisfy the old half-overlap rule.
+  const sharesLeadingBrandWord = nameWords.length === 1 || (best && normalizeWords(decodeURIComponent(best.url.split("/store/")[1] ?? "")).includes(nameWords[0]));
+  if (best && sharesLeadingBrandWord && best.score >= Math.max(1, Math.ceil(nameWords.length / 2))) {
     return best.url;
   }
   return null;

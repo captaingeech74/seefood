@@ -935,7 +935,14 @@ export async function fetchStreamingCandidates(
   // DECISIONS.md). Calling it live spent a Scrapfly credit on a 0% hit rate
   // every single time — same waste pattern DoorDash was pulled from this
   // path for. The Scrapfly-based fetch helper was removed entirely.
-  const website = websiteUrl ? await fetchMenuFromUrl(websiteUrl) : { items: [], photoUrls: [] };
+  const website = websiteUrl ? await fetchMenuFromUrl(websiteUrl) : {
+    items: [], photoUrls: [], pdfUrls: [], pagesVisited: [], platforms: [],
+  };
+  if (websiteUrl) {
+    void import("./db")
+      .then(({ saveWebsiteIntelligence }) => saveWebsiteIntelligence(placeId, websiteUrl, website))
+      .catch((error) => console.error("[pipeline] website intelligence save failed:", error));
+  }
   const websiteMenuItems = website.items;
   const inheritedMenuItems = await import("./db")
     .then(({ getInheritedMenuItems }) => getInheritedMenuItems(placeId))

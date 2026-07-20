@@ -25,6 +25,12 @@ interface CoverageResponse {
   activity: { week: ActivityMetrics; month: ActivityMetrics };
   trackingStartedAt: string | null;
   coverageLevels: Array<{ level: 0 | 1 | 2 | 3; count: number; label: string }>;
+  acquisition: {
+    websiteCount: number;
+    queuedCrawls: number;
+    identitySources: Array<{ source: string; count: number }>;
+    platforms: Array<{ platform: string; count: number }>;
+  };
 }
 
 function Metric({ label, value, suffix }: { label: string; value: string | number; suffix?: string }) {
@@ -203,6 +209,25 @@ export default function CoverageDashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            <section aria-labelledby="acquisition-heading" className="pt-7">
+              <div className="flex items-baseline justify-between gap-3 mb-2">
+                <h2 id="acquisition-heading" className="text-white text-[16px] font-bold">Acquisition engine</h2>
+                <span className="text-white/30 text-[11px]">This area</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-5">
+                <Metric label="Restaurant websites" value={data.acquisition.websiteCount} />
+                <Metric label="Queued site crawls" value={data.acquisition.queuedCrawls} />
+              </div>
+              <div className="py-4 border-b border-[var(--border-subtle)]">
+                <p className="text-white/35 text-[10px] uppercase tracking-[0.1em] font-bold mb-2">Identity coverage</p>
+                <p className="text-white/65 text-[13px] leading-6">{data.acquisition.identitySources.map((item) => `${item.source} ${item.count.toLocaleString()}`).join(" · ") || "No identities yet"}</p>
+              </div>
+              <div className="py-4 border-b border-[var(--border-subtle)]">
+                <p className="text-white/35 text-[10px] uppercase tracking-[0.1em] font-bold mb-2">Ordering platforms found</p>
+                <p className="text-white/65 text-[13px] leading-6">{data.acquisition.platforms.map((item) => `${item.platform} ${item.count.toLocaleString()}`).join(" · ") || "Crawls are queued"}</p>
               </div>
             </section>
 

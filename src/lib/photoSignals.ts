@@ -12,6 +12,14 @@ const MANAGEMENT_SOURCES = new Set<DataSource>([
   "chownow",
   "olo",
   "popmenu",
+  "bentobox",
+  "owner",
+  "spothopper",
+  "slice",
+  "flipdish",
+  "lightspeed",
+  "gloriafood",
+  "common_crawl",
   "merchant",
 ]);
 

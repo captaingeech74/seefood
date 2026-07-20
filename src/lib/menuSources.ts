@@ -20,6 +20,12 @@
 
 import { MenuItemData } from "./types";
 import { hasScrapflyBudget } from "./scrapflyUsage";
+import * as cheerio from "cheerio";
+
+export type OrderingPlatform =
+  | "toast" | "square" | "clover" | "chownow" | "olo" | "popmenu"
+  | "bentobox" | "owner" | "spothopper" | "slice" | "flipdish"
+  | "lightspeed" | "gloriafood" | "menufy";
 
 export interface WebsiteExtractResult {
   items: MenuItemData[];
@@ -27,22 +33,46 @@ export interface WebsiteExtractResult {
    * trusted name attached, so these get fed through the same Gemini
    * identification pass as raw Google photos (see google.ts). */
   photoUrls: string[];
+  pdfUrls: string[];
+  pagesVisited: string[];
+  platforms: OrderingPlatform[];
+}
+
+interface PageSignals extends WebsiteExtractResult {
+  discoveredPages: string[];
+}
+
+const EMPTY_WEBSITE_RESULT: WebsiteExtractResult = {
+  items: [], photoUrls: [], pdfUrls: [], pagesVisited: [], platforms: [],
+};
+
+function unique<T>(values: T[]): T[] {
+  return [...new Set(values)];
+}
+
+function mergeWebsiteResults(results: WebsiteExtractResult[]): WebsiteExtractResult {
+  return {
+    items: deduplicateMenuItems(results.flatMap((result) => result.items)),
+    photoUrls: unique(results.flatMap((result) => result.photoUrls)).slice(0, 120),
+    pdfUrls: unique(results.flatMap((result) => result.pdfUrls)).slice(0, 40),
+    pagesVisited: unique(results.flatMap((result) => result.pagesVisited)),
+    platforms: unique(results.flatMap((result) => result.platforms)),
+  };
 }
 
 /** Detection chain run against a single already-fetched page. */
-async function extractFromPage(url: string, html: string): Promise<WebsiteExtractResult> {
-  // ── Platform 1: Menufy / HungerRush ───────────────────────────────────────
-  if (html.includes("api.menufy.com")) {
-    const items = await parseMenufySite(url, html);
-    if (items.length > 0) return { items, photoUrls: [] };
-  }
+async function extractFromPage(url: string, html: string): Promise<PageSignals> {
+  const itemBatches: MenuItemData[][] = [];
+  const platforms: OrderingPlatform[] = [];
+  const rawAssets = extractPageAssets(html, url);
 
-  // ── Platform 1b: Menufy via order link ───────────────────────────────────
-  // Some restaurants (e.g. Richie's Diner) have their marketing site separate
-  // from their Menufy ordering site, sometimes chained through an intermediate
-  // "/order" redirect page. Follow up to 3 hops.
-  const menufyViaSideLink = await checkLinksForMenufy(url, html, 3);
-  if (menufyViaSideLink.length > 0) return { items: menufyViaSideLink, photoUrls: [] };
+  // Every applicable extractor contributes. A Menufy hit no longer prevents
+  // schema.org, page photography, or another embedded platform from landing.
+  if (html.includes("api.menufy.com")) {
+    platforms.push("menufy");
+    const items = await parseMenufySite(url, html);
+    if (items.length > 0) itemBatches.push(items);
+  }
 
   // ── Platform 3: Named ordering platforms (Toast, Square, Clover, ChowNow, Olo, PopMenu)
   // Real-world finding (July 2026, live restaurants): these sites almost never
@@ -50,10 +80,13 @@ async function extractFromPage(url: string, html: string): Promise<WebsiteExtrac
   // typically just *link* to a separate toasttab.com ordering page (same 2-hop
   // pattern as Menufy). Square/ChowNow/Clover/Olo/PopMenu render their menu
   // entirely client-side (JS SPA) — nothing useful in the raw HTML at all.
-  const platform = detectOrderingPlatform(html);
+  const detectedPlatforms = detectOrderingPlatforms(html);
+  platforms.push(...detectedPlatforms);
+  const platform = detectedPlatforms.find((candidate) => candidate !== "menufy") ?? null;
   let renderedHtml: string | null = null;
   let renderedUrl = url;
   if (platform) {
+    platforms.push(platform);
     let items = extractEmbeddedJsonMenuItems(html, platform);
 
     if (items.length === 0) {
@@ -70,7 +103,7 @@ async function extractFromPage(url: string, html: string): Promise<WebsiteExtrac
       }
     }
 
-    if (items.length > 0) return { items, photoUrls: [] };
+    if (items.length > 0) itemBatches.push(items);
   }
 
   // ── Platform 2: Schema.org LD+JSON ────────────────────────────────────────
@@ -83,85 +116,68 @@ async function extractFromPage(url: string, html: string): Promise<WebsiteExtrac
   // was silently discarding real photos every time a JS SPA platform's
   // structured extraction came up empty.
   const rawResult = parseSchemaOrgMenuItems(html);
-  const rawPhotos = extractGenericPageImages(html, url);
-  if (rawResult.length > 0 || !renderedHtml) {
-    return { items: rawResult, photoUrls: rawPhotos };
+  if (rawResult.length > 0) itemBatches.push(rawResult);
+  let renderedAssets = { photoUrls: [] as string[], pdfUrls: [] as string[], pageUrls: [] as string[] };
+  if (renderedHtml) {
+    const renderedResult = parseSchemaOrgMenuItems(renderedHtml);
+    if (renderedResult.length > 0) itemBatches.push(renderedResult);
+    renderedAssets = extractPageAssets(renderedHtml, renderedUrl);
   }
-  const renderedResult = parseSchemaOrgMenuItems(renderedHtml);
-  const renderedPhotos = extractGenericPageImages(renderedHtml, renderedUrl);
+
   return {
-    items: renderedResult,
-    photoUrls: [...rawPhotos, ...renderedPhotos].slice(0, 20),
+    items: deduplicateMenuItems(itemBatches.flat()),
+    photoUrls: unique([...rawAssets.photoUrls, ...renderedAssets.photoUrls]),
+    pdfUrls: unique([...rawAssets.pdfUrls, ...renderedAssets.pdfUrls]),
+    pagesVisited: [url],
+    platforms: unique(platforms),
+    discoveredPages: unique([...rawAssets.pageUrls, ...renderedAssets.pageUrls]),
   };
 }
 
 export async function fetchMenuFromUrl(url: string): Promise<WebsiteExtractResult> {
-  try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(6000),
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; SeeFood/1.0)",
-        Accept: "text/html,application/xhtml+xml",
-      },
-    });
-    if (!res.ok) {
-      console.log(`[fetchMenuFromUrl] ${url} → HTTP ${res.status}`);
-      return { items: [], photoUrls: [] };
-    }
-    const html = await res.text();
-    const primary = await extractFromPage(url, html);
+  const queue = [url];
+  const queued = new Set(queue);
+  const visited = new Set<string>();
+  const results: WebsiteExtractResult[] = [];
+  const MAX_PAGES = 10;
 
-    // The Place Details `website` field is often the marketing/location
-    // landing page, not the actual menu page — confirmed live (Bluewater
-    // Grill: the location page has only a logo + hero banner, while its
-    // real /temecula-menu page has dozens of real MenuItem entries across
-    // several schema.org Menu blocks). If nothing structured came off the
-    // primary page, follow a generic "menu" link and try again there too —
-    // this is a hard fallback (not platform-specific), so it applies broadly
-    // to any independent restaurant site, not just known platforms.
-    if (primary.items.length === 0) {
-      // Generic nav links (e.g. "/menu/") are often a locations chooser, not
-      // a specific location's real menu — try every distinct candidate and
-      // keep whichever actually yields structured items, rather than
-      // trusting the first/shortest link found.
-      const menuLinks = findGenericMenuPageLinks(html, url).filter((l) => l !== url);
-      let best: WebsiteExtractResult | null = null;
-      for (const menuLink of menuLinks) {
-        try {
-          const menuRes = await fetch(menuLink, {
-            signal: AbortSignal.timeout(6000),
-            headers: {
-              "User-Agent": "Mozilla/5.0 (compatible; SeeFood/1.0)",
-              Accept: "text/html,application/xhtml+xml",
-            },
-          });
-          if (!menuRes.ok) continue;
-          const menuHtml = await menuRes.text();
-          const fromMenuPage = await extractFromPage(menuLink, menuHtml);
-          if (fromMenuPage.items.length > 0) {
-            best = fromMenuPage;
-            break; // first candidate with real structured data wins
-          }
-          if (!best || fromMenuPage.photoUrls.length > best.photoUrls.length) {
-            best = fromMenuPage; // no items anywhere yet — keep the one with the most photos
-          }
-        } catch (e) {
-          console.error(`[fetchMenuFromUrl] menu-link follow ${menuLink} failed:`, e);
+  while (queue.length > 0 && visited.size < MAX_PAGES) {
+    const pageUrl = queue.shift()!;
+    if (visited.has(pageUrl)) continue;
+    visited.add(pageUrl);
+    try {
+      const res = await fetch(pageUrl, {
+        signal: AbortSignal.timeout(8000),
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; SeeFood/1.0)", Accept: "text/html,application/xhtml+xml" },
+      });
+      if (!res.ok) continue;
+      const html = await res.text();
+      const extracted = await extractFromPage(pageUrl, html);
+      results.push(extracted);
+      for (const discovered of extracted.discoveredPages) {
+        if (!queued.has(discovered) && queue.length + visited.size < MAX_PAGES * 2) {
+          queued.add(discovered);
+          queue.push(discovered);
         }
       }
-      if (best) {
-        return {
-          items: best.items,
-          photoUrls: [...primary.photoUrls, ...best.photoUrls].slice(0, 20),
-        };
-      }
+    } catch (error) {
+      console.error(`[fetchMenuFromUrl] ${pageUrl} failed:`, error);
     }
-
-    return primary;
-  } catch (e) {
-    console.error(`[fetchMenuFromUrl] ${url} failed:`, e);
-    return { items: [], photoUrls: [] };
   }
+
+  return results.length > 0 ? mergeWebsiteResults(results) : EMPTY_WEBSITE_RESULT;
+}
+
+/** Archive-safe extraction: no JS rendering or platform API calls. */
+export function extractArchivedPage(url: string, html: string): WebsiteExtractResult {
+  const assets = extractPageAssets(html, url);
+  return {
+    items: parseSchemaOrgMenuItems(html),
+    photoUrls: assets.photoUrls,
+    pdfUrls: assets.pdfUrls,
+    pagesVisited: [url],
+    platforms: detectOrderingPlatforms(html),
+  };
 }
 
 /**
@@ -170,46 +186,9 @@ export async function fetchMenuFromUrl(url: string): Promise<WebsiteExtractResul
  * Deliberately permissive: a wrong guess just means the follow-up page also
  * yields nothing (fail-open), so a false positive costs one wasted fetch.
  */
-function findGenericMenuPageLinks(html: string, baseUrl: string): string[] {
-  let origin = "";
-  try { origin = new URL(baseUrl).origin; } catch { return []; }
-
-  const anchorPattern = /<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-  let m: RegExpExecArray | null;
-  // Generic nav links like "/menu/" are usually a locations chooser, not a
-  // specific location's actual menu — confirmed live (Bluewater Grill: "/menu/"
-  // is an Organization-level page with zero MenuItem schema, while the real
-  // content sits at the more specific "/temecula-menu" button link further
-  // down the page). Try every distinct candidate rather than just the first
-  // and let the caller keep whichever actually yields structured data —
-  // ranking by link specificity (path length) is a reasonable prior but not
-  // reliable enough to trust alone.
-  const candidates: string[] = [];
-  const seenPaths = new Set<string>();
-  while ((m = anchorPattern.exec(html)) !== null) {
-    const href = m[1];
-    const text = m[2].replace(/<[^>]+>/g, "").trim().toLowerCase();
-    if (!href || href.startsWith("#") || href.startsWith("javascript") || href.startsWith("mailto") || href.startsWith("tel")) continue;
-    const hrefLower = href.toLowerCase();
-    if (!hrefLower.includes("menu") && text !== "menu" && !text.includes("our menu") && !text.includes("view menu")) continue;
-    if (/mobile-menu|nav-menu|menu-toggle|menu-icon/.test(hrefLower)) continue;
-    try {
-      const resolved = new URL(href, baseUrl);
-      if (resolved.origin !== origin) continue;
-      const pathKey = resolved.pathname; // dedupe by path, ignore #fragments
-      if (seenPaths.has(pathKey)) continue;
-      seenPaths.add(pathKey);
-      candidates.push(resolved.origin + resolved.pathname);
-    } catch {
-      continue;
-    }
-  }
-  // Longer/more specific paths first (heuristic prior; caller still tries all).
-  return candidates.sort((a, b) => b.length - a.length).slice(0, 3);
-}
-
-const IMAGE_URL_RE = /<img[^>]+src="([^"]+)"/gi;
-const NON_FOOD_IMAGE_HINTS = /logo|icon|favicon|sprite|avatar|placeholder|\.svg(\?|$)|social|facebook|instagram|twitter|tripadvisor|yelp|pixel|analytics|badge|button/i;
+const CONTENT_LINK_HINT = /menu|order|food|drink|gallery|catering|brunch|breakfast|lunch|dinner|happy[-_ ]?hour|special/i;
+const NON_FOOD_IMAGE_HINTS = /logo|icon|favicon|sprite|avatar|placeholder|\.svg(\?|$)|social|facebook|instagram|twitter|tripadvisor|yelp|pixel|analytics|badge|button|spacer|tracking/i;
+const PLATFORM_HOST_HINT = /menufy|toasttab|square\.site|squareup|clover|chownow|olo\.com|popmenu|bentobox|owner\.com|spothopper|slicelife|flipdish|lightspeed|gloriafood/i;
 
 /**
  * Scrape plausible food-photo URLs directly off a page's <img> tags — the
@@ -220,25 +199,59 @@ const NON_FOOD_IMAGE_HINTS = /logo|icon|favicon|sprite|avatar|placeholder|\.svg(
  * they're treated like raw Google candidates and go through the same Gemini
  * identification pass (google.ts), not the pre-labeled/trusted path.
  */
-function extractGenericPageImages(html: string, baseUrl: string): string[] {
-  const urls: string[] = [];
-  const seen = new Set<string>();
-  let m: RegExpExecArray | null;
-  while ((m = IMAGE_URL_RE.exec(html)) !== null) {
-    const src = m[1];
-    if (!src || NON_FOOD_IMAGE_HINTS.test(src)) continue;
-    if (!/\.(jpe?g|png|webp)(\?|$)/i.test(src)) continue;
-    try {
-      const resolved = new URL(src, baseUrl).href;
-      if (seen.has(resolved)) continue;
-      seen.add(resolved);
-      urls.push(resolved);
-    } catch {
-      continue;
+export function extractPageAssets(html: string, baseUrl: string): { photoUrls: string[]; pdfUrls: string[]; pageUrls: string[] } {
+  const $ = cheerio.load(html);
+  const photoUrls: string[] = [];
+  const pdfUrls: string[] = [];
+  const pageUrls: Array<{ url: string; score: number }> = [];
+  let base: URL;
+  try { base = new URL(baseUrl); } catch { return { photoUrls, pdfUrls, pageUrls: [] }; }
+
+  const addPhoto = (candidate?: string) => {
+    if (!candidate || candidate.startsWith("data:") || candidate.startsWith("blob:") || NON_FOOD_IMAGE_HINTS.test(candidate)) return;
+    try { photoUrls.push(new URL(candidate, base).href); } catch {}
+  };
+  $("img,source,video,meta,link").each((_, element) => {
+    const node = $(element);
+    for (const attribute of ["src", "data-src", "data-lazy-src", "data-original", "data-image", "poster", "content"]) {
+      addPhoto(node.attr(attribute));
     }
-    if (urls.length >= 15) break;
-  }
-  return urls;
+    for (const attribute of ["srcset", "data-srcset"]) {
+      const srcset = node.attr(attribute);
+      if (srcset) for (const entry of srcset.split(",")) addPhoto(entry.trim().split(/\s+/)[0]);
+    }
+    if (node.is('link[rel="preload"][as="image"]')) addPhoto(node.attr("href"));
+  });
+  $("[style*='url(']").each((_, element) => {
+    const style = $(element).attr("style") ?? "";
+    for (const match of style.matchAll(/url\(["']?([^"')]+)["']?\)/gi)) addPhoto(match[1]);
+  });
+
+  $("a[href]").each((_, element) => {
+    const node = $(element);
+    const href = node.attr("href");
+    if (!href || /^(#|javascript:|mailto:|tel:)/i.test(href)) return;
+    try {
+      const resolved = new URL(href, base);
+      resolved.hash = "";
+      const label = `${resolved.pathname} ${node.text()} ${node.attr("aria-label") ?? ""}`;
+      if (/\.pdf($|\?)/i.test(resolved.href)) {
+        if (CONTENT_LINK_HINT.test(label)) pdfUrls.push(resolved.href);
+        return;
+      }
+      const sameOrigin = resolved.origin === base.origin;
+      if (!sameOrigin && !PLATFORM_HOST_HINT.test(resolved.hostname)) return;
+      if (!CONTENT_LINK_HINT.test(label) && !PLATFORM_HOST_HINT.test(resolved.hostname)) return;
+      const score = (PLATFORM_HOST_HINT.test(resolved.hostname) ? 10 : 0) + (CONTENT_LINK_HINT.test(node.text()) ? 5 : 0) + Math.min(5, resolved.pathname.split("/").length);
+      pageUrls.push({ url: resolved.href, score });
+    } catch {}
+  });
+
+  return {
+    photoUrls: unique(photoUrls).slice(0, 80),
+    pdfUrls: unique(pdfUrls).slice(0, 20),
+    pageUrls: unique(pageUrls.sort((a, b) => b.score - a.score).map((entry) => entry.url)).slice(0, 12),
+  };
 }
 
 // ── Menufy / HungerRush ───────────────────────────────────────────────────────
@@ -604,22 +617,29 @@ function upscaleHungerRushUrl(url: string): string {
 // platform with 0% hit rate across restaurants confirmed to use it needs its
 // extractor revisited.
 
-type OrderingPlatform = "toast" | "square" | "clover" | "chownow" | "olo" | "popmenu";
-
 const PLATFORM_SIGNATURES: Array<{ platform: OrderingPlatform; test: (html: string) => boolean }> = [
+  { platform: "menufy", test: (h) => h.includes("api.menufy.com") || h.includes("menufy.com") || h.includes("hungerrush.com") },
   { platform: "toast", test: (h) => h.includes("toasttab.com") },
   { platform: "chownow", test: (h) => h.includes("chownow.com") || h.includes("chownow-order") },
   { platform: "olo", test: (h) => h.includes("static.olo.com") || h.includes("olo.com/menu") },
   { platform: "clover", test: (h) => h.includes("clover.com/online-ordering") || h.includes("clover-ecomm") },
   { platform: "square", test: (h) => h.includes(".square.site") || h.includes("squareup.com/checkout") },
   { platform: "popmenu", test: (h) => h.includes("popmenu.com") || h.includes("cdn.popmenu.com") },
+  { platform: "bentobox", test: (h) => h.includes("bentobox.com") || h.includes("getbento.com") },
+  { platform: "owner", test: (h) => h.includes("owner.com") || h.includes("cdn.owner.com") },
+  { platform: "spothopper", test: (h) => h.includes("spothopperapp.com") || h.includes("spothopper.com") },
+  { platform: "slice", test: (h) => h.includes("slicelife.com") },
+  { platform: "flipdish", test: (h) => h.includes("flipdish.com") || h.includes("flipdishdev.com") },
+  { platform: "lightspeed", test: (h) => h.includes("lightspeedhq.com") || h.includes("lightspeed.app") },
+  { platform: "gloriafood", test: (h) => h.includes("gloriafood.com") || h.includes("globalfoodsoft.com") },
 ];
 
+export function detectOrderingPlatforms(html: string): OrderingPlatform[] {
+  return PLATFORM_SIGNATURES.filter(({ test }) => test(html)).map(({ platform }) => platform);
+}
+
 export function detectOrderingPlatform(html: string): OrderingPlatform | null {
-  for (const { platform, test } of PLATFORM_SIGNATURES) {
-    if (test(html)) return platform;
-  }
-  return null;
+  return detectOrderingPlatforms(html)[0] ?? null;
 }
 
 const PLATFORM_HOSTNAME_HINTS: Record<OrderingPlatform, string[]> = {
@@ -629,6 +649,14 @@ const PLATFORM_HOSTNAME_HINTS: Record<OrderingPlatform, string[]> = {
   clover: ["clover.com"],
   square: ["square.site", "squareup.com"],
   popmenu: ["popmenu.com"],
+  menufy: ["menufy.com", "hungerrush.com"],
+  bentobox: ["bentobox.com", "getbento.com"],
+  owner: ["owner.com"],
+  spothopper: ["spothopper.com", "spothopperapp.com"],
+  slice: ["slicelife.com"],
+  flipdish: ["flipdish.com"],
+  lightspeed: ["lightspeedhq.com", "lightspeed.app"],
+  gloriafood: ["gloriafood.com", "globalfoodsoft.com"],
 };
 
 /**

@@ -7,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 import { DishPhoto, MenuItemData, Restaurant } from "./types";
 import { dedupeToPrimary } from "./dishGrouping";
 import type { AnalyticsEventName } from "./analytics";
+import type { WebsiteExtractResult } from "./menuSources";
 import { normalizePhotoAuthor, trustLabel, withPhotoSignals } from "./photoSignals";
 
 const supabase = createClient(
@@ -177,6 +178,12 @@ export interface CoverageMetrics {
   activity: { week: CoverageActivity; month: CoverageActivity };
   trackingStartedAt: string | null;
   coverageLevels: Array<{ level: 0 | 1 | 2 | 3; count: number; label: string }>;
+  acquisition: {
+    websiteCount: number;
+    queuedCrawls: number;
+    identitySources: Array<{ source: string; count: number }>;
+    platforms: Array<{ platform: string; count: number }>;
+  };
 }
 
 interface CoverageRestaurantRow {
@@ -263,14 +270,19 @@ export async function getCoverageMetrics(
     if (!data || data.length < 1000) break;
   }
 
+  const entities: Array<{ id: string; lat: number; lng: number }> = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from("restaurant_entities").select("id,lat,lng").not("lat", "is", null).not("lng", "is", null).range(from, from + 999);
+    if (error) throw error;
+    entities.push(...((data ?? []) as Array<{ id: string; lat: number; lng: number }>));
+    if (!data || data.length < 1000) break;
+  }
   const nearbyIds = restaurants
     .filter((r) => r.lat !== null && r.lng !== null && haversineKm(lat, lng, r.lat, r.lng) <= radiusKm)
     .map((r) => r.place_id);
-  const nearbyEntityIds = restaurants
-    .filter((r) => r.entity_id && r.lat !== null && r.lng !== null && haversineKm(lat, lng, r.lat, r.lng) <= radiusKm)
-    .map((r) => r.entity_id!);
+  const nearbyEntityIds = entities.filter((r) => haversineKm(lat, lng, r.lat, r.lng) <= radiusKm).map((r) => r.id);
 
-  if (nearbyIds.length === 0) {
+  if (nearbyEntityIds.length === 0) {
     return {
       restaurantCount: 0,
       averageMenuItems: 0,
@@ -286,6 +298,7 @@ export async function getCoverageMetrics(
         { level: 2, count: 0, label: "5+ matched photos" },
         { level: 3, count: 0, label: "Comparison ready" },
       ],
+      acquisition: { websiteCount: 0, queuedCrawls: 0, identitySources: [], platforms: [] },
     };
   }
 
@@ -354,18 +367,33 @@ export async function getCoverageMetrics(
     .map(([source, count]) => ({ source, count, percentage: percentage(count) }))
     .sort((a, b) => b.count - a.count);
   const levelCounts = new Map<number, number>([[0, 0], [1, 0], [2, 0], [3, 0]]);
+  const identityCounts = new Map<string, number>();
+  const platformCounts = new Map<string, number>();
+  let websiteCount = 0;
+  let queuedCrawls = 0;
   if (nearbyEntityIds.length > 0) {
-    const { data: coverageRows } = await supabase
-      .from("restaurant_coverage_levels")
-      .select("coverage_level")
-      .in("entity_id", nearbyEntityIds);
-    for (const row of coverageRows ?? []) levelCounts.set(row.coverage_level, (levelCounts.get(row.coverage_level) ?? 0) + 1);
+    for (let i = 0; i < nearbyEntityIds.length; i += 100) {
+      const ids = nearbyEntityIds.slice(i, i + 100);
+      const [{ data: coverageRows }, { data: identityRows }, { data: websiteRows }, { count: queued }] = await Promise.all([
+        supabase.from("restaurant_coverage_levels").select("coverage_level").in("entity_id", ids),
+        supabase.from("restaurant_identities").select("provider").in("entity_id", ids).eq("active", true),
+        supabase.from("restaurant_websites").select("platforms").in("entity_id", ids).eq("active", true),
+        supabase.from("web_crawl_jobs").select("id", { count: "exact", head: true }).in("entity_id", ids).eq("status", "queued"),
+      ]);
+      for (const row of coverageRows ?? []) levelCounts.set(row.coverage_level, (levelCounts.get(row.coverage_level) ?? 0) + 1);
+      for (const row of identityRows ?? []) identityCounts.set(row.provider, (identityCounts.get(row.provider) ?? 0) + 1);
+      for (const row of websiteRows ?? []) {
+        websiteCount++;
+        for (const platform of row.platforms ?? []) platformCounts.set(platform, (platformCounts.get(platform) ?? 0) + 1);
+      }
+      queuedCrawls += queued ?? 0;
+    }
   }
 
   return {
-    restaurantCount: nearbyIds.length,
-    averageMenuItems: Math.round((totalMenuItems / nearbyIds.length) * 10) / 10,
-    averagePhotos: Math.round((totalPhotos / nearbyIds.length) * 10) / 10,
+    restaurantCount: nearbyEntityIds.length,
+    averageMenuItems: Math.round((totalMenuItems / nearbyEntityIds.length) * 10) / 10,
+    averagePhotos: Math.round((totalPhotos / nearbyEntityIds.length) * 10) / 10,
     matchedPhotoPercentage: percentage(matchedPhotos),
     seeFoodPhotoPercentage: percentage(seeFoodPhotos),
     sourceBreakdown,
@@ -382,6 +410,12 @@ export async function getCoverageMetrics(
       { level: 2, count: levelCounts.get(2) ?? 0, label: "5+ matched photos" },
       { level: 3, count: levelCounts.get(3) ?? 0, label: "Comparison ready" },
     ],
+    acquisition: {
+      websiteCount,
+      queuedCrawls,
+      identitySources: [...identityCounts].map(([source, count]) => ({ source, count })).sort((a, b) => b.count - a.count),
+      platforms: [...platformCounts].map(([platform, count]) => ({ platform, count })).sort((a, b) => b.count - a.count),
+    },
   };
 }
 
@@ -854,6 +888,79 @@ function normalizeDishName(name: string): string {
 async function getEntityId(placeId: string): Promise<string | null> {
   const { data } = await supabase.from("restaurants").select("entity_id").eq("place_id", placeId).maybeSingle();
   return data?.entity_id ?? null;
+}
+
+/** Keep every useful signal discovered on a restaurant site addressable and
+ * queueable. Menu/photo serving remains in the existing corpus tables. */
+export async function saveWebsiteIntelligence(
+  placeId: string,
+  websiteUrl: string,
+  result: WebsiteExtractResult,
+  source = "google"
+): Promise<void> {
+  const entityId = await getEntityId(placeId);
+  if (!entityId) return;
+
+  let normalizedUrl: string;
+  let domain: string;
+  try {
+    const parsed = new URL(websiteUrl);
+    parsed.hash = "";
+    normalizedUrl = parsed.href;
+    domain = parsed.hostname.replace(/^www\./, "");
+  } catch {
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const { data: website, error } = await supabase
+    .from("restaurant_websites")
+    .upsert({
+      entity_id: entityId,
+      url: normalizedUrl,
+      domain,
+      source,
+      platforms: result.platforms,
+      active: true,
+      last_live_crawl_at: now,
+      page_count: result.pagesVisited.length,
+      menu_item_count: result.items.length,
+      photo_count: result.photoUrls.length,
+      pdf_count: result.pdfUrls.length,
+      updated_at: now,
+    }, { onConflict: "entity_id,url" })
+    .select("id")
+    .single();
+  if (error || !website) {
+    console.error("[corpus] saveWebsiteIntelligence failed:", error?.message);
+    return;
+  }
+
+  await Promise.all([
+    supabase.from("restaurants").update({ website: normalizedUrl }).eq("place_id", placeId),
+    supabase.from("restaurant_entities").update({ website: normalizedUrl, updated_at: now }).eq("id", entityId),
+    supabase.from("web_crawl_jobs").upsert([
+      { entity_id: entityId, website_id: website.id, source: "live", status: "completed", completed_at: now, updated_at: now },
+      { entity_id: entityId, website_id: website.id, source: "common_crawl", status: "queued", priority: 50, updated_at: now },
+    ], { onConflict: "website_id,source" }),
+  ]);
+
+  const assets = [
+    ...result.photoUrls.map((assetUrl) => ({ assetUrl, kind: "image" })),
+    ...result.pdfUrls.map((assetUrl) => ({ assetUrl, kind: "pdf" })),
+  ];
+  if (assets.length > 0) {
+    await supabase.from("website_assets").upsert(assets.map((asset) => ({
+      entity_id: entityId,
+      website_id: website.id,
+      page_url: normalizedUrl,
+      asset_url: asset.assetUrl,
+      kind: asset.kind,
+      source,
+      last_seen_at: now,
+      active: true,
+    })), { onConflict: "entity_id,asset_url" });
+  }
 }
 
 async function ensureCanonicalDishes(
@@ -1445,6 +1552,28 @@ export async function getDoorDashStoreUrl(placeId: string): Promise<string | nul
 
 export async function saveDoorDashStoreUrl(placeId: string, url: string): Promise<void> {
   await supabase.from("restaurants").update({ doordash_store_url: url }).eq("place_id", placeId);
+}
+
+export async function getDoorDashReplayTargets(limit = 250): Promise<SaturationTarget[]> {
+  const { data: runs, error: runsError } = await supabase
+    .from("source_runs")
+    .select("restaurant_id")
+    .eq("source", "doordash")
+    .eq("ok", true)
+    .limit(5000);
+  if (runsError) throw runsError;
+  const successfulIds = [...new Set((runs ?? []).map((row) => row.restaurant_id))].slice(0, limit);
+  if (successfulIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("place_id,name,lat,lng,address")
+    .in("place_id", successfulIds)
+    .not("lat", "is", null)
+    .not("lng", "is", null)
+    .neq("status", "test_fixture")
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({ placeId: row.place_id, name: row.name, lat: row.lat, lng: row.lng, address: row.address ?? "" }));
 }
 
 export async function logSourceRun(run: {

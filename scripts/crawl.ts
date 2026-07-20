@@ -75,6 +75,10 @@ function parseArgs(argv: string[]) {
 }
 
 async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTarget[]> {
+  if (args["replay-doordash"]) {
+    const { getDoorDashReplayTargets } = await import("../src/lib/db");
+    return getDoorDashReplayTargets(args.limit ? parseInt(String(args.limit), 10) : 250);
+  }
   if (args.place) {
     return [
       {
@@ -121,6 +125,7 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
 
   console.error("Usage: npm run crawl -- --place <id> --name <name> --lat <lat> --lng <lng>");
   console.error("       npm run crawl -- --zone temecula [--refresh-stale]");
+  console.error("       npm run crawl -- --replay-doordash [--limit 250]");
   process.exit(1);
 }
 
@@ -234,8 +239,8 @@ async function main() {
     return items.map((i) => ({ ...i, source: "grubhub" as const }));
   }
 
-  async function crawlOne(target: CrawlTarget, refreshStale: boolean): Promise<void> {
-    if (!refreshStale) {
+  async function crawlOne(target: CrawlTarget, refreshStale: boolean, replayDoorDash: boolean): Promise<void> {
+    if (!refreshStale && !replayDoorDash) {
       const existing = await getCorpusSnapshot(target.placeId).catch(() => null);
       if (existing?.isFresh) {
         console.log(`⏭  ${target.name} — corpus already fresh, skipping`);
@@ -248,8 +253,9 @@ async function main() {
 
     // Website + Menufy + ordering platforms + Grubhub + Google photos + Gemini —
     // the exact same pipeline the live serverless path runs.
-    const { photos, menuItems } = await getGooglePhotosAndReviews(target.placeId, target.name);
-    console.log(`  [pipeline] ${photos.length} photos, ${menuItems.length} menu items`);
+    const pipeline = replayDoorDash ? { photos: [], menuItems: [] } : await getGooglePhotosAndReviews(target.placeId, target.name);
+    const { photos, menuItems } = pipeline;
+    if (!replayDoorDash) console.log(`  [pipeline] ${photos.length} photos, ${menuItems.length} menu items`);
 
     async function crawlAndPersist(source: "doordash" | "grubhub", crawlFn: () => Promise<MenuItemData[]>) {
       if (!(await isSourceEnabled(source))) {
@@ -274,6 +280,10 @@ async function main() {
     // DoorDash + Grubhub — Python/Camoufox, crawler-exclusive (see DECISIONS.md
     // for why each is banned/broken on the live Scrapfly path).
     await crawlAndPersist("doordash", () => crawlDoorDash(target));
+    if (replayDoorDash) {
+      console.log(`✓ ${target.name} DoorDash replay done in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+      return;
+    }
     if (await isSourceEnabled("grubhub")) {
       await crawlAndPersist("grubhub", () => crawlGrubhub(target));
     } else {
@@ -295,6 +305,7 @@ async function main() {
 
   const args = parseArgs(process.argv.slice(2));
   const refreshStale = !!args["refresh-stale"];
+  const replayDoorDash = !!args["replay-doordash"];
 
   if (args["preload-doordash-sitemaps"]) {
     const { preloadAllStoreSitemaps } = await import("../src/crawler/doordashSitemap");
@@ -322,17 +333,20 @@ async function main() {
   let done = 0;
   for (const target of targets) {
     try {
-      await crawlOne(target, refreshStale);
+      await crawlOne(target, refreshStale, replayDoorDash);
     } catch (e) {
       console.error(`✗ ${target.name} failed:`, e);
     }
     done++;
     if (done < targets.length) {
-      await new Promise((r) => setTimeout(r, RATE_LIMIT_MS));
+      await new Promise((r) => setTimeout(r, replayDoorDash ? 2_000 : RATE_LIMIT_MS));
     }
   }
 
   console.log(`\nDone. ${done}/${targets.length} restaurants processed.`);
 }
 
-main();
+main().catch((error) => {
+  console.error("Crawler startup failed:", error);
+  process.exitCode = 1;
+});
