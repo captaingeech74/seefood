@@ -77,7 +77,10 @@ function parseArgs(argv: string[]) {
 async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTarget[]> {
   if (args["replay-doordash"]) {
     const { getDoorDashReplayTargets } = await import("../src/lib/db");
-    return getDoorDashReplayTargets(args.limit ? parseInt(String(args.limit), 10) : 250);
+    const targets = await getDoorDashReplayTargets(500);
+    const offset = args.offset ? parseInt(String(args.offset), 10) : 0;
+    const limit = args.limit ? parseInt(String(args.limit), 10) : targets.length;
+    return targets.slice(offset, offset + limit);
   }
   if (args.place) {
     return [

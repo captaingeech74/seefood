@@ -17,6 +17,7 @@ const SAMPLE_URLS = [
   "https://www.doordash.com/store/swing-inn-cafe-temecula-262137/",
   "https://www.doordash.com/store/starbucks-temecula-33969323/",
   "https://www.doordash.com/store/francescas-italian-kitchen-temecula-32578269/",
+  "https://www.doordash.com/store/the-old-town-deli-temecula-temecula-40461423/",
 ];
 
 describe("findDoorDashStoreUrlInSitemap", () => {
@@ -43,6 +44,10 @@ describe("findDoorDashStoreUrlInSitemap", () => {
 
   it("does not confuse generic cuisine words for the restaurant brand", () => {
     expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Villa Italian Kitchen", "Temecula")).toBeNull();
+  });
+
+  it("does not match a different business sharing only location-style words", () => {
+    expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Old Town Pub & Grub", "Temecula")).toBeNull();
   });
 
   it("does not match on a single generic word alone", () => {
