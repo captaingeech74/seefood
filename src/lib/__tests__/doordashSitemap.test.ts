@@ -16,6 +16,7 @@ const SAMPLE_URLS = [
   "https://www.doordash.com/store/bj's-restaurant-&-brewhouse-temecula-262570/",
   "https://www.doordash.com/store/swing-inn-cafe-temecula-262137/",
   "https://www.doordash.com/store/starbucks-temecula-33969323/",
+  "https://www.doordash.com/store/francescas-italian-kitchen-temecula-32578269/",
 ];
 
 describe("findDoorDashStoreUrlInSitemap", () => {
@@ -38,6 +39,10 @@ describe("findDoorDashStoreUrlInSitemap", () => {
 
   it("returns null for a restaurant genuinely absent from the sitemap", () => {
     expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Richie's Real American Diner", "Temecula")).toBeNull();
+  });
+
+  it("does not confuse generic cuisine words for the restaurant brand", () => {
+    expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Villa Italian Kitchen", "Temecula")).toBeNull();
   });
 
   it("does not match on a single generic word alone", () => {
