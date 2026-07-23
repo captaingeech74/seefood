@@ -1405,10 +1405,10 @@ customer photography. Regional acquisition is queued against this corpus rather
 than a hard-coded city list.
 
 Restaurant management may submit a claim from the restaurant-name dropdown.
-Standard is $99/month for verification, menu/description control, management
-photo publishing, basic insights, and supporter Hookups. Growth is $499/month
-and adds priority refresh, advanced analytics, multiple managers and locations,
-and seasonal/featured controls.
+Standard is $99/month for verification, menu/description control, multiple
+owners and managers, basic insights, and supporter Hookups. Growth is
+$499/month and adds priority refresh, advanced analytics, locations, and
+advanced and direct Hookup tools.
 V1 records authority and payment-intent attestations as a pending claim; it does
 not activate access or billing until manual verification.
 
@@ -1519,11 +1519,11 @@ display invented view estimates for historical photos.
 ## Management dashboard and Hookups (July 23, 2026)
 
 The management experience is organized around connecting restaurants with the
-diners who already support them most. Standard at $99/month includes Hookups.
-Growth explicitly adds multiple managers and locations. A Hookup is sent to the
-top N supporters, defaults to including friends, produces a unique member QR
-code, and is marked used when management scans it in SeeFood. It does not
-interact with payment.
+diners who already support them most. Standard at $99/month includes Hookups
+and multiple owners and managers. A Hookup may be sent to one supporter or the
+top 10, 25, 50, or 100; includes a management message; defaults to including
+friends; produces a unique member QR code; and is marked used when management
+scans it in SeeFood. It does not interact with payment.
 
 The first management dashboard is intentionally a browser-persisted sample for
 sales conversations and product testing. It contains restaurant and owner
@@ -1532,3 +1532,19 @@ creation and history, member QR display, camera scanning, and redemption state.
 Server-backed accounts, secure issuance, and delivery are the next
 implementation layer after the workflow is approved. The complete relationship
 strategy is in `docs/OWNER_DINER_BRIDGE.md`.
+
+## Menu Intelligence (July 23, 2026)
+
+The standalone management insight product is called **Menu Intelligence**. It
+is the customer-perception complement to POS reporting: what menu items people
+open, love, photograph, compare, revisit, and share; what is rising or slipping;
+how customer photos perform against management photos; and how returning
+customers react after a declared menu change.
+
+The product is a ranked decision surface, not a chart dashboard. It must answer
+what changed, why it may have changed, and the single clearest next action.
+Management can mark recipe, plating, price, name/description, lead-photo, or
+portion changes to create a before/after learning window. Signals are not sales
+or sentiment claims and must carry minimum-sample and confidence treatment
+before production use. See `docs/MENU_INTELLIGENCE.md` for definitions and the
+closed loop between item insight and supporter Hookups.

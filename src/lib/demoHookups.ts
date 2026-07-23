@@ -3,6 +3,9 @@ export interface HookupPromotion {
   title: string;
   offer: string;
   audienceSize: number;
+  recipientMode: "single" | "group";
+  recipientLabel: string;
+  message: string;
   expiresAt: string;
   createdAt: string;
   redeemedBy: string[];
@@ -19,6 +22,8 @@ export interface MemberHookup {
   code: string;
   forFriends: boolean;
   demo: boolean;
+  message: string;
+  recipientLabel: string;
 }
 
 const PROMOTIONS_KEY = "seefood-demo-promotions";
@@ -32,6 +37,9 @@ export function samplePromotions(): HookupPromotion[] {
     title: "Bring Your Table Back",
     offer: "20% off for you and up to 3 friends",
     audienceSize: 25,
+    recipientMode: "group",
+    recipientLabel: "Top 25 supporters",
+    message: "You have shown our kitchen a lot of love. Bring some friends and let us return the favor.",
     expiresAt: futureDate(21),
     createdAt: new Date().toISOString(),
     redeemedBy: ["Maya R.", "Chris T.", "Jordan K."],
@@ -50,6 +58,8 @@ export function sampleHookups(): MemberHookup[] {
     code: "https://seefood.app/h/hookup-welcome-back",
     forFriends: true,
     demo: true,
+    message: "You have shown our kitchen a lot of love. Bring some friends and let us return the favor.",
+    recipientLabel: "Top supporters",
   }];
 }
 
@@ -63,17 +73,30 @@ function read<T>(key: string, fallback: T): T {
 }
 
 export function getPromotions(): HookupPromotion[] {
-  return read(PROMOTIONS_KEY, samplePromotions());
+  return read(PROMOTIONS_KEY, samplePromotions()).map((item) => ({
+    ...item,
+    recipientMode: item.recipientMode ?? "group",
+    recipientLabel: item.recipientLabel ?? `Top ${item.audienceSize} supporters`,
+    message: item.message ?? "",
+  }));
 }
 
 export function getMemberHookups(): MemberHookup[] {
-  return read<MemberHookup[]>(HOOKUPS_KEY, sampleHookups()).map((item) => ({ ...item, demo: item.demo ?? true }));
+  return read<MemberHookup[]>(HOOKUPS_KEY, sampleHookups()).map((item) => ({
+    ...item,
+    demo: item.demo ?? true,
+    message: item.message ?? "",
+    recipientLabel: item.recipientLabel ?? "Top supporters",
+  }));
 }
 
 export function createPromotion(input: {
   title: string;
   offer: string;
   audienceSize: number;
+  recipientMode: "single" | "group";
+  recipientLabel: string;
+  message: string;
   expiresAt: string;
 }): HookupPromotion {
   const promotion: HookupPromotion = {
@@ -94,6 +117,8 @@ export function createPromotion(input: {
     code: `https://seefood.app/h/hookup-${promotion.id}`,
     forFriends: true,
     demo: true,
+    message: promotion.message,
+    recipientLabel: promotion.recipientLabel,
   };
   localStorage.setItem(HOOKUPS_KEY, JSON.stringify([coupon, ...getMemberHookups()]));
   return promotion;

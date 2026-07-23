@@ -37,20 +37,28 @@ function awardFor(photo: MemberPhoto): Award {
   return null;
 }
 
-function PointsPanel({ points, onExplain }: { points: MemberPoints; onExplain: () => void }) {
+function PointsPanel({ points, hookups, onExplain, onOpenHookups }: { points: MemberPoints; hookups: MemberHookup[]; onExplain: () => void; onOpenHookups: () => void }) {
   const denominator = points.nextLevelAt === null ? 1 : points.nextLevelAt - points.currentLevelFloor;
   const progress = points.nextLevelAt === null ? 100 : Math.max(2, Math.min(100, (points.total - points.currentLevelFloor) / denominator * 100));
+  const ready = hookups.filter((item) => item.status === "ready").length;
   return (
-    <button type="button" onClick={onExplain} className="w-full text-left px-4 py-3.5 border border-white/10 bg-white/[0.045] rounded-lg active:bg-white/[0.07] transition-colors">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold text-[14px] bg-[var(--accent)]">{points.level}</div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-3"><p className="text-white text-[13px] font-bold">Level {points.level} · {points.title}</p><p className="text-white/45 text-[10px] font-bold tabular-nums">{points.total.toLocaleString()} pts</p></div>
-          <div className="h-1.5 mt-2 rounded-full bg-white/8 overflow-hidden"><div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${progress}%` }} /></div>
-          <p className="text-white/30 text-[9.5px] mt-1.5">{points.nextLevelAt === null ? "Top level reached" : `${points.nextLevelAt - points.total} points to Level ${points.level + 1}`} · Tap to see how</p>
+    <div className="w-full border border-white/10 bg-white/[0.045] rounded-lg overflow-hidden">
+      <button type="button" onClick={onExplain} className="w-full text-left px-4 py-3.5 active:bg-white/[0.07] transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-white font-bold text-[14px] bg-[var(--accent)]">{points.level}</div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-3"><p className="text-white text-[13px] font-bold">Level {points.level} · {points.title}</p><p className="text-white/45 text-[10px] font-bold tabular-nums">{points.total.toLocaleString()} pts</p></div>
+            <div className="h-1.5 mt-2 rounded-full bg-white/8 overflow-hidden"><div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${progress}%` }} /></div>
+            <p className="text-white/30 text-[9.5px] mt-1.5">{points.nextLevelAt === null ? "Top level reached" : `${points.nextLevelAt - points.total} points to Level ${points.level + 1}`} · Tap to see how</p>
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+      <button type="button" onClick={onOpenHookups} className="w-full min-h-11 px-4 border-t border-white/8 flex items-center gap-3 text-left bg-violet-300/[0.035] active:bg-violet-300/[0.08]">
+        <span className="w-7 h-7 rounded-full bg-violet-300/12 text-violet-200 flex items-center justify-center text-[11px] font-bold">%</span>
+        <span className="min-w-0 flex-1"><span className="block text-white text-[11.5px] font-bold">My Hookups</span><span className="block text-white/32 text-[9px]">{ready ? `${ready} ready to use` : "Offers sent directly by management"}</span></span>
+        <span className="text-violet-200 text-[11px] font-bold">{hookups.length} ›</span>
+      </button>
+    </div>
   );
 }
 
@@ -152,21 +160,34 @@ function CollectionDrawer({ kind, photos, onClose }: { kind: CollectionKind; pho
   );
 }
 
-function HookupShelf({ hookups, onOpen }: { hookups: MemberHookup[]; onOpen: (hookup: MemberHookup) => void }) {
-  return (
-    <section className="py-5 border-b border-white/8">
-      <SectionHeading eyebrow="Sent directly by management" title="My Hookups" count={hookups.length} tone="#d9b8ff" />
-      <div className="flex gap-2.5 overflow-x-auto no-scrollbar mt-3">
-        {hookups.map((hookup) => <button key={hookup.id} onClick={() => onOpen(hookup)} className="w-[82%] shrink-0 text-left rounded-lg p-3 border border-violet-300/20 bg-violet-300/[0.07]" style={{ opacity: hookup.status === "used" ? 0.55 : 1 }}><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-violet-300/15 text-violet-200 flex items-center justify-center font-bold">{hookup.status === "used" ? "✓" : "%"}</div><div className="min-w-0 flex-1"><p className="text-white text-[13px] font-bold">{hookup.title}</p><p className="text-violet-200 text-[10.5px] mt-1 truncate">{hookup.offer}</p></div>{hookup.status === "used" && <span className="text-[8px] font-bold text-emerald-300">USED</span>}</div><p className="text-white/35 text-[9px] mt-3">{hookup.demo ? "SAMPLE ONLY · " : ""}{hookup.restaurantName} · expires {new Date(hookup.expiresAt).toLocaleDateString()}</p></button>)}
-      </div>
-    </section>
-  );
-}
-
-function HookupSheet({ hookup, onClose }: { hookup: MemberHookup; onClose: () => void }) {
+function HookupsDrawer({ hookups, onClose }: { hookups: MemberHookup[]; onClose: () => void }) {
+  const [hookup, setHookup] = useState<MemberHookup | null>(null);
   const [qr, setQr] = useState("");
-  useEffect(() => { void QRCode.toDataURL(hookup.code, { width: 220, margin: 1 }).then(setQr); }, [hookup.code]);
-  return <div className="fixed inset-0 z-50 bg-black/75 flex items-end justify-center" onClick={onClose}><div className="w-full max-w-3xl rounded-t-2xl bg-[#17131d] px-5 pt-4 pb-8 text-center slide-up" onClick={(event) => event.stopPropagation()}><div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />{hookup.demo && <span className="inline-block px-2 py-1 rounded bg-amber-300/12 text-amber-200 text-[8px] font-bold mb-2">SAMPLE · NOT A LIVE RESTAURANT OFFER</span>}<p className="text-violet-300 text-[9px] uppercase font-bold">From {hookup.restaurantName}</p><h2 className="text-white text-[21px] font-bold mt-1">{hookup.title}</h2><p className="text-white/60 text-[13px] mt-2">{hookup.offer}</p>{qr && <div className="inline-block p-2 bg-white rounded-lg mt-5">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={qr} alt="Hookup QR code" className="w-48 h-48" /></div>}<p className="text-white/42 text-[11px] mt-4">{hookup.forFriends ? "This one is meant for you and friends." : "Show this code to management."}</p><p className="text-white/25 text-[9px] mt-2">Management scans this code in SeeFood to mark it used.</p><button onClick={onClose} className="mt-5 w-full min-h-11 rounded-md bg-white text-black text-[12px] font-bold">Done</button></div></div>;
+  useEffect(() => {
+    setQr("");
+    if (hookup) void QRCode.toDataURL(hookup.code, { width: 220, margin: 1 }).then(setQr);
+  }, [hookup]);
+  return (
+    <div className="fixed inset-0 z-50 bg-black/75 flex items-end justify-center" role="dialog" aria-modal="true" aria-label="My Hookups" onClick={onClose}>
+      <div className="w-full max-w-3xl h-[86vh] overflow-y-auto rounded-t-2xl bg-[#17131d] px-4 pt-4 pb-8 slide-up" onClick={(event) => event.stopPropagation()}>
+        <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
+        <div className="flex items-center gap-3"><button onClick={hookup ? () => setHookup(null) : onClose} className="w-9 h-9 rounded-full bg-white/7 text-white/60" aria-label={hookup ? "Back to Hookups" : "Close"}>{hookup ? "←" : "×"}</button><div className="min-w-0 flex-1"><p className="text-[9px] uppercase font-bold text-violet-300">From restaurants that value you</p><h2 className="text-white text-[20px] font-bold">My Hookups</h2></div></div>
+        {!hookup ? (
+          <div className="mt-5 space-y-2.5">
+            {hookups.map((item) => <button key={item.id} onClick={() => setHookup(item)} className="w-full text-left rounded-lg p-3.5 border border-violet-300/20 bg-violet-300/[0.07]" style={{ opacity: item.status === "used" ? 0.55 : 1 }}><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-violet-300/15 text-violet-200 flex items-center justify-center font-bold">{item.status === "used" ? "✓" : "%"}</div><div className="min-w-0 flex-1"><p className="text-white text-[13px] font-bold">{item.title}</p><p className="text-violet-200 text-[10.5px] mt-1">{item.offer}</p></div><span className="text-white/25">›</span></div><p className="text-white/35 text-[9px] mt-3">{item.demo ? "SAMPLE ONLY · " : ""}{item.restaurantName} · expires {new Date(item.expiresAt).toLocaleDateString()}</p></button>)}
+          </div>
+        ) : (
+          <div className="text-center mt-5 fade-in">
+            {hookup.demo && <span className="inline-block px-2 py-1 rounded bg-amber-300/12 text-amber-200 text-[8px] font-bold mb-2">SAMPLE · NOT A LIVE RESTAURANT OFFER</span>}
+            <p className="text-violet-300 text-[9px] uppercase font-bold">From {hookup.restaurantName}</p><h3 className="text-white text-[21px] font-bold mt-1">{hookup.title}</h3><p className="text-white/65 text-[13px] mt-2">{hookup.offer}</p>
+            {hookup.message && <div className="mt-4 px-4 py-3 text-left border-l-2 border-violet-300 bg-violet-300/[0.06]"><p className="text-white/32 text-[8px] uppercase font-bold">A note from management</p><p className="text-white/70 text-[11.5px] leading-relaxed mt-1">“{hookup.message}”</p></div>}
+            {qr && <div className="inline-block p-2 bg-white rounded-lg mt-5">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={qr} alt="Hookup QR code" className="w-48 h-48" /></div>}
+            <p className="text-white/42 text-[11px] mt-4">{hookup.forFriends ? "This one is meant for you and friends." : "Show this code to management."}</p><p className="text-white/25 text-[9px] mt-2">Management scans this code in SeeFood to mark it used.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function MemberDashboard() {
@@ -176,7 +197,7 @@ export default function MemberDashboard() {
   const [editingIdentity, setEditingIdentity] = useState(false);
   const [pointsOpen, setPointsOpen] = useState(false);
   const [collectionOpen, setCollectionOpen] = useState<CollectionKind | null>(null);
-  const [activeHookup, setActiveHookup] = useState<MemberHookup | null>(null);
+  const [hookupsOpen, setHookupsOpen] = useState(false);
   const [hookups, setHookups] = useState<MemberHookup[]>([]);
   const [hiddenVisits, setHiddenVisits] = useState<string[]>([]);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -220,12 +241,11 @@ export default function MemberDashboard() {
           {!editingIdentity ? <button type="button" onClick={() => setEditingIdentity(true)} className="w-full flex items-center gap-3 text-left"><div className="w-11 h-11 rounded-full bg-white/8 border border-white/10 flex items-center justify-center text-[13px] font-bold text-white">{initials}</div><div className="min-w-0 flex-1"><p className="text-white text-[14px] font-bold truncate">{identity.name || "Add your name"}</p><p className="text-white/32 text-[10.5px] truncate mt-0.5">{contactLine || "Add email and phone"}</p></div><span className="w-8 h-8 rounded-full bg-white/6 flex items-center justify-center text-white/40" aria-label="Edit profile">✎</span></button> : <div className="fade-in"><div className="grid grid-cols-2 gap-2"><input value={identityDraft.name} onChange={(event) => setIdentityDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Your name" className="col-span-2 rounded-lg bg-white/7 border border-white/10 px-3 py-2.5 text-[12px] text-white outline-none focus:border-[var(--accent)]" /><input type="email" value={identityDraft.email} onChange={(event) => setIdentityDraft((current) => ({ ...current, email: event.target.value }))} placeholder="Email" className="rounded-lg bg-white/7 border border-white/10 px-3 py-2.5 text-[12px] text-white outline-none min-w-0" /><input type="tel" value={identityDraft.phone} onChange={(event) => setIdentityDraft((current) => ({ ...current, phone: event.target.value }))} placeholder="Phone" className="rounded-lg bg-white/7 border border-white/10 px-3 py-2.5 text-[12px] text-white outline-none min-w-0" /></div><div className="flex justify-end gap-2 mt-2"><button onClick={() => { setIdentityDraft(identity); setEditingIdentity(false); }} className="px-3 py-2 text-[11px] font-bold text-white/40">Cancel</button><button onClick={saveIdentity} className="px-4 py-2 rounded-lg bg-[var(--accent)] text-[11px] font-bold text-white">Save</button></div></div>}
         </section>
 
-        {profile ? <div className="py-4 border-b border-white/7"><PointsPanel points={profile.points} onExplain={() => setPointsOpen(true)} /></div> : <div className="h-20 my-4 rounded-lg shimmer" />}
+        {profile ? <div className="py-4 border-b border-white/7"><PointsPanel points={profile.points} hookups={hookups} onExplain={() => setPointsOpen(true)} onOpenHookups={() => setHookupsOpen(true)} /></div> : <div className="h-20 my-4 rounded-lg shimmer" />}
 
         {profile && <>
           <CollectionShelf kind="photos" photos={profile.photos} onOpen={() => setCollectionOpen("photos")} />
           <CollectionShelf kind="loved" photos={profile.lovedDishes} onOpen={() => setCollectionOpen("loved")} />
-          <HookupShelf hookups={hookups} onOpen={setActiveHookup} />
           <PreviewSection title="My Favorite Restaurants Nearby" eyebrow="Your regular rotation" count={favorites.length} open={sections.favorites} tone="#79b9ff" onToggle={() => setSections((current) => ({ ...current, favorites: !current.favorites }))}>
             <div className="pt-3">{favorites.length ? favorites.map((item, index) => { const miles = distanceMiles(item, location); return <a key={item.placeId} href={item.slug ? `/r/${item.slug}` : "/"} className="flex items-center gap-3 py-3 border-b border-white/6"><span className="w-6 h-6 rounded-full bg-sky-300/10 text-sky-300 flex items-center justify-center text-[10px] font-bold">{index + 1}</span><span className="text-white text-[13px] font-bold flex-1 truncate">{item.name}</span><span className="text-white/30 text-[10px]">{miles === null ? "" : `${miles.toFixed(1)} mi`}</span></a>; }) : <p className="text-white/32 text-[12px] py-4">Favorites form from the places you revisit and dishes you love.</p>}</div>
           </PreviewSection>
@@ -237,7 +257,7 @@ export default function MemberDashboard() {
 
       {pointsOpen && profile && <PointsSheet points={profile.points} onClose={() => setPointsOpen(false)} />}
       {collectionOpen && profile && <CollectionDrawer kind={collectionOpen} photos={collectionOpen === "photos" ? profile.photos : profile.lovedDishes} onClose={() => setCollectionOpen(null)} />}
-      {activeHookup && <HookupSheet hookup={activeHookup} onClose={() => setActiveHookup(null)} />}
+      {hookupsOpen && <HookupsDrawer hookups={hookups} onClose={() => setHookupsOpen(false)} />}
     </main>
   );
 }

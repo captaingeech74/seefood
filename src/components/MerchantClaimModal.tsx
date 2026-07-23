@@ -8,20 +8,20 @@ const PLANS = {
   starter: {
     name: "Popular 7",
     price: 9,
-    limit: "7 menu items · 3 photos each",
-    benefits: ["Highlight your seven most popular menu items and add photos", "Management photo badge", "One customer-ready SeeFood URL"],
+    limit: "7 menu items",
+    benefits: ["Highlight your most popular menu items and add photos", "Verified badge", "One customer-ready SeeFood URL"],
   },
   standard: {
     name: "Standard",
     price: 99,
-    limit: "Up to 75 menu items · Each gets 3 photos",
-    benefits: ["Full menu and description controls", "Management photo publishing", "Hookups for your biggest supporters"],
+    limit: "Up to 75 menu items · 3 photos each",
+    benefits: ["Full menu and description controls", "Multiple owners and managers", "Create Hookups for your biggest supporters"],
   },
   growth: {
     name: "Growth",
     price: 499,
     limit: "Up to 300 menu items · Advanced promotion and analytics",
-    benefits: ["Everything in Standard", "Multiple managers and locations", "Priority Refresh and AI Photo Processing"],
+    benefits: ["Everything in Standard", "Multiple managers and locations", "Create advanced hookups and direct hookups"],
   },
 } as const;
 
@@ -81,7 +81,7 @@ export default function MerchantClaimModal({ restaurant, onClose }: { restaurant
             <p className="text-[10px] uppercase font-bold tracking-[0.16em] text-[var(--accent)]">Management access</p>
             <h2 className="text-xl font-bold text-white mt-1">Claim {restaurant.name}</h2>
             <p className="text-[12px] text-white/45 mt-1">Choose your plan. Cancel anytime.</p>
-            <a href="/manage" className="inline-flex mt-2 text-[10.5px] font-bold text-[var(--accent)]">Preview management dashboard →</a>
+            <a href="/manage" onClick={(event) => event.stopPropagation()} className="inline-flex mt-2 text-[10.5px] font-bold text-[var(--accent)]">Preview management dashboard →</a>
           </div>
           <button onClick={onClose} className="hit-target w-10 h-10 rounded-full bg-white/8 text-white/65 flex items-center justify-center" aria-label="Close">
             <span className="text-xl leading-none">×</span>

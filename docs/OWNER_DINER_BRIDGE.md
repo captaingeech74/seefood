@@ -11,10 +11,11 @@ and is redeemed inside SeeFood without touching payment.
 
 ## V1 Flow
 
-1. Management chooses an offer, expiration, and the top N supporters.
+1. Management chooses an offer, expiration, and either one supporter or the top N supporters.
 2. SeeFood ranks supporters from restaurant visits, dish loves, useful photo
    contributions, shares, and recency.
-3. Each selected member receives the Hookup in My SeeFood.
+3. Management adds one message; each selected member receives it with the
+   Hookup in My SeeFood.
 4. The member presents a unique QR code at the restaurant.
 5. An owner or manager scans it in the management view, marking it used.
 6. Management can see sent, used, expired, and recipient-level redemption.
@@ -26,7 +27,7 @@ server-side coupon issuance are already complete.
 ## Guardrails for Simplicity
 
 - Default to offers for the member **and friends**.
-- Start with top 10, 25, 50, or 100 supporters, not a segment builder.
+- Start with one supporter or the top 10, 25, 50, or 100, not a segment builder.
 - One scan means one redemption. No payment integration.
 - Lead with recognition and invitation language, not bulk discount language.
 - Show only the metrics that help management decide what to do next.
@@ -63,3 +64,22 @@ server-side coupon issuance are already complete.
 
 The category-defining opportunity is not “restaurant coupons.” It is making
 restaurant appreciation visible, specific, and reciprocated.
+
+## Menu Intelligence Connection
+
+Hookups become much more valuable when they begin with an item-level reason.
+Menu Intelligence can identify the people who love a specific item, the
+contributors whose customer photos make it more trusted, regulars who knew it
+before a change, and supporters whose interest is cooling. Management can then
+send a personal message and Hookup directly from that signal.
+
+This creates a simple closed loop:
+
+1. Customers reveal what is rising, slipping, trusted, or changing.
+2. Management understands the strongest item-level signal.
+3. Management recognizes one person or a small relevant group.
+4. Those people return with friends, contribute new evidence, and improve the
+   next signal.
+
+The message must explain why the person was selected. That is the distinction
+between a Hookup and a generic promotion.
