@@ -12,3 +12,16 @@ SeeFood DataLab described in `../docs/SEEFOOD_DATALAB.md`.
 - `templates/WEEKLY_REPORT.md`: founder-facing update format.
 
 Generated samples stay in ignored `raw/`, `artifacts/`, and `tmp/`.
+
+## Runtime
+
+- Codex task: **SeeFood DataLab**
+- Thread ID: `019f913f-008b-7bc3-ae0c-5cdf65e3e139`
+- Isolated branch: `codex/seefood-datalab-baseline`
+- Recurring automation: `seefood-datalab-experiment-cycle`
+- Cadence: one bounded cycle Monday, Wednesday, and Friday nights; a
+  plain-English founder report on Saturday.
+
+The automation is attached to the DataLab thread rather than the main SeeFood
+thread. Future lead developers should inspect or update the existing automation
+instead of creating a duplicate.
