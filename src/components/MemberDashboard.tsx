@@ -53,10 +53,24 @@ function PointsPanel({ points, hookups, onExplain, onOpenHookups }: { points: Me
           </div>
         </div>
       </button>
-      <button type="button" onClick={onOpenHookups} className="w-full min-h-11 px-4 border-t border-white/8 flex items-center gap-3 text-left bg-violet-300/[0.035] active:bg-violet-300/[0.08]">
-        <span className="w-7 h-7 rounded-full bg-violet-300/12 text-violet-200 flex items-center justify-center text-[11px] font-bold">%</span>
-        <span className="min-w-0 flex-1"><span className="block text-white text-[11.5px] font-bold">My Hookups</span><span className="block text-white/32 text-[9px]">{ready ? `${ready} ready to use` : "Offers sent directly by management"}</span></span>
-        <span className="text-violet-200 text-[11px] font-bold">{hookups.length} ›</span>
+      <button
+        type="button"
+        onClick={onOpenHookups}
+        className={`w-full min-h-12 px-4 border-t flex items-center gap-3 text-left transition-colors ${
+          ready
+            ? "border-[var(--accent)]/45 bg-[var(--accent)]/[0.13] active:bg-[var(--accent)]/[0.2]"
+            : "border-white/8 bg-violet-300/[0.035] active:bg-violet-300/[0.08]"
+        }`}
+      >
+        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold ${ready ? "bg-[var(--accent)] text-white shadow-[0_0_18px_rgba(255,107,53,.35)]" : "bg-violet-300/12 text-violet-200"}`}>%</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="block text-white text-[11.5px] font-bold">My Hookups</span>
+            {ready > 0 && <span className="rounded-sm bg-[var(--accent)] px-1.5 py-0.5 text-[7.5px] font-bold uppercase text-white">Ready</span>}
+          </span>
+          <span className={`block text-[9px] ${ready ? "text-orange-100/75 font-bold" : "text-white/32"}`}>{ready ? `${ready} ready to use now` : "Offers sent directly by management"}</span>
+        </span>
+        <span className={`text-[11px] font-bold ${ready ? "text-white" : "text-violet-200"}`}>{hookups.length} ›</span>
       </button>
     </div>
   );
@@ -126,7 +140,7 @@ function PreviewSection({ title, eyebrow, count, open, tone, onToggle, children 
         <span className="text-white/30 text-[10px] font-bold">{count}</span>
         <span className="w-7 h-7 rounded-full bg-white/7 flex items-center justify-center text-white/45" style={{ transform: open ? "rotate(180deg)" : undefined }}>⌄</span>
       </button>
-      <div className={`relative overflow-hidden transition-[max-height] duration-300 ${open ? "max-h-[480px]" : "max-h-[62px]"}`} style={!open ? { maskImage: "linear-gradient(to bottom, black 45%, transparent 100%)" } : undefined}>
+      <div className={`relative overflow-hidden transition-[max-height] duration-300 ${open ? "max-h-[480px]" : "max-h-[122px]"}`} style={!open ? { maskImage: "linear-gradient(to bottom, black 55%, transparent 100%)" } : undefined}>
         {children}
       </div>
     </section>
@@ -233,7 +247,6 @@ export default function MemberDashboard() {
       <header className="sticky top-0 z-20 bg-black/94 backdrop-blur border-b border-white/7 px-4 py-3 flex items-center gap-3">
         <a href="/" className="w-9 h-9 flex items-center justify-center rounded-full bg-white/6 text-white/65" aria-label="Back">←</a>
         <div className="min-w-0 flex-1"><p className="text-[9px] text-[var(--accent)] font-bold uppercase">Member</p><h1 className="text-white text-[20px] font-bold">My SeeFood</h1></div>
-        <a href="/manage" className="min-h-10 px-3 rounded-md bg-[var(--accent)] text-white text-[10.5px] font-bold flex items-center gap-1.5">Management →</a>
       </header>
 
       <div className="px-4 fade-up">
@@ -253,6 +266,10 @@ export default function MemberDashboard() {
             <div className="pt-3">{visits.length ? visits.slice(0, 10).map((visit) => <div key={visit.placeId} className="flex items-center gap-3 py-3 border-b border-white/6"><a href={visit.slug ? `/r/${visit.slug}` : "/"} className="min-w-0 flex-1"><p className="text-white text-[13px] font-bold truncate">{visit.name}</p><p className="text-emerald-300/55 text-[10px] mt-0.5">{new Date(visit.lastVisitedAt).toLocaleDateString()} · {visit.visitCount} {visit.visitCount === 1 ? "visit" : "visits"}</p></a><button onClick={() => hideVisit(visit.placeId)} className="w-9 h-9 text-white/28 text-lg" aria-label={`Remove ${visit.name}`}>×</button></div>) : <p className="text-white/32 text-[12px] py-4">Restaurants you open will appear here automatically.</p>}</div>
           </PreviewSection>
         </>}
+
+        <div className="pt-9 pb-2 text-center">
+          <a href="/manage" className="inline-flex min-h-9 items-center px-3 text-white/24 hover:text-white/55 text-[9.5px] font-bold transition-colors">Management access →</a>
+        </div>
       </div>
 
       {pointsOpen && profile && <PointsSheet points={profile.points} onClose={() => setPointsOpen(false)} />}

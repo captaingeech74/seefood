@@ -55,6 +55,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   const [isResetting, setIsResetting] = useState(false);
   const [isHAnimating, setIsHAnimating] = useState(false);
   const [isHResetting, setIsHResetting] = useState(false);
+  const [isEdgeClosing, setIsEdgeClosing] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailSource, setDetailSource] = useState<"all" | "management" | "customers">("all");
   const [variantIndex, setVariantIndex] = useState(0);
@@ -316,6 +317,10 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         animateVariantTo(-window.innerWidth, variantIndex + 1);
       } else if (dx > SWIPE_THRESHOLD && variantIndex > 0) {
         animateVariantTo(window.innerWidth, variantIndex - 1);
+      } else if (dx > SWIPE_THRESHOLD && variantIndex === 0) {
+        setIsEdgeClosing(true);
+        setDragX(window.innerWidth);
+        window.setTimeout(close, ANIM_MS);
       } else {
         snapBackH();
       }
@@ -501,6 +506,9 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
 
   const trackTransition = isDragging || isResetting ? "none" : `transform ${ANIM_MS}ms var(--ease-spring)`;
   const hTrackTransition = isDragging || isHResetting ? "none" : `transform ${ANIM_MS}ms var(--ease-spring)`;
+  const edgePull = variantIndex === 0 && dragX > 0;
+  const contentDragX = edgePull ? 0 : dragX;
+  const edgeTransition = isDragging ? "none" : `transform ${ANIM_MS}ms var(--ease-spring)`;
 
   return (
     <div
@@ -510,6 +518,11 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
       onTouchEnd={onTouchEnd}
       role="dialog"
       aria-modal="true"
+      style={{
+        transform: edgePull || isEdgeClosing ? `translateX(${dragX}px)` : undefined,
+        transition: edgeTransition,
+        boxShadow: edgePull || isEdgeClosing ? "-18px 0 44px rgba(0,0,0,.42)" : undefined,
+      }}
     >
       {/* Vertical track — prev/current/next DISH stacked, translated together */}
       {prevPhoto && (
@@ -522,7 +535,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         style={{ transform: `translateY(${dragY}px)`, transition: trackTransition }}
       >
         {prevVariant && (
-          <HSlide photo={prevVariant} style={{ transform: `translateX(calc(-100% + ${dragX}px))`, transition: hTrackTransition }} />
+          <HSlide photo={prevVariant} style={{ transform: `translateX(calc(-100% + ${contentDragX}px))`, transition: hTrackTransition }} />
         )}
         <HSlide
           photo={activePhoto}
@@ -530,10 +543,10 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
           onTap={toggleDetail}
           imgRef={activeImgRef}
           onImgLoad={measureImgBounds}
-          style={{ transform: `translateX(${dragX}px)`, transition: hTrackTransition }}
+          style={{ transform: `translateX(${contentDragX}px)`, transition: hTrackTransition }}
         />
         {nextVariant && (
-          <HSlide photo={nextVariant} style={{ transform: `translateX(calc(100% + ${dragX}px))`, transition: hTrackTransition }} />
+          <HSlide photo={nextVariant} style={{ transform: `translateX(calc(100% + ${contentDragX}px))`, transition: hTrackTransition }} />
         )}
       </div>
 

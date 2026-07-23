@@ -14,14 +14,14 @@ const PLANS = {
   standard: {
     name: "Standard",
     price: 99,
-    limit: "Up to 75 menu items · 3 photos each",
+    limit: "Up to 75 menu items · 2 photos each",
     benefits: ["Full menu and description controls", "Multiple owners and managers", "Create Hookups for your biggest supporters"],
   },
   growth: {
     name: "Growth",
     price: 499,
-    limit: "Up to 300 menu items · Advanced promotion and analytics",
-    benefits: ["Everything in Standard", "Multiple managers and locations", "Create advanced hookups and direct hookups"],
+    limit: "Up to 300 menu items",
+    benefits: ["Everything in Standard", "Multiple locations", "Advanced promotion and analytics", "Create advanced hookups and direct hookups"],
   },
 } as const;
 
