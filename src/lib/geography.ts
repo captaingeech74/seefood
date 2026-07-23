@@ -102,6 +102,9 @@ export const MAJOR_METROS: MajorMetro[] = [
   ["Birmingham", 33.5186, -86.8104, 55],
 ].map(([name, lat, lng, radiusKm]) => ({ name: String(name), lat: Number(lat), lng: Number(lng), radiusKm: Number(radiusKm) }));
 
+export const DEFAULT_MAJOR_METRO =
+  MAJOR_METROS.find((metro) => metro.name === "San Diego-Chula Vista-Carlsbad")!;
+
 export const STATE_BOUNDS: Partial<Record<(typeof STATE_NAMES)[number], GeoBounds>> = {
   California: { minLat: 32.5, maxLat: 42.1, minLng: -124.6, maxLng: -114.0 },
 };

@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ABOVE_FOLD_PHOTO_TARGET,
   CoverageScope,
+  DEFAULT_MAJOR_METRO,
   MAJOR_METROS,
   MAJOR_METRO_RESTAURANT_TARGET,
   STATE_NAMES,
@@ -85,7 +86,7 @@ export default function CoverageReadinessDashboard() {
     const automaticQuery = scope === "state"
       ? (query || "California")
       : scope === "metro"
-        ? (query || MAJOR_METROS[0].name)
+        ? (query || DEFAULT_MAJOR_METRO.name)
         : query;
     if ((scope === "zip" || scope === "metro") && !automaticQuery.trim()) {
       setLoading(false);
@@ -123,7 +124,7 @@ export default function CoverageReadinessDashboard() {
         <div className="flex gap-1 mt-3 overflow-x-auto no-scrollbar">
           {SCOPES.map((item) => (
             <button key={item.value} onClick={() => {
-              setQuery(item.value === "metro" ? MAJOR_METROS[0].name : item.value === "state" ? "California" : "");
+              setQuery(item.value === "metro" ? DEFAULT_MAJOR_METRO.name : item.value === "state" ? "California" : "");
               setScope(item.value);
             }} className="shrink-0 px-3 min-h-9 rounded-lg text-[11px] font-bold border" style={{ background: scope === item.value ? "var(--accent-soft)" : "transparent", borderColor: scope === item.value ? "var(--accent)" : "rgba(255,255,255,0.08)", color: scope === item.value ? "white" : "rgba(255,255,255,0.42)" }}>
               {item.label}
@@ -136,7 +137,7 @@ export default function CoverageReadinessDashboard() {
           </select>
         )}
         {scope === "metro" && (
-          <select value={query || MAJOR_METROS[0].name} onChange={(event) => { setQuery(event.target.value); void load("metro", period, event.target.value); }} className="mt-2 w-full bg-[var(--surface-2)] text-white text-[13px] rounded-lg px-3 py-3 border border-white/10 outline-none">
+          <select value={query || DEFAULT_MAJOR_METRO.name} onChange={(event) => { setQuery(event.target.value); void load("metro", period, event.target.value); }} className="mt-2 w-full bg-[var(--surface-2)] text-white text-[13px] rounded-lg px-3 py-3 border border-white/10 outline-none">
             {MAJOR_METROS.map((metro) => <option key={metro.name}>{metro.name}</option>)}
           </select>
         )}

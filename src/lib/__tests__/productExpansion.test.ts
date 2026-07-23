@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { sampleHookups, samplePromotions } from "../demoHookups";
-import { MAJOR_METROS } from "../geography";
+import { DEFAULT_MAJOR_METRO, MAJOR_METROS } from "../geography";
 
 describe("major metro analytics", () => {
   it("offers exactly 50 unique metro choices with usable footprints", () => {
     expect(MAJOR_METROS).toHaveLength(50);
     expect(new Set(MAJOR_METROS.map((metro) => metro.name)).size).toBe(50);
     expect(MAJOR_METROS.every((metro) => Number.isFinite(metro.lat) && Number.isFinite(metro.lng) && metro.radiusKm > 0)).toBe(true);
+  });
+
+  it("defaults metro reporting to San Diego without changing population order", () => {
+    expect(DEFAULT_MAJOR_METRO.name).toBe("San Diego-Chula Vista-Carlsbad");
+    expect(MAJOR_METROS[0].name).toBe("New York-Newark-Jersey City");
   });
 });
 
