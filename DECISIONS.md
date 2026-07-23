@@ -1533,9 +1533,9 @@ Server-backed accounts, secure issuance, and delivery are the next
 implementation layer after the workflow is approved. The complete relationship
 strategy is in `docs/OWNER_DINER_BRIDGE.md`.
 
-## Menu Intelligence (July 23, 2026)
+## Customer Insights (July 23, 2026)
 
-The standalone management insight product is called **Menu Intelligence**. It
+The standalone management insight product is called **Customer Insights**. It
 is the customer-perception complement to POS reporting: what menu items people
 open, love, photograph, compare, revisit, and share; what is rising or slipping;
 how customer photos perform against management photos; and how returning
@@ -1546,8 +1546,13 @@ what changed, why it may have changed, and the single clearest next action.
 Management can mark recipe, plating, price, name/description, lead-photo, or
 portion changes to create a before/after learning window. Signals are not sales
 or sentiment claims and must carry minimum-sample and confidence treatment
-before production use. See `docs/MENU_INTELLIGENCE.md` for definitions and the
+before production use. See `docs/CUSTOMER_INSIGHTS.md` for definitions and the
 closed loop between item insight and supporter Hookups.
+
+The product sample also tests an all/new/regular customer lens, a saw-to-open-to-
+love-to-return item journey, management-versus-customer photo performance,
+ranked management opportunities, and one-question customer pulses sent only to
+people with relevant behavior around the selected item.
 
 ## Management Top 7 and menu capture (July 23, 2026)
 

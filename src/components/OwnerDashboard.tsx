@@ -106,7 +106,7 @@ function MenuHealthDrawer({ onClose }: { onClose: () => void }) {
             return <div key={item.title} className="py-4 border-b border-white/7 last:border-0"><div className="flex gap-3"><span className="w-9 h-9 shrink-0 rounded-md flex items-center justify-center text-[13px] font-bold" style={{ background: `${item.tone}18`, color: item.tone }}>{item.value}</span><div className="min-w-0 flex-1"><p className="text-white text-[12.5px] font-bold">{item.title}</p><p className="text-white/38 text-[10px] leading-relaxed mt-1">{item.detail}</p></div></div><button onClick={() => setQueued((current) => isQueued ? current.filter((value) => value !== item.title) : [...current, item.title])} className="ml-12 mt-2 min-h-9 px-3 rounded-md border text-[10px] font-bold" style={{ borderColor: isQueued ? item.tone : "rgba(255,255,255,.12)", color: isQueued ? item.tone : "rgba(255,255,255,.65)" }}>{isQueued ? "Added to improvement list ✓" : item.action}</button></div>;
           })}
         </div>
-        <a href="/manage/insights" className="mt-5 min-h-11 rounded-md bg-white text-black flex items-center justify-center text-[11px] font-bold">See what customers think →</a>
+        <a href="/manage/insights" className="mt-5 min-h-11 rounded-md bg-white text-black flex items-center justify-center text-[11px] font-bold">Open Customer Insights →</a>
       </div>
     </div>
   );
@@ -188,7 +188,7 @@ export default function OwnerDashboard() {
             </section>
 
             <a href="/manage/insights" className="py-5 border-b border-white/8 flex items-center gap-3">
-              <div className="min-w-0 flex-1"><p className="text-[9px] uppercase font-bold text-amber-300">Customer-side truth</p><h2 className="text-white text-[18px] font-bold mt-1">Menu Intelligence</h2><p className="text-white/38 text-[11px] mt-1">See what is rising, slipping, and changing, then act.</p></div>
+              <div className="min-w-0 flex-1"><p className="text-[9px] uppercase font-bold text-amber-300">What customers reveal</p><h2 className="text-white text-[18px] font-bold mt-1">Customer Insights</h2><p className="text-white/38 text-[11px] mt-1">See what is rising, slipping, and changing, then act.</p></div>
               <div className="text-right"><p className="text-emerald-300 text-[12px] font-bold">3 rising</p><p className="text-rose-300 text-[9px] mt-1">2 need attention</p></div><span className="text-white/25">›</span>
             </a>
 

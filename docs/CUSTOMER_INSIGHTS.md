@@ -1,8 +1,8 @@
-# Menu Intelligence
+# Customer Insights
 
 ## Product Thesis
 
-Menu Intelligence gives restaurant owners a customer-side understanding of
+Customer Insights gives restaurant owners a behavioral understanding of
 individual menu items. POS systems explain what sold. Review platforms explain
 what a small, vocal subset wrote. SeeFood can explain what people chose to look
 at, love, photograph, compare, revisit, and share before and after a menu
@@ -29,6 +29,10 @@ It is deliberately a ranked decision surface rather than a dashboard of charts.
 - **Comparison readiness:** whether both management and customer evidence exists.
 - **Learning window:** a declared new item or management change with a fixed
   before/after comparison period.
+- **Customer journey:** the progression from seeing an item to opening, loving,
+  and later returning to it.
+- **Audience lens:** the same menu signal viewed for all customers, newcomers,
+  or returning regulars.
 
 These are behavioral signals, not claims about sales, profitability, or
 sentiment. Low-sample results must be labeled as early and cannot create a
@@ -61,6 +65,24 @@ Every important signal should have one primary action: review photos, request
 customer photos, keep featured, mark a change, or send a Hookup to the relevant
 supporters. The eventual category advantage is a closed loop from customer
 behavior to management action to a fresh customer response.
+
+## Product Experiments
+
+The management sample includes several deliberately testable ideas:
+
+- **Moves worth testing** ranks photo mismatches, hidden favorites, regulars'
+  anchors, and stable benchmarks by likely upside.
+- **Photo reality gap** compares the rate at which management and customer
+  photos lead to an item open.
+- **Customer journey** shows a compact saw, opened, loved, and returned funnel.
+- **One-question customer pulse** targets only people with relevant behavior
+  around an item. Questions are intentionally constrained and can focus on
+  reorder intent, a recent change, photo accuracy, or whether an item should
+  remain.
+
+These are sample workflows while product fit is being tested. Production
+versions require server-backed audience selection, response deduplication,
+minimum sample thresholds, and authenticated management access.
 
 ## Research Basis
 

@@ -65,10 +65,10 @@ server-side coupon issuance are already complete.
 The category-defining opportunity is not “restaurant coupons.” It is making
 restaurant appreciation visible, specific, and reciprocated.
 
-## Menu Intelligence Connection
+## Customer Insights Connection
 
 Hookups become much more valuable when they begin with an item-level reason.
-Menu Intelligence can identify the people who love a specific item, the
+Customer Insights can identify the people who love a specific item, the
 contributors whose customer photos make it more trusted, regulars who knew it
 before a change, and supporters whose interest is cooling. Management can then
 send a personal message and Hookup directly from that signal.

@@ -20,8 +20,8 @@ const PLANS = {
   growth: {
     name: "Growth",
     price: 499,
-    limit: "Up to 300 menu items",
-    benefits: ["Everything in Standard", "Multiple locations", "Advanced promotion and analytics", "Create advanced hookups and direct hookups"],
+    limit: "Up to 300 menu items · 5 photos each",
+    benefits: ["Advanced promotion and analytics", "Create advanced Hookups and direct Hookups", "Multiple locations"],
   },
 } as const;
 
