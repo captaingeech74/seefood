@@ -19,6 +19,11 @@ ORCHESTRATOR_HANDOFF.md
 # Track B nightly crawler logs (Kyle's Mac, machine-local)
 logs/
 
+# SeeFood DataLab raw samples and generated artifacts stay local.
+data-lab/artifacts/
+data-lab/raw/
+data-lab/tmp/
+
 # Kyle's own fixture photos (personal files, not app source)
 fixture-photos/inbox/*
 fixture-photos/processed/*

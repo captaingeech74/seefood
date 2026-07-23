@@ -1570,3 +1570,23 @@ Management must confirm before any item is published. Published rows use the
 `merchant` source, while R2 retains the menu-page evidence and
 `management_menu_imports` records the import audit. Full behavior and current
 authentication boundary are in `docs/MANAGEMENT_MENU_TOOLS.md`.
+
+## SeeFood DataLab (July 23, 2026)
+
+SeeFood DataLab is an isolated side project for discovering and proving
+incremental restaurant, menu, attribution, and menu-photo acquisition methods.
+Its north-star result is a strongly matched dish with both Management and
+Customer photos, not raw records or raw images acquired.
+
+The lab runs in a separate Codex worktree and may inspect the current
+acquisition system, but it cannot write production Supabase/R2 data, deploy,
+alter infrastructure, merge or push `main`, start paid services, or run
+unbounded crawls. One cycle tests one hypothesis and requires independent
+evaluation before a Keep, Revise, Reject, or Quarantine decision.
+
+Temecula is the optimization market and a locked, representative national
+holdout protects against overfitting. The main SeeFood thread remains the only
+place where a successful lab recommendation may be integrated and deployed.
+The complete charter, reporting language, operating cadence, Gemini manual
+bridge, and future-agent rules are in `docs/SEEFOOD_DATALAB.md` and
+`data-lab/`.
