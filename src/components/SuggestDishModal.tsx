@@ -5,6 +5,7 @@ import { DishPhoto, Restaurant } from "@/lib/types";
 import { getVisitorId, trackEvent } from "@/lib/analytics";
 import PhotoSourceSheet from "./PhotoSourceSheet";
 import { contributionDraftKey, parseContributionDraft } from "@/lib/contributionDraft";
+import { optimizeImageFile } from "@/lib/clientImageOptimization";
 
 interface SuggestDishModalProps {
   restaurant: Restaurant;
@@ -77,11 +78,12 @@ export default function SuggestDishModal({ restaurant, initialName, onClose, onA
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
 
-  const handleFileSelected = (f: File) => {
-    setFile(f);
+  const handleFileSelected = async (f: File) => {
+    const optimized = await optimizeImageFile(f);
+    setFile(optimized);
     setPreviewUrl((current) => {
       if (current) URL.revokeObjectURL(current);
-      return URL.createObjectURL(f);
+      return URL.createObjectURL(optimized);
     });
   };
 
@@ -115,7 +117,13 @@ export default function SuggestDishModal({ restaurant, initialName, onClose, onA
 
       setResult({ photo: data.photo, aiWrote: !!data.aiWrote, scoutCount });
       onAdded(data.photo);
-      trackEvent("photo_add", restaurant.placeId || restaurant.id, { surface: "missing_dish" });
+      trackEvent("photo_add", restaurant.placeId || restaurant.id, {
+        surface: "missing_dish",
+        photoId: data.photo.id,
+        photoUrl: data.photo.url,
+        dishName: data.photo.dishName ?? dishName.trim(),
+        restaurantName: restaurant.name,
+      });
     } catch {
       setError("Upload failed — check your connection and try again.");
     } finally {
@@ -202,6 +210,9 @@ export default function SuggestDishModal({ restaurant, initialName, onClose, onA
 
             <p className="text-[12.5px] text-white/40 leading-relaxed mb-6">
               * I confirm I was served this at {restaurant.name}.
+            </p>
+            <p className="text-[12.5px] text-white/55 leading-relaxed mb-6 border-l-2 border-[var(--accent)] pl-3">
+              Give the next diner the full reveal: photograph the whole dish before the first bite disappears.
             </p>
 
             {error && <p className="text-rose-400 text-[13px] mb-3">{error}</p>}

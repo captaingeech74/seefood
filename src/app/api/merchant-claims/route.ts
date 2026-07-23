@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (typeof businessRole !== "string" || !businessRole.trim()) {
     return NextResponse.json({ error: "Your role is required" }, { status: 400 });
   }
-  if (plan !== "standard" && plan !== "growth") {
+  if (plan !== "starter" && plan !== "standard" && plan !== "growth") {
     return NextResponse.json({ error: "Choose a plan" }, { status: 400 });
   }
   if (authorityAttested !== true || paymentAttested !== true) {

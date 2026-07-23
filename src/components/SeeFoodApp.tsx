@@ -193,7 +193,14 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
   }, []);
 
   useEffect(() => {
-    if (restaurant) trackAppOpen(restaurant.placeId || restaurant.id);
+    if (restaurant) {
+      trackAppOpen(restaurant.placeId || restaurant.id, {
+        restaurantName: restaurant.name,
+        lat: restaurant.lat,
+        lng: restaurant.lng,
+        slug: restaurant.slug ?? null,
+      });
+    }
   }, [restaurant]);
 
   useEffect(() => {

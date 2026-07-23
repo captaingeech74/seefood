@@ -319,13 +319,10 @@ export default function RestaurantHeader({
           )}
 
           <div className="flex items-center justify-between gap-3 mt-2.5">
-            <button
-              type="button"
-              onClick={() => setClaimOpen(true)}
-              className="min-h-9 text-[10.5px] font-semibold text-white/30 hover:text-white/55 transition-colors"
-            >
-              Own this restaurant?
-            </button>
+            <div className="flex items-center gap-3">
+              <a href="/me" className="min-h-9 inline-flex items-center text-[10.5px] font-semibold text-white/30 hover:text-white/55 transition-colors">My SeeFood</a>
+              <button type="button" onClick={() => setClaimOpen(true)} className="min-h-9 text-[10.5px] font-semibold text-white/30 hover:text-white/55 transition-colors">Own this restaurant?</button>
+            </div>
             <button
               onClick={() => onSuggestDish()}
               className="hit-target relative flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"

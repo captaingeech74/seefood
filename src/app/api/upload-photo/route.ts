@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { hasDuplicatePhoto, saveUserUploadedPhoto } from "@/lib/db";
 import { uploadPhotoBuffer } from "@/lib/storage";
 import { createHash } from "crypto";
+import { optimizeImage } from "@/lib/imageOptimization";
 
 // "Take Photo of Dish" (experimental — PRD's long-term user-contribution
 // vision, scoped down: no accounts/moderation yet, just a real working
@@ -33,15 +34,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Image too large (8MB max)" }, { status: 400 });
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const duplicateHash = createHash("sha256").update(buffer).digest("hex");
+  const original = Buffer.from(await file.arrayBuffer());
+  const duplicateHash = createHash("sha256").update(original).digest("hex");
   if (await hasDuplicatePhoto(placeId, duplicateHash)) {
     return NextResponse.json({ error: "That photo is already on SeeFood." }, { status: 409 });
   }
-  const ext = file.type.split("/")[1]?.split("+")[0] || "jpg";
-  const key = `user-uploads/${placeId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const optimized = await optimizeImage(original).catch(() => null);
+  if (!optimized) return NextResponse.json({ error: "We could not process that image." }, { status: 422 });
+  const key = `user-uploads/${placeId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
 
-  const url = await uploadPhotoBuffer(buffer, file.type, key);
+  const url = await uploadPhotoBuffer(optimized.buffer, optimized.contentType, key);
   if (!url) {
     return NextResponse.json({ error: "Upload failed — please try again" }, { status: 502 });
   }
@@ -57,8 +59,8 @@ export async function POST(req: NextRequest) {
     isMenuMatch,
     tier,
     menuItemId,
-    width: 1200,
-    height: 1200,
+    width: optimized.width,
+    height: optimized.height,
     contributorId: typeof contributorId === "string" ? contributorId.slice(0, 100) : undefined,
     duplicateHash,
   });

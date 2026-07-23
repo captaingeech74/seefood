@@ -8,6 +8,7 @@ import { pickPrimary } from "@/lib/dishGrouping";
 import { getVisitorId, trackEvent } from "@/lib/analytics";
 import { withPhotoSignals } from "@/lib/photoSignals";
 import PhotoSourceSheet from "./PhotoSourceSheet";
+import { optimizeImageFile } from "@/lib/clientImageOptimization";
 
 interface RevealProps {
   /** Deduped, one-per-dish list — drives vertical prev/next so a dish never repeats while scrolling. */
@@ -454,8 +455,9 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     if (!activePhoto) return;
     setUploading(true);
     try {
+      const optimized = await optimizeImageFile(file);
       const form = new FormData();
-      form.append("photo", file);
+      form.append("photo", optimized);
       form.append("contributorId", getVisitorId());
       form.append("placeId", restaurant.placeId || restaurant.id);
       if (activePhoto.dishName) form.append("dishName", activePhoto.dishName);
@@ -468,7 +470,13 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         const newIndex = variants.length;
         setUploadedPhotos((prev) => [...prev, data.photo]);
         setVariantIndex(newIndex);
-        trackEvent("photo_add", restaurant.placeId || restaurant.id, { surface: "dish_detail" });
+        trackEvent("photo_add", restaurant.placeId || restaurant.id, {
+          surface: "dish_detail",
+          photoId: data.photo.id,
+          photoUrl: data.photo.url,
+          dishName: data.photo.dishName ?? activePhoto.dishName ?? "Dish photo",
+          restaurantName: restaurant.name,
+        });
       } else {
         alert(data.error || "Upload failed — please try again.");
       }

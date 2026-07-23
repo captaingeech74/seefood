@@ -252,6 +252,182 @@ export async function recordAppEvent(input: {
   if (error) throw error;
 }
 
+export interface CoverageV2Metrics {
+  identifiedRestaurants: number;
+  menuCoverage: number;
+  basicPhotoCoverage: number;
+  basicMenuPhotoCoverage: number;
+  twentyPercentMenuPhotoCoverage: number;
+  fiftyPercentMenuPhotoCoverage: number;
+  comparisonCoverage: number;
+  visits: number;
+  visitors: number;
+  newVisitors: number;
+  uploadSessions: number;
+  loves: number;
+}
+
+export async function getCoverageV2Metrics(input: {
+  minLat?: number;
+  maxLat?: number;
+  minLng?: number;
+  maxLng?: number;
+  lat?: number;
+  lng?: number;
+  radiusKm?: number;
+  since: string;
+}): Promise<CoverageV2Metrics> {
+  const { data, error } = await supabase.rpc("coverage_v2_metrics", {
+    p_min_lat: input.minLat ?? null,
+    p_max_lat: input.maxLat ?? null,
+    p_min_lng: input.minLng ?? null,
+    p_max_lng: input.maxLng ?? null,
+    p_lat: input.lat ?? null,
+    p_lng: input.lng ?? null,
+    p_radius_km: input.radiusKm ?? null,
+    p_since: input.since,
+  });
+  if (error) throw error;
+  return data as CoverageV2Metrics;
+}
+
+export interface MemberRestaurant {
+  placeId: string;
+  name: string;
+  slug: string | null;
+  lat: number | null;
+  lng: number | null;
+  visitCount: number;
+  lastVisitedAt: string;
+}
+
+export interface MemberPhoto {
+  id: string;
+  url: string;
+  dishName: string;
+  restaurantName: string;
+  restaurantId: string;
+  restaurantSlug: string | null;
+  loved: boolean;
+  createdAt: string;
+}
+
+export interface MemberProfile {
+  visits: MemberRestaurant[];
+  lovedDishes: MemberPhoto[];
+  photos: MemberPhoto[];
+  favoriteRestaurants: MemberRestaurant[];
+}
+
+export async function getMemberProfile(visitorId: string): Promise<MemberProfile> {
+  const [{ data: events }, { data: contributed }] = await Promise.all([
+    supabase
+      .from("app_events")
+      .select("event_name,restaurant_id,metadata,created_at")
+      .eq("visitor_id", visitorId)
+      .order("created_at", { ascending: false })
+      .limit(1000),
+    supabase
+      .from("photos")
+      .select("id,restaurant_id,storage_url,origin_url,gemini_label,menu_item_id,created_at")
+      .eq("contributor_id", visitorId)
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .limit(200),
+  ]);
+
+  const eventRows = (events ?? []) as Array<{
+    event_name: AnalyticsEventName;
+    restaurant_id: string | null;
+    metadata: Record<string, unknown> | null;
+    created_at: string;
+  }>;
+  const contributedRows = (contributed ?? []) as Array<{
+    id: number;
+    restaurant_id: string;
+    storage_url: string | null;
+    origin_url: string | null;
+    gemini_label: string | null;
+    menu_item_id: number | null;
+    created_at: string;
+  }>;
+  const restaurantIds = new Set<string>();
+  for (const event of eventRows) if (event.restaurant_id) restaurantIds.add(event.restaurant_id);
+  for (const photo of contributedRows) restaurantIds.add(photo.restaurant_id);
+
+  const lovedPhotoIds = eventRows
+    .filter((event) => event.event_name === "love")
+    .map((event) => String(event.metadata?.photoId ?? ""))
+    .map((id) => Number(id.replace(/^corpus-/, "")))
+    .filter(Number.isFinite);
+  const { data: lovedRows } = lovedPhotoIds.length
+    ? await supabase.from("photos")
+      .select("id,restaurant_id,storage_url,origin_url,gemini_label,menu_item_id,created_at")
+      .in("id", lovedPhotoIds)
+      .eq("active", true)
+    : { data: [] };
+  const allPhotos = [...contributedRows, ...((lovedRows ?? []) as typeof contributedRows)];
+  for (const photo of allPhotos) restaurantIds.add(photo.restaurant_id);
+
+  const menuItemIds = [...new Set(allPhotos.map((photo) => photo.menu_item_id).filter((id): id is number => id !== null))];
+  const [{ data: restaurants }, { data: menuItems }] = await Promise.all([
+    restaurantIds.size
+      ? supabase.from("restaurants").select("place_id,name,slug,lat,lng").in("place_id", [...restaurantIds])
+      : Promise.resolve({ data: [] }),
+    menuItemIds.length
+      ? supabase.from("menu_items").select("id,name").in("id", menuItemIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const restaurantMap = new Map((restaurants ?? []).map((row) => [row.place_id, row]));
+  const menuMap = new Map((menuItems ?? []).map((row) => [row.id, row.name]));
+  const lovedSet = new Set(lovedPhotoIds);
+
+  const mapPhoto = (photo: typeof contributedRows[number]): MemberPhoto => ({
+    id: `corpus-${photo.id}`,
+    url: photo.storage_url ?? photo.origin_url ?? "",
+    dishName: (photo.menu_item_id ? menuMap.get(photo.menu_item_id) : null) ?? photo.gemini_label ?? "Dish photo",
+    restaurantName: restaurantMap.get(photo.restaurant_id)?.name ?? "Restaurant",
+    restaurantId: photo.restaurant_id,
+    restaurantSlug: restaurantMap.get(photo.restaurant_id)?.slug ?? null,
+    loved: lovedSet.has(photo.id),
+    createdAt: photo.created_at,
+  });
+
+  const visitMap = new Map<string, MemberRestaurant>();
+  const scores = new Map<string, number>();
+  for (const event of eventRows) {
+    if (!event.restaurant_id) continue;
+    const restaurant = restaurantMap.get(event.restaurant_id);
+    if (!restaurant) continue;
+    if (event.event_name === "app_open") {
+      const current = visitMap.get(event.restaurant_id);
+      visitMap.set(event.restaurant_id, {
+        placeId: event.restaurant_id,
+        name: restaurant.name,
+        slug: restaurant.slug,
+        lat: restaurant.lat,
+        lng: restaurant.lng,
+        visitCount: (current?.visitCount ?? 0) + 1,
+        lastVisitedAt: current?.lastVisitedAt ?? event.created_at,
+      });
+      scores.set(event.restaurant_id, (scores.get(event.restaurant_id) ?? 0) + 1);
+    } else if (event.event_name === "love") {
+      scores.set(event.restaurant_id, (scores.get(event.restaurant_id) ?? 0) + 3);
+    }
+  }
+
+  const visits = [...visitMap.values()].sort((a, b) => b.lastVisitedAt.localeCompare(a.lastVisitedAt));
+  const favoriteRestaurants = [...visits]
+    .sort((a, b) => (scores.get(b.placeId) ?? 0) - (scores.get(a.placeId) ?? 0))
+    .slice(0, 8);
+  return {
+    visits,
+    lovedDishes: ((lovedRows ?? []) as typeof contributedRows).map(mapPhoto),
+    photos: contributedRows.map(mapPhoto),
+    favoriteRestaurants,
+  };
+}
+
 export async function getCoverageMetrics(
   lat: number,
   lng: number,
@@ -764,7 +940,7 @@ export async function createMerchantClaim(input: {
   email: string;
   phone?: string;
   businessRole: string;
-  plan: "standard" | "growth";
+  plan: "starter" | "standard" | "growth";
   authorityAttested: boolean;
   paymentAttested: boolean;
 }): Promise<string | null> {
@@ -786,7 +962,7 @@ export async function createMerchantClaim(input: {
     phone: input.phone || null,
     business_role: input.businessRole,
     plan: input.plan,
-    monthly_price: input.plan === "growth" ? 499 : 99,
+    monthly_price: input.plan === "growth" ? 499 : input.plan === "standard" ? 99 : 9,
     authority_attested: input.authorityAttested,
     payment_attested: input.paymentAttested,
     status: "pending",

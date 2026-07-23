@@ -5,20 +5,28 @@ import { createPortal } from "react-dom";
 import { Restaurant } from "@/lib/types";
 
 const PLANS = {
+  starter: {
+    name: "Popular 7",
+    price: 9,
+    limit: "7 dishes · 3 photos each",
+    benefits: ["Show your seven most popular dishes", "Management photo badge", "One customer-ready SeeFood URL"],
+  },
   standard: {
     name: "Standard",
     price: 99,
-    benefits: ["Verified management presence", "Menu and description controls", "Management photo publishing", "Basic engagement insights"],
+    limit: "Up to 75 dishes · 3 photos each",
+    benefits: ["Full menu and description controls", "Management photo publishing", "Basic engagement insights"],
   },
   growth: {
     name: "Growth",
     price: 499,
-    benefits: ["Everything in Standard", "Priority menu and photo refresh", "Advanced dish-level analytics", "Multi-location tools for up to 5 locations", "Seasonal and featured collections"],
+    limit: "Up to 5 locations · 250 dishes each",
+    benefits: ["Everything in Standard", "Priority refresh and advanced analytics", "Multi-location and seasonal tools"],
   },
 } as const;
 
 export default function MerchantClaimModal({ restaurant, onClose }: { restaurant: Restaurant; onClose: () => void }) {
-  const [plan, setPlan] = useState<keyof typeof PLANS>("standard");
+  const [plan, setPlan] = useState<keyof typeof PLANS>("starter");
   const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -84,6 +92,10 @@ export default function MerchantClaimModal({ restaurant, onClose }: { restaurant
             <div className="mx-auto w-12 h-12 rounded-full bg-emerald-400/15 text-emerald-400 flex items-center justify-center text-2xl">✓</div>
             <h3 className="text-white text-lg font-bold mt-4">Claim received</h3>
             <p className="text-white/55 text-sm mt-2">We’ll review your connection to the restaurant before activating management controls or billing.</p>
+            <div className="mt-5 text-left border border-[var(--accent)]/30 bg-[var(--accent-soft)] p-4 rounded-lg">
+              <p className="text-white text-[13px] font-bold">Your table-side food gallery</p>
+              <p className="text-white/55 text-[11px] leading-relaxed mt-1.5">Once approved, employees can simply tell guests: turn on location and open SeeFood. Your restaurant and its most useful food photos appear automatically.</p>
+            </div>
             {providers.length > 0 && (
               <div className="mt-6 text-left border-t border-white/10 pt-4">
                 <p className="text-white text-sm font-bold">Connect your menu system</p>
@@ -102,19 +114,21 @@ export default function MerchantClaimModal({ restaurant, onClose }: { restaurant
           </div>
         ) : (
           <form onSubmit={submit} className="px-5 pb-6">
-            <div className="grid grid-cols-2 gap-2 mb-5" role="radiogroup" aria-label="Management plan">
-              {(Object.entries(PLANS) as Array<[keyof typeof PLANS, typeof PLANS.standard | typeof PLANS.growth]>).map(([key, item]) => (
+            <div className="grid grid-cols-1 gap-2 mb-5" role="radiogroup" aria-label="Management plan">
+              {(Object.entries(PLANS) as Array<[keyof typeof PLANS, (typeof PLANS)[keyof typeof PLANS]]>).map(([key, item]) => (
                 <button key={key} type="button" role="radio" aria-checked={plan === key} onClick={() => setPlan(key)} className="text-left rounded-xl border p-3 transition-colors" style={{ borderColor: plan === key ? "var(--accent)" : "rgba(255,255,255,0.1)", background: plan === key ? "rgba(255,107,53,0.1)" : "rgba(255,255,255,0.035)" }}>
                   <div className="flex items-baseline justify-between gap-1">
                     <span className="text-white text-sm font-bold">{item.name}</span>
                     <span className="text-white text-sm font-bold">${item.price}<span className="text-white/35 text-[10px]">/mo</span></span>
                   </div>
+                  <p className="text-[10.5px] text-[var(--accent)] font-bold mt-1">{item.limit}</p>
                   <div className="mt-2 space-y-1.5">
                     {item.benefits.map((benefit) => <p key={benefit} className="text-[10.5px] leading-snug text-white/52">✓ {benefit}</p>)}
                   </div>
                 </button>
               ))}
             </div>
+            <p className="text-white/35 text-[10.5px] leading-relaxed mb-5">Larger menus cost more because every extra dish adds image processing, storage, and serving work. Start with seven; upgrade only when the full menu earns its keep.</p>
 
             <div className="grid grid-cols-2 gap-2.5">
               <label className="col-span-2 text-[11px] font-bold text-white/60">Your name<input required value={contactName} onChange={(e) => setContactName(e.target.value)} className="mt-1.5 w-full rounded-xl bg-white/7 border border-white/10 px-3 py-3 text-sm text-white outline-none focus:border-[var(--accent)]" /></label>

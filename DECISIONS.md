@@ -1410,3 +1410,69 @@ photo publishing, and basic insights. Growth is $499/month and adds priority
 refresh, dish analytics, up to five locations, and seasonal/featured controls.
 V1 records authority and payment-intent attestations as a pending claim; it does
 not activate access or billing until manual verification.
+
+---
+
+## Geographic rollout and V2 coverage language (July 22, 2026)
+
+Temecula is the first complete market and the standard against which later
+markets are judged. Rollout order is Temecula, San Diego metro, San Diego
+County, Los Angeles, remaining major California metros, then US metros.
+Geography is a product dimension, not a crawler script detail.
+
+Planning assumes 750,000 US restaurants until the corpus produces a better
+deduplicated count. "Major metros" means the 50 largest official OMB
+Metropolitan Statistical Areas by population. OMB boundaries reflect a core
+population plus economically integrated surrounding communities, which is
+closer to real restaurant discovery behavior than city limits. The planning
+target is 450,000 restaurants in those top 50 MSAs; replace this estimate with
+an annually reproducible Census CBP calculation when the API credential exists.
+
+Seven food photos is the above-the-fold standard: one lead image and six
+supporting tiles. The V2 restaurant funnel is, in order: identified, menu known,
+seven food photos, seven menu-matched photos, 20% of menu dishes photographed
+with the seven-photo floor, 50% with the same floor, and one dish with both
+management and customer photos.
+
+## Member identity and activity measurement (July 22, 2026)
+
+V1 membership is browser-linked and requires no sign-in. A stable local visitor
+ID powers "I was here," loved dishes, contributed photos, and inferred favorite
+restaurants. Visits may be removed from the visible local history. Account
+portability and authenticated deletion remain later work.
+
+Every analytics event now carries a per-tab session ID. "Visits resulting in an
+upload" is distinct upload sessions divided by app-open visits for the selected
+period. This metric is exact only from this release forward.
+
+## Owner entry tier (July 22, 2026)
+
+The owner funnel now begins with Popular 7 at $9/month: seven dishes and up to
+three management photos per dish. Standard remains $99/month for up to 75
+dishes, and Growth remains $499/month for up to five locations and 250 dishes
+per location. The UX explains that larger menus cost more to process, store,
+and serve. Claims still require manual verification before access or billing.
+
+## Image storage and delivery (July 22, 2026)
+
+New uploaded and acquired images are auto-rotated, stripped of camera metadata,
+bounded to 1600 pixels on the long edge, and encoded as WebP at quality 84.
+This retains enough resolution for a high-density phone while avoiding original
+camera-file storage and transfer. The browser performs a first compression pass
+when supported; the server is the authoritative second pass.
+
+R2 objects no longer stream through Vercel. The stable application route returns
+a short-lived signed R2 redirect, so bytes travel from Cloudflare to the user.
+When `R2_PUBLIC_BASE_URL` is configured for a Cloudflare custom domain, new
+objects use that domain directly. A custom domain remains the production end
+state because it adds Cloudflare cache and avoids even the signing request.
+
+## Infrastructure during geographic proof (July 22, 2026)
+
+Do not split the corpus across five Supabase free accounts. That is sharding by
+billing loophole rather than by a real data boundary; it multiplies migrations,
+joins, backups, auth, and failure modes without providing useful load balancing.
+Keep one relational source of truth. Store image bytes and large immutable raw
+artifacts in R2, while Supabase keeps normalized operational metadata. Revisit
+database placement after San Diego County using measured size, query latency,
+and monthly cost rather than account-count gymnastics.

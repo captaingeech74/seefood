@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveUserUploadedPhoto, saveMenuItems, findExistingMenuItemByName, hasDuplicatePhoto } from "@/lib/db";
 import { uploadPhotoBuffer } from "@/lib/storage";
 import { createHash } from "crypto";
+import { optimizeImage } from "@/lib/imageOptimization";
 
 // "Add a Missing Photo or Menu Item" (grid view, hidden under the
 // restaurant-name caret) — for a diner at the table with a dish SeeFood has
@@ -80,11 +81,12 @@ export async function POST(req: NextRequest) {
   if (await hasDuplicatePhoto(placeId, duplicateHash)) {
     return NextResponse.json({ error: "That photo is already on SeeFood." }, { status: 409 });
   }
-  const ext = file.type.split("/")[1]?.split("+")[0] || "jpg";
-  const key = `user-uploads/${placeId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const optimized = await optimizeImage(buffer).catch(() => null);
+  if (!optimized) return NextResponse.json({ error: "We could not process that image." }, { status: 422 });
+  const key = `user-uploads/${placeId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
 
   const [url, aiDescription] = await Promise.all([
-    uploadPhotoBuffer(buffer, file.type, key),
+    uploadPhotoBuffer(optimized.buffer, optimized.contentType, key),
     dishDescription ? Promise.resolve(null) : generateDescription(buffer, file.type, dishName),
   ]);
   if (!url) {
@@ -110,8 +112,8 @@ export async function POST(req: NextRequest) {
     isMenuMatch: true,
     tier: 1,
     menuItemId,
-    width: 1200,
-    height: 1200,
+    width: optimized.width,
+    height: optimized.height,
     contributorId: typeof contributorId === "string" ? contributorId.slice(0, 100) : undefined,
     duplicateHash,
   });

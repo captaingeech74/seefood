@@ -5,6 +5,8 @@
  * corpus-worthy) — not every photo needs an R2 copy on day one.
  */
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { optimizeImage } from "./imageOptimization";
 
 const accountId = process.env.R2_ACCOUNT_ID!;
 const bucket = process.env.R2_BUCKET!;
@@ -34,17 +36,35 @@ export async function uploadPhotoBuffer(
   key: string
 ): Promise<string | null> {
   try {
+    const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL?.replace(/\/+$/, "");
     await r2.send(
       new PutObjectCommand({
         Bucket: bucket,
         Key: key,
         Body: buffer,
         ContentType: contentType,
+        CacheControl: "public, max-age=31536000, immutable",
       })
     );
-    return `/api/r2-photo?key=${encodeURIComponent(key)}`;
+    return publicBaseUrl
+      ? `${publicBaseUrl}/${key.split("/").map(encodeURIComponent).join("/")}`
+      : `/api/r2-photo?key=${encodeURIComponent(key)}`;
   } catch (e) {
     console.error(`[R2] upload failed for key ${key}:`, e);
+    return null;
+  }
+}
+
+/** Signs a short-lived direct R2 download. The app never proxies image bytes. */
+export async function getR2SignedUrl(key: string): Promise<string | null> {
+  try {
+    return await getSignedUrl(
+      r2,
+      new GetObjectCommand({ Bucket: bucket, Key: key }),
+      { expiresIn: 60 * 60 }
+    );
+  } catch (e) {
+    console.error(`[R2] signing failed for key ${key}:`, e);
     return null;
   }
 }
@@ -73,9 +93,10 @@ export async function copyPhotoToR2(originUrl: string, key: string): Promise<str
   try {
     const res = await fetch(originUrl, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) return null;
-    const contentType = res.headers.get("content-type") ?? "image/jpeg";
     const buffer = Buffer.from(await res.arrayBuffer());
-    return uploadPhotoBuffer(buffer, contentType, key);
+    const optimized = await optimizeImage(buffer);
+    const webpKey = key.replace(/\.[^.]+$/, "") + ".webp";
+    return uploadPhotoBuffer(optimized.buffer, optimized.contentType, webpKey);
   } catch (e) {
     console.error(`[R2] copy failed for ${originUrl}:`, e);
     return null;
