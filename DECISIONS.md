@@ -6,6 +6,10 @@ context from the code. It is the single source of truth for *why* things are the
 
 Update this file whenever a significant decision is made, reversed, or a variable is changed.
 
+This is an append-only decision history. Earlier sections describe the product
+at the time they were written and may be superseded by newer dated entries. For
+current runtime state and reading order, begin with `HANDOFF.md`.
+
 ---
 
 ## ⚑ The Vision — Version 2 (locked, July 2026) — SUPERSEDES Version 1
@@ -1590,3 +1594,16 @@ place where a successful lab recommendation may be integrated and deployed.
 The complete charter, reporting language, operating cadence, Gemini manual
 bridge, and future-agent rules are in `docs/SEEFOOD_DATALAB.md` and
 `data-lab/`.
+
+## Senior lead handoff protocol (July 23, 2026)
+
+General-development ownership may move to a fresh senior Codex lead when the
+fresh context has a material advantage, especially before a systemic
+investigation. `HANDOFF.md` is the single current operational snapshot and must
+be updated in place rather than replaced by accumulating handoff files.
+`docs/HOW_TO_HAND_OFF.md` is the invariant procedure for deciding, preparing,
+starting, and verifying a transfer.
+
+Only one thread owns general production development at a time. The outgoing lead
+stops production edits once the new lead begins. SeeFood DataLab remains an
+isolated research role and never inherits general-development authority.

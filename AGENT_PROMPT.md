@@ -1,5 +1,10 @@
 # AGENT_PROMPT — Expert Agentic Developer Briefing for SeeFood v2
 
+> **Historical prompt:** this July 6 briefing is retained for context but is no
+> longer the current handoff. Its stateless architecture, production-only
+> testing rule, source blockers, and phase plan have been superseded. New leads
+> must begin with `HANDOFF.md` and `docs/HOW_TO_HAND_OFF.md`.
+
 *(Kyle: paste everything below the line into a fresh Claude Code session opened on this folder. See LAUNCH_PLAYBOOK.md for exactly how and when.)*
 
 ---
