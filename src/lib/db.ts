@@ -252,7 +252,7 @@ export async function recordAppEvent(input: {
   if (error) throw error;
 }
 
-export interface CoverageV2Metrics {
+export interface CoverageReadinessMetrics {
   identifiedRestaurants: number;
   menuCoverage: number;
   basicPhotoCoverage: number;
@@ -267,7 +267,7 @@ export interface CoverageV2Metrics {
   loves: number;
 }
 
-export async function getCoverageV2Metrics(input: {
+export async function getCoverageReadinessMetrics(input: {
   minLat?: number;
   maxLat?: number;
   minLng?: number;
@@ -276,7 +276,7 @@ export async function getCoverageV2Metrics(input: {
   lng?: number;
   radiusKm?: number;
   since: string;
-}): Promise<CoverageV2Metrics> {
+}): Promise<CoverageReadinessMetrics> {
   const { data, error } = await supabase.rpc("coverage_v2_metrics", {
     p_min_lat: input.minLat ?? null,
     p_max_lat: input.maxLat ?? null,
@@ -288,7 +288,7 @@ export async function getCoverageV2Metrics(input: {
     p_since: input.since,
   });
   if (error) throw error;
-  return data as CoverageV2Metrics;
+  return data as CoverageReadinessMetrics;
 }
 
 export interface MemberRestaurant {
@@ -310,6 +310,18 @@ export interface MemberPhoto {
   restaurantSlug: string | null;
   loved: boolean;
   createdAt: string;
+  loveCount: number;
+  primaryVotes: number;
+  comparisonReady: boolean;
+}
+
+export interface MemberPoints {
+  total: number;
+  level: number;
+  title: string;
+  currentLevelFloor: number;
+  nextLevelAt: number | null;
+  breakdown: Array<{ label: string; points: number; detail: string }>;
 }
 
 export interface MemberProfile {
@@ -317,6 +329,7 @@ export interface MemberProfile {
   lovedDishes: MemberPhoto[];
   photos: MemberPhoto[];
   favoriteRestaurants: MemberRestaurant[];
+  points: MemberPoints;
 }
 
 export async function getMemberProfile(visitorId: string): Promise<MemberProfile> {
@@ -329,7 +342,7 @@ export async function getMemberProfile(visitorId: string): Promise<MemberProfile
       .limit(1000),
     supabase
       .from("photos")
-      .select("id,restaurant_id,storage_url,origin_url,gemini_label,menu_item_id,created_at")
+      .select("id,restaurant_id,storage_url,origin_url,gemini_label,menu_item_id,created_at,love_count,primary_votes,comparison_ready")
       .eq("contributor_id", visitorId)
       .eq("active", true)
       .order("created_at", { ascending: false })
@@ -350,6 +363,9 @@ export async function getMemberProfile(visitorId: string): Promise<MemberProfile
     gemini_label: string | null;
     menu_item_id: number | null;
     created_at: string;
+    love_count: number | null;
+    primary_votes: number | null;
+    comparison_ready: boolean | null;
   }>;
   const restaurantIds = new Set<string>();
   for (const event of eventRows) if (event.restaurant_id) restaurantIds.add(event.restaurant_id);
@@ -362,7 +378,7 @@ export async function getMemberProfile(visitorId: string): Promise<MemberProfile
     .filter(Number.isFinite);
   const { data: lovedRows } = lovedPhotoIds.length
     ? await supabase.from("photos")
-      .select("id,restaurant_id,storage_url,origin_url,gemini_label,menu_item_id,created_at")
+      .select("id,restaurant_id,storage_url,origin_url,gemini_label,menu_item_id,created_at,love_count,primary_votes,comparison_ready")
       .in("id", lovedPhotoIds)
       .eq("active", true)
     : { data: [] };
@@ -391,6 +407,9 @@ export async function getMemberProfile(visitorId: string): Promise<MemberProfile
     restaurantSlug: restaurantMap.get(photo.restaurant_id)?.slug ?? null,
     loved: lovedSet.has(photo.id),
     createdAt: photo.created_at,
+    loveCount: photo.love_count ?? 0,
+    primaryVotes: photo.primary_votes ?? 0,
+    comparisonReady: photo.comparison_ready ?? false,
   });
 
   const visitMap = new Map<string, MemberRestaurant>();
@@ -420,11 +439,48 @@ export async function getMemberProfile(visitorId: string): Promise<MemberProfile
   const favoriteRestaurants = [...visits]
     .sort((a, b) => (scores.get(b.placeId) ?? 0) - (scores.get(a.placeId) ?? 0))
     .slice(0, 8);
+  const ownLoveCount = eventRows.filter((event) => event.event_name === "love").length;
+  const shareCount = eventRows.filter((event) => event.event_name === "share").length;
+  const missingDishCount = eventRows.filter(
+    (event) => event.event_name === "photo_add" && event.metadata?.surface === "missing_dish"
+  ).length;
+  const comparisonCount = contributedRows.filter((photo) => photo.comparison_ready).length;
+  const receivedLoveCount = contributedRows.reduce((sum, photo) => sum + (photo.love_count ?? 0), 0);
+  const representativeVoteCount = contributedRows.reduce((sum, photo) => sum + (photo.primary_votes ?? 0), 0);
+  const impactBonus = contributedRows.reduce((sum, photo) => {
+    const loves = photo.love_count ?? 0;
+    return sum + (loves >= 50 ? 100 : loves >= 10 ? 25 : 0);
+  }, 0);
+  const breakdown = [
+    { label: "Photos shared", points: contributedRows.length * 10, detail: "10 points each" },
+    { label: "Missing menu items filled", points: missingDishCount * 10, detail: "10 bonus points each" },
+    { label: "Comparison photos unlocked", points: comparisonCount * 15, detail: "15 bonus points each" },
+    { label: "Loves received", points: receivedLoveCount * 3, detail: "3 points each" },
+    { label: "Representative-photo votes", points: representativeVoteCount * 5, detail: "5 points each" },
+    { label: "Impact milestones", points: impactBonus, detail: "25 at 10 loves, 100 at 50" },
+    { label: "Dishes loved", points: ownLoveCount, detail: "1 point each" },
+    { label: "Dishes shared", points: shareCount * 2, detail: "2 points each" },
+  ].filter((item) => item.points > 0);
+  const total = breakdown.reduce((sum, item) => sum + item.points, 0);
+  const levelThresholds = [0, 25, 100, 250, 600, 1500, 4000, 10000, 25000, 60000];
+  const levelTitles = ["Taster", "Regular", "Scout", "Contributor", "Tastemaker", "Guide", "Curator", "Insider", "Icon", "Legend"];
+  let levelIndex = 0;
+  for (let i = 0; i < levelThresholds.length; i++) {
+    if (total >= levelThresholds[i]) levelIndex = i;
+  }
   return {
     visits,
     lovedDishes: ((lovedRows ?? []) as typeof contributedRows).map(mapPhoto),
     photos: contributedRows.map(mapPhoto),
     favoriteRestaurants,
+    points: {
+      total,
+      level: levelIndex + 1,
+      title: levelTitles[levelIndex],
+      currentLevelFloor: levelThresholds[levelIndex],
+      nextLevelAt: levelThresholds[levelIndex + 1] ?? null,
+      breakdown,
+    },
   };
 }
 

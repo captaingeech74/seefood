@@ -107,6 +107,17 @@ export default function RestaurantHeader({
               <path d="M4 19V9M10 19V5M16 19v-7M22 19V3" />
             </svg>
           </a>
+          <a
+            href="/me"
+            className="hit-target relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/12 bg-white/7 text-white/75 active:bg-white/12 active:scale-95 transition-all shrink-0"
+            aria-label="Open My SeeFood"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+            </svg>
+            <span className="text-[11px] font-bold whitespace-nowrap">My SeeFood</span>
+          </a>
           <button
             onClick={onChangeRestaurant}
             className="hit-target relative flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
@@ -120,7 +131,7 @@ export default function RestaurantHeader({
               <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
               <circle cx="12" cy="10" r="3"/>
             </svg>
-            <span className="text-[12.5px] font-bold text-white whitespace-nowrap">
+            <span className="text-[11.5px] font-bold text-white whitespace-nowrap">
               Change Restaurant
             </span>
           </button>
@@ -318,11 +329,7 @@ export default function RestaurantHeader({
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-3 mt-2.5">
-            <div className="flex items-center gap-3">
-              <a href="/me" className="min-h-9 inline-flex items-center text-[10.5px] font-semibold text-white/30 hover:text-white/55 transition-colors">My SeeFood</a>
-              <button type="button" onClick={() => setClaimOpen(true)} className="min-h-9 text-[10.5px] font-semibold text-white/30 hover:text-white/55 transition-colors">Own this restaurant?</button>
-            </div>
+          <div className="flex items-center justify-end gap-2 mt-2.5">
             <button
               onClick={() => onSuggestDish()}
               className="hit-target relative flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
@@ -332,9 +339,16 @@ export default function RestaurantHeader({
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 5v14M5 12h14" />
               </svg>
-              <span className="text-[12.5px] font-bold text-white whitespace-nowrap">
+              <span className="text-[11px] font-bold text-white whitespace-nowrap">
                 Add a Missing Photo or Menu Item
               </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setClaimOpen(true)}
+              className="hit-target relative min-h-8 px-2.5 rounded-full border border-white/12 bg-white/7 text-[10.5px] font-bold text-white/65 active:bg-white/12 active:scale-95 transition-all whitespace-nowrap"
+            >
+              Own this restaurant?
             </button>
           </div>
         </div>

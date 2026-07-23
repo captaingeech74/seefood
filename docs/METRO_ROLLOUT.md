@@ -9,6 +9,7 @@
 5. Remaining major California metros.
 6. Top 50 US MSAs, sequenced using coverage cost, population, tourism,
    restaurant density, acquisition yield, and organic demand learned above.
+7. All 387 US MSAs, using the same learned sequencing model for the long tail.
 
 ## Major Metro Definition
 
@@ -21,11 +22,14 @@ Planning baselines:
 
 - United States restaurants: 750,000
 - Restaurants in top 50 MSAs: 450,000 estimated
+- Population in top 50 MSAs: about 185 million, or 55% of the United States
+- Population in all 387 MSAs: about 294 million, or 86% of the United States
 - Above-fold photo target: 7
 
 The 450,000 figure is deliberately a planning estimate. Replace it with a
 versioned Census County Business Patterns NAICS 722 calculation across the
-current top 50 MSAs once a Census API key is available.
+current top 50 MSAs once a Census API key is available. Refresh the population
+coverage estimates from the same versioned geography source when that happens.
 
 ## Market Exit Criteria
 
@@ -38,4 +42,3 @@ A market is not "done" because identities were imported. Report every rung:
 5. 20% menu photo coverage, with seven-photo minimum
 6. 50% menu photo coverage, with seven-photo minimum
 7. At least one management-vs-customer comparison dish
-

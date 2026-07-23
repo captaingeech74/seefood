@@ -9,7 +9,7 @@ import {
   US_RESTAURANT_PLANNING_TOTAL,
 } from "@/lib/geography";
 
-interface CoverageV2Response {
+interface CoverageReadinessResponse {
   locationLabel: string;
   period: "week" | "month";
   identifiedRestaurants: number;
@@ -55,11 +55,11 @@ function Stat({ label, value, suffix }: { label: string; value: string; suffix?:
   );
 }
 
-export default function CoverageV2Dashboard() {
+export default function CoverageReadinessDashboard() {
   const [scope, setScope] = useState<CoverageScope>("temecula");
   const [period, setPeriod] = useState<"week" | "month">("week");
   const [query, setQuery] = useState("");
-  const [data, setData] = useState<CoverageV2Response | null>(null);
+  const [data, setData] = useState<CoverageReadinessResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -69,7 +69,7 @@ export default function CoverageV2Dashboard() {
     try {
       const params = new URLSearchParams({ scope: nextScope, period: nextPeriod });
       if (q?.trim()) params.set("q", q.trim());
-      const response = await fetch(`/api/coverage-v2?${params}`, { cache: "no-store" });
+      const response = await fetch(`/api/coverage-readiness?${params}`, { cache: "no-store" });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Coverage could not be loaded.");
       setData(result);
@@ -113,7 +113,7 @@ export default function CoverageV2Dashboard() {
     <main className="min-h-screen bg-[var(--surface-0)] max-w-3xl mx-auto pb-14">
       <header className="sticky top-0 z-20 border-b border-white/7 px-4 pb-3 bg-black/95 backdrop-blur" style={{ paddingTop: "max(13px, env(safe-area-inset-top))" }}>
         <div className="pr-24">
-          <p className="text-[9px] uppercase font-bold text-[var(--accent)]">V2 coverage system</p>
+          <p className="text-[9px] uppercase font-bold text-[var(--accent)]">V1 coverage system</p>
           <h1 className="text-white text-[21px] font-bold">Market readiness</h1>
         </div>
         <div className="flex gap-1 mt-3 overflow-x-auto no-scrollbar">
@@ -184,11 +184,11 @@ export default function CoverageV2Dashboard() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-x-5 mt-2">
-                <Stat label="Visits" value={data.visits.toLocaleString()} />
                 <Stat label="Visitors" value={data.visitors.toLocaleString()} />
-                <Stat label="New visitors" value={`${newRate}%`} />
+                <Stat label="Visits" value={data.visits.toLocaleString()} />
                 <Stat label="Returning visitors" value={`${returningRate}%`} />
                 <Stat label="Visits with an upload" value={`${uploadRate}%`} />
+                <Stat label="New visitors" value={`${newRate}%`} />
                 <Stat label="I loved this" value={data.loves.toLocaleString()} />
               </div>
               <p className="text-white/28 text-[10px] leading-relaxed mt-3">Session conversion is measured precisely from this release forward; older uploads did not carry a session ID.</p>

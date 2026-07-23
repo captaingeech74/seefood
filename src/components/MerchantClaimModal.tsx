@@ -8,20 +8,20 @@ const PLANS = {
   starter: {
     name: "Popular 7",
     price: 9,
-    limit: "7 dishes · 3 photos each",
-    benefits: ["Show your seven most popular dishes", "Management photo badge", "One customer-ready SeeFood URL"],
+    limit: "7 menu items · 3 photos each",
+    benefits: ["Highlight your seven most popular menu items and add photos", "Management photo badge", "One customer-ready SeeFood URL"],
   },
   standard: {
     name: "Standard",
     price: 99,
-    limit: "Up to 75 dishes · 3 photos each",
+    limit: "Up to 75 menu items · Each gets 3 photos",
     benefits: ["Full menu and description controls", "Management photo publishing", "Basic engagement insights"],
   },
   growth: {
     name: "Growth",
     price: 499,
-    limit: "Up to 5 locations · 250 dishes each",
-    benefits: ["Everything in Standard", "Priority refresh and advanced analytics", "Multi-location and seasonal tools"],
+    limit: "Up to 300 menu items · Advanced promotion and analytics",
+    benefits: ["Everything in Standard", "Multi-location and seasonal tools", "Priority Refresh and AI Photo Processing"],
   },
 } as const;
 
@@ -80,7 +80,7 @@ export default function MerchantClaimModal({ restaurant, onClose }: { restaurant
           <div>
             <p className="text-[10px] uppercase font-bold tracking-[0.16em] text-[var(--accent)]">Management access</p>
             <h2 className="text-xl font-bold text-white mt-1">Claim {restaurant.name}</h2>
-            <p className="text-[12px] text-white/45 mt-1">Choose the plan you intend to activate after verification.</p>
+            <p className="text-[12px] text-white/45 mt-1">Choose your plan. Cancel anytime.</p>
           </div>
           <button onClick={onClose} className="hit-target w-10 h-10 rounded-full bg-white/8 text-white/65 flex items-center justify-center" aria-label="Close">
             <span className="text-xl leading-none">×</span>
@@ -128,7 +128,7 @@ export default function MerchantClaimModal({ restaurant, onClose }: { restaurant
                 </button>
               ))}
             </div>
-            <p className="text-white/35 text-[10.5px] leading-relaxed mb-5">Larger menus cost more because every extra dish adds image processing, storage, and serving work. Start with seven; upgrade only when the full menu earns its keep.</p>
+            <p className="text-white/35 text-[10.5px] leading-relaxed mb-5">Larger menus require more storage and processing. Start with seven; upgrade only when the full menu earns its keep.</p>
 
             <div className="grid grid-cols-2 gap-2.5">
               <label className="col-span-2 text-[11px] font-bold text-white/60">Your name<input required value={contactName} onChange={(e) => setContactName(e.target.value)} className="mt-1.5 w-full rounded-xl bg-white/7 border border-white/10 px-3 py-3 text-sm text-white outline-none focus:border-[var(--accent)]" /></label>

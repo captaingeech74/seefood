@@ -54,7 +54,7 @@ function ActivityRow({ label, week, month }: { label: string; week: number; mont
   );
 }
 
-export default function CoverageV1Dashboard() {
+export default function CoverageLegacyDashboard() {
   const [query, setQuery] = useState("");
   const [data, setData] = useState<CoverageResponse | null>(null);
   const [loading, setLoading] = useState(true);

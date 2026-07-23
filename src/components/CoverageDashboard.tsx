@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import CoverageV1Dashboard from "./CoverageV1Dashboard";
-import CoverageV2Dashboard from "./CoverageV2Dashboard";
+import CoverageLegacyDashboard from "./CoverageLegacyDashboard";
+import CoverageReadinessDashboard from "./CoverageReadinessDashboard";
 
 export default function CoverageDashboard() {
-  const [version, setVersion] = useState<"v1" | "v2">("v2");
+  const [version, setVersion] = useState<"v1" | "v2">("v1");
 
   return (
     <div className="relative">
@@ -25,7 +25,7 @@ export default function CoverageDashboard() {
           </button>
         ))}
       </div>
-      {version === "v1" ? <CoverageV1Dashboard /> : <CoverageV2Dashboard />}
+      {version === "v1" ? <CoverageReadinessDashboard /> : <CoverageLegacyDashboard />}
     </div>
   );
 }

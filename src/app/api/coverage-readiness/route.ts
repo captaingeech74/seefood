@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoverageV2Metrics } from "@/lib/db";
+import { getCoverageReadinessMetrics } from "@/lib/db";
 import { CoverageScope, TEMECULA_GEOGRAPHY } from "@/lib/geography";
 
 interface GeocodedScope {
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   const period = request.nextUrl.searchParams.get("period") === "month" ? "month" : "week";
   const query = request.nextUrl.searchParams.get("q")?.trim();
   const since = new Date(Date.now() - (period === "month" ? 30 : 7) * 86400000).toISOString();
-  const params: Parameters<typeof getCoverageV2Metrics>[0] = { since };
+  const params: Parameters<typeof getCoverageReadinessMetrics>[0] = { since };
   let locationLabel = TEMECULA_GEOGRAPHY.label;
 
   if (scope === "temecula") {
@@ -65,10 +65,9 @@ export async function GET(request: NextRequest) {
     locationLabel = "United States";
   }
 
-  const metrics = await getCoverageV2Metrics(params);
+  const metrics = await getCoverageReadinessMetrics(params);
   return NextResponse.json(
     { ...metrics, locationLabel, period },
     { headers: { "Cache-Control": "no-store" } }
   );
 }
-

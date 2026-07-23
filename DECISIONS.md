@@ -1413,12 +1413,13 @@ not activate access or billing until manual verification.
 
 ---
 
-## Geographic rollout and V2 coverage language (July 22, 2026)
+## Geographic rollout and coverage language (updated July 23, 2026)
 
 Temecula is the first complete market and the standard against which later
 markets are judged. Rollout order is Temecula, San Diego metro, San Diego
-County, Los Angeles, remaining major California metros, then US metros.
-Geography is a product dimension, not a crawler script detail.
+County, Los Angeles, remaining major California metros, the 50 largest US
+MSAs, then all 387 US MSAs. Geography is a product dimension, not a crawler
+script detail.
 
 Planning assumes 750,000 US restaurants until the corpus produces a better
 deduplicated count. "Major metros" means the 50 largest official OMB
@@ -1427,12 +1428,21 @@ population plus economically integrated surrounding communities, which is
 closer to real restaurant discovery behavior than city limits. The planning
 target is 450,000 restaurants in those top 50 MSAs; replace this estimate with
 an annually reproducible Census CBP calculation when the API credential exists.
+The two national macro milestones are the top 50 MSAs, representing roughly
+185 million people or 55% of the US population, followed by all 387 MSAs,
+representing roughly 294 million people or 86%. These population figures are
+planning estimates and should be refreshed when the rollout list is versioned.
 
 Seven food photos is the above-the-fold standard: one lead image and six
-supporting tiles. The V2 restaurant funnel is, in order: identified, menu known,
+supporting tiles. The V1 restaurant funnel is, in order: identified, menu known,
 seven food photos, seven menu-matched photos, 20% of menu dishes photographed
 with the seven-photo floor, 50% with the same floor, and one dish with both
 management and customer photos.
+
+The product now calls this focused readiness dashboard V1 and the earlier broad
+operational dashboard V2. V1 is the default. The underlying database RPC keeps
+its historical `coverage_v2_metrics` name until a future migration because
+renaming it would add deploy risk without changing user-visible behavior.
 
 ## Member identity and activity measurement (July 22, 2026)
 
@@ -1445,11 +1455,26 @@ Every analytics event now carries a per-tab session ID. "Visits resulting in an
 upload" is distinct upload sessions divided by app-open visits for the selected
 period. This metric is exact only from this release forward.
 
+## SeeFood points and levels (July 23, 2026)
+
+SeeFood points reward contribution first and demonstrated usefulness most.
+Sharing a food photo earns 10 points. Filling a missing menu item adds 10,
+unlocking a management-versus-customer comparison adds 15, each love received
+adds 3, and each "most representative" vote adds 5. A contributed photo earns a
+25-point milestone bonus at 10 loves or a 100-point bonus at 50 loves. Loving a
+dish earns 1 point and sharing earns 2. These values should be tuned from
+observed behavior rather than multiplied into more categories prematurely.
+
+There are ten levels with thresholds at 0, 25, 100, 250, 600, 1,500, 4,000,
+10,000, 25,000, and 60,000 points. Early levels arrive quickly; later levels
+require sustained useful contributions. V1 computes status from existing
+activity and photo impact, so it does not need a mutable points ledger.
+
 ## Owner entry tier (July 22, 2026)
 
 The owner funnel now begins with Popular 7 at $9/month: seven dishes and up to
 three management photos per dish. Standard remains $99/month for up to 75
-dishes, and Growth remains $499/month for up to five locations and 250 dishes
+dishes, and Growth remains $499/month for up to five locations and 300 dishes
 per location. The UX explains that larger menus cost more to process, store,
 and serve. Claims still require manual verification before access or billing.
 
@@ -1465,7 +1490,9 @@ R2 objects no longer stream through Vercel. The stable application route returns
 a short-lived signed R2 redirect, so bytes travel from Cloudflare to the user.
 When `R2_PUBLIC_BASE_URL` is configured for a Cloudflare custom domain, new
 objects use that domain directly. A custom domain remains the production end
-state because it adds Cloudflare cache and avoids even the signing request.
+state because it adds Cloudflare cache, creates durable branded asset URLs, and
+avoids even the signing request. Connect the custom domain as the next small
+infrastructure configuration task once the production asset hostname is chosen.
 
 ## Infrastructure during geographic proof (July 22, 2026)
 

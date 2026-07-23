@@ -815,6 +815,9 @@ function deduplicateMenuItems(items: MenuItemData[]): MenuItemData[] {
   });
 }
 
+const FIXTURE_PLACE_ID = "ChIJa7SNNcl_24ARGN-49KRUqPI";
+const FIXTURE_OVERRIDE = { rating: 4.9, reviewCount: 812, priceLevel: 4, isOpen: true };
+
 function placeToRestaurant(place: GooglePlace): Restaurant {
   return {
     id: place.place_id,
@@ -823,10 +826,14 @@ function placeToRestaurant(place: GooglePlace): Restaurant {
     lat: place.geometry.location.lat,
     lng: place.geometry.location.lng,
     placeId: place.place_id,
-    rating: place.rating,
-    reviewCount: place.user_ratings_total,
-    priceLevel: place.price_level,
-    isOpen: place.opening_hours?.open_now,
+    ...(place.place_id === FIXTURE_PLACE_ID
+      ? FIXTURE_OVERRIDE
+      : {
+          rating: place.rating,
+          reviewCount: place.user_ratings_total,
+          priceLevel: place.price_level,
+          isOpen: place.opening_hours?.open_now,
+        }),
   };
 }
 
@@ -848,9 +855,6 @@ export async function findNearbyRestaurant(
 // price/hours data of its own. Kyle wants the demo to always show up highly
 // reviewed, expensive, and open — hardcoded rather than left to whatever (or
 // nothing) the underlying real place happens to report.
-const FIXTURE_PLACE_ID = "ChIJa7SNNcl_24ARGN-49KRUqPI";
-const FIXTURE_OVERRIDE = { rating: 4.9, reviewCount: 812, priceLevel: 4, isOpen: true };
-
 export async function getRestaurantDetails(
   placeId: string
 ): Promise<Restaurant | null> {
