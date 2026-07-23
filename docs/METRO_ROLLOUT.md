@@ -36,9 +36,9 @@ coverage estimates from the same versioned geography source when that happens.
 A market is not "done" because identities were imported. Report every rung:
 
 1. Restaurants identified
-2. Menu coverage
-3. Seven useful food photos
-4. Seven menu-matched photos
-5. 20% menu photo coverage, with seven-photo minimum
-6. 50% menu photo coverage, with seven-photo minimum
+2. Have photos
+3. Have menu
+4. Menu-matched photos
+5. 20% coverage, with seven-photo minimum
+6. 50% coverage, with seven-photo minimum
 7. At least one management-vs-customer comparison dish

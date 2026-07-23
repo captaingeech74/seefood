@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { recordAppEvent } from "@/lib/db";
+import { incrementPhotoView, recordAppEvent } from "@/lib/db";
 import type { AnalyticsEventName } from "@/lib/analytics";
 
-const EVENT_NAMES = new Set<AnalyticsEventName>(["app_open", "love", "share", "photo_add"]);
+const EVENT_NAMES = new Set<AnalyticsEventName>(["app_open", "love", "share", "photo_add", "photo_view"]);
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -16,5 +16,11 @@ export async function POST(req: NextRequest) {
   }
 
   await recordAppEvent({ eventName, visitorId, restaurantId, metadata }).catch(() => {});
+  if (eventName === "photo_view") {
+    const photoId = Number(String(metadata?.photoId ?? "").replace(/^corpus-/, ""));
+    if (Number.isFinite(photoId)) {
+      await incrementPhotoView(photoId).catch(() => {});
+    }
+  }
   return new NextResponse(null, { status: 204 });
 }

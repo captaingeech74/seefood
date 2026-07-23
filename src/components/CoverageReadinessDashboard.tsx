@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ABOVE_FOLD_PHOTO_TARGET,
   CoverageScope,
+  MAJOR_METROS,
   MAJOR_METRO_RESTAURANT_TARGET,
   STATE_NAMES,
   US_RESTAURANT_PLANNING_TOTAL,
@@ -28,11 +29,11 @@ interface CoverageReadinessResponse {
 
 const FUNNEL = [
   ["identifiedRestaurants", "Restaurants identified"],
-  ["menuCoverage", "Menu coverage"],
-  ["basicPhotoCoverage", `${ABOVE_FOLD_PHOTO_TARGET}+ food photos`],
-  ["basicMenuPhotoCoverage", `${ABOVE_FOLD_PHOTO_TARGET}+ menu-matched photos`],
-  ["twentyPercentMenuPhotoCoverage", "20% menu photo coverage"],
-  ["fiftyPercentMenuPhotoCoverage", "50% menu photo coverage"],
+  ["basicPhotoCoverage", "Have photos"],
+  ["menuCoverage", "Have menu"],
+  ["basicMenuPhotoCoverage", "Menu-matched photos"],
+  ["twentyPercentMenuPhotoCoverage", "20% coverage"],
+  ["fiftyPercentMenuPhotoCoverage", "50% coverage"],
   ["comparisonCoverage", "1+ comparison dish"],
 ] as const;
 
@@ -81,7 +82,11 @@ export default function CoverageReadinessDashboard() {
   }, []);
 
   useEffect(() => {
-    const automaticQuery = scope === "state" ? (query || "California") : query;
+    const automaticQuery = scope === "state"
+      ? (query || "California")
+      : scope === "metro"
+        ? (query || MAJOR_METROS[0].name)
+        : query;
     if ((scope === "zip" || scope === "metro") && !automaticQuery.trim()) {
       setLoading(false);
       setError("");
@@ -102,8 +107,7 @@ export default function CoverageReadinessDashboard() {
   const newRate = data?.visitors ? Math.round(data.newVisitors / data.visitors * 100) : 0;
   const returningRate = data?.visitors ? 100 - newRate : 0;
   const uploadRate = data?.visits ? Math.round(data.uploadSessions / data.visits * 1000) / 10 : 0;
-  const queryNeeded = scope === "zip" || scope === "metro";
-  const placeholder = scope === "zip" ? "Enter ZIP code" : "Enter metro area";
+  const queryNeeded = scope === "zip";
   const nationalProgress = useMemo(
     () => data && scope === "nationwide" ? data.identifiedRestaurants / US_RESTAURANT_PLANNING_TOTAL * 100 : null,
     [data, scope]
@@ -118,7 +122,10 @@ export default function CoverageReadinessDashboard() {
         </div>
         <div className="flex gap-1 mt-3 overflow-x-auto no-scrollbar">
           {SCOPES.map((item) => (
-            <button key={item.value} onClick={() => setScope(item.value)} className="shrink-0 px-3 min-h-9 rounded-lg text-[11px] font-bold border" style={{ background: scope === item.value ? "var(--accent-soft)" : "transparent", borderColor: scope === item.value ? "var(--accent)" : "rgba(255,255,255,0.08)", color: scope === item.value ? "white" : "rgba(255,255,255,0.42)" }}>
+            <button key={item.value} onClick={() => {
+              setQuery(item.value === "metro" ? MAJOR_METROS[0].name : item.value === "state" ? "California" : "");
+              setScope(item.value);
+            }} className="shrink-0 px-3 min-h-9 rounded-lg text-[11px] font-bold border" style={{ background: scope === item.value ? "var(--accent-soft)" : "transparent", borderColor: scope === item.value ? "var(--accent)" : "rgba(255,255,255,0.08)", color: scope === item.value ? "white" : "rgba(255,255,255,0.42)" }}>
               {item.label}
             </button>
           ))}
@@ -128,9 +135,14 @@ export default function CoverageReadinessDashboard() {
             {STATE_NAMES.map((state) => <option key={state}>{state}</option>)}
           </select>
         )}
+        {scope === "metro" && (
+          <select value={query || MAJOR_METROS[0].name} onChange={(event) => { setQuery(event.target.value); void load("metro", period, event.target.value); }} className="mt-2 w-full bg-[var(--surface-2)] text-white text-[13px] rounded-lg px-3 py-3 border border-white/10 outline-none">
+            {MAJOR_METROS.map((metro) => <option key={metro.name}>{metro.name}</option>)}
+          </select>
+        )}
         {queryNeeded && (
           <form onSubmit={submit} className="flex gap-2 mt-2">
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={placeholder} className="min-w-0 flex-1 bg-[var(--surface-2)] text-white text-[13px] rounded-lg px-3 py-3 border border-white/10 outline-none focus:border-[var(--accent)]" />
+            <input inputMode="numeric" pattern="[0-9]{5}" maxLength={5} value={query} onChange={(event) => setQuery(event.target.value.replace(/\D/g, "").slice(0, 5))} placeholder="Enter ZIP code" className="min-w-0 flex-1 bg-[var(--surface-2)] text-white text-[13px] rounded-lg px-3 py-3 border border-white/10 outline-none focus:border-[var(--accent)]" />
             <button className="px-4 bg-[var(--accent)] rounded-lg text-white text-[12px] font-bold">View</button>
           </form>
         )}
@@ -183,7 +195,7 @@ export default function CoverageReadinessDashboard() {
                   {(["week", "month"] as const).map((item) => <button key={item} onClick={() => setPeriod(item)} className="px-3 py-1.5 rounded-md text-[10px] font-bold capitalize" style={{ background: period === item ? "white" : "transparent", color: period === item ? "black" : "rgba(255,255,255,0.4)" }}>{item}</button>)}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-x-5 mt-2">
+              <div className="grid grid-cols-2 mt-2 [&>*:nth-child(even)]:border-l [&>*:nth-child(even)]:border-white/8 [&>*:nth-child(even)]:pl-5 [&>*:nth-child(odd)]:pr-5">
                 <Stat label="Visitors" value={data.visitors.toLocaleString()} />
                 <Stat label="Visits" value={data.visits.toLocaleString()} />
                 <Stat label="Returning visitors" value={`${returningRate}%`} />

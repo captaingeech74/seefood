@@ -1406,8 +1406,9 @@ than a hard-coded city list.
 
 Restaurant management may submit a claim from the restaurant-name dropdown.
 Standard is $99/month for verification, menu/description control, management
-photo publishing, and basic insights. Growth is $499/month and adds priority
-refresh, dish analytics, up to five locations, and seasonal/featured controls.
+photo publishing, basic insights, and supporter Hookups. Growth is $499/month
+and adds priority refresh, advanced analytics, multiple managers and locations,
+and seasonal/featured controls.
 V1 records authority and payment-intent attestations as a pending claim; it does
 not activate access or billing until manual verification.
 
@@ -1503,3 +1504,31 @@ Keep one relational source of truth. Store image bytes and large immutable raw
 artifacts in R2, while Supabase keeps normalized operational metadata. Revisit
 database placement after San Diego County using measured size, query latency,
 and monthly cost rather than account-count gymnastics.
+
+## Member collections and photo recognition (July 23, 2026)
+
+My Food Photos is a performance collection; Dishes I've Loved is a memory and
+craving collection. They use dedicated large drawers rather than the lightweight
+place-list expansion pattern. Photo views begin recording once per photo per
+browser session. Member photo awards use whichever threshold is reached first:
+Bronze at 100 views or 10 helpful interactions, Silver at 500/25, Gold at
+2,000/50, Platinum at 10,000/100, and Diamond at 50,000/250. A helpful
+interaction is one love or two points for a representative-photo vote. Do not
+display invented view estimates for historical photos.
+
+## Management dashboard and Hookups (July 23, 2026)
+
+The management experience is organized around connecting restaurants with the
+diners who already support them most. Standard at $99/month includes Hookups.
+Growth explicitly adds multiple managers and locations. A Hookup is sent to the
+top N supporters, defaults to including friends, produces a unique member QR
+code, and is marked used when management scans it in SeeFood. It does not
+interact with payment.
+
+The first management dashboard is intentionally a browser-persisted sample for
+sales conversations and product testing. It contains restaurant and owner
+profiles, manager access, menu-photo strength, customer photos, promotion
+creation and history, member QR display, camera scanning, and redemption state.
+Server-backed accounts, secure issuance, and delivery are the next
+implementation layer after the workflow is approved. The complete relationship
+strategy is in `docs/OWNER_DINER_BRIDGE.md`.

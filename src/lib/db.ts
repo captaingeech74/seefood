@@ -252,6 +252,11 @@ export async function recordAppEvent(input: {
   if (error) throw error;
 }
 
+export async function incrementPhotoView(photoId: number): Promise<void> {
+  const { error } = await supabase.rpc("increment_photo_view", { p_photo_id: photoId });
+  if (error) throw error;
+}
+
 export interface CoverageReadinessMetrics {
   identifiedRestaurants: number;
   menuCoverage: number;
@@ -309,10 +314,13 @@ export interface MemberPhoto {
   restaurantId: string;
   restaurantSlug: string | null;
   loved: boolean;
+  lovedAt: string | null;
   createdAt: string;
+  viewCount: number;
   loveCount: number;
   primaryVotes: number;
   comparisonReady: boolean;
+  relatedPhotos: string[];
 }
 
 export interface MemberPoints {
@@ -342,7 +350,7 @@ export async function getMemberProfile(visitorId: string): Promise<MemberProfile
       .limit(1000),
     supabase
       .from("photos")
-      .select("id,restaurant_id,storage_url,origin_url,gemini_label,menu_item_id,created_at,love_count,primary_votes,comparison_ready")
+      .select("id,restaurant_id,storage_url,origin_url,gemini_label,menu_item_id,created_at,view_count,love_count,primary_votes,comparison_ready")
       .eq("contributor_id", visitorId)
       .eq("active", true)
       .order("created_at", { ascending: false })
@@ -363,6 +371,7 @@ export async function getMemberProfile(visitorId: string): Promise<MemberProfile
     gemini_label: string | null;
     menu_item_id: number | null;
     created_at: string;
+    view_count: number | null;
     love_count: number | null;
     primary_votes: number | null;
     comparison_ready: boolean | null;
@@ -378,7 +387,7 @@ export async function getMemberProfile(visitorId: string): Promise<MemberProfile
     .filter(Number.isFinite);
   const { data: lovedRows } = lovedPhotoIds.length
     ? await supabase.from("photos")
-      .select("id,restaurant_id,storage_url,origin_url,gemini_label,menu_item_id,created_at,love_count,primary_votes,comparison_ready")
+      .select("id,restaurant_id,storage_url,origin_url,gemini_label,menu_item_id,created_at,view_count,love_count,primary_votes,comparison_ready")
       .in("id", lovedPhotoIds)
       .eq("active", true)
     : { data: [] };
@@ -386,17 +395,30 @@ export async function getMemberProfile(visitorId: string): Promise<MemberProfile
   for (const photo of allPhotos) restaurantIds.add(photo.restaurant_id);
 
   const menuItemIds = [...new Set(allPhotos.map((photo) => photo.menu_item_id).filter((id): id is number => id !== null))];
-  const [{ data: restaurants }, { data: menuItems }] = await Promise.all([
+  const [{ data: restaurants }, { data: menuItems }, { data: relatedPhotoRows }] = await Promise.all([
     restaurantIds.size
       ? supabase.from("restaurants").select("place_id,name,slug,lat,lng").in("place_id", [...restaurantIds])
       : Promise.resolve({ data: [] }),
     menuItemIds.length
       ? supabase.from("menu_items").select("id,name").in("id", menuItemIds)
       : Promise.resolve({ data: [] }),
+    menuItemIds.length
+      ? supabase.from("photos").select("menu_item_id,storage_url,origin_url").in("menu_item_id", menuItemIds).eq("active", true).limit(200)
+      : Promise.resolve({ data: [] }),
   ]);
   const restaurantMap = new Map((restaurants ?? []).map((row) => [row.place_id, row]));
   const menuMap = new Map((menuItems ?? []).map((row) => [row.id, row.name]));
   const lovedSet = new Set(lovedPhotoIds);
+  const lovedAtMap = new Map(eventRows
+    .filter((event) => event.event_name === "love")
+    .map((event) => [Number(String(event.metadata?.photoId ?? "").replace(/^corpus-/, "")), event.created_at]));
+  const relatedMap = new Map<number, string[]>();
+  for (const photo of relatedPhotoRows ?? []) {
+    if (!photo.menu_item_id) continue;
+    const url = photo.storage_url ?? photo.origin_url;
+    if (!url) continue;
+    relatedMap.set(photo.menu_item_id, [...(relatedMap.get(photo.menu_item_id) ?? []), url]);
+  }
 
   const mapPhoto = (photo: typeof contributedRows[number]): MemberPhoto => ({
     id: `corpus-${photo.id}`,
@@ -406,10 +428,13 @@ export async function getMemberProfile(visitorId: string): Promise<MemberProfile
     restaurantId: photo.restaurant_id,
     restaurantSlug: restaurantMap.get(photo.restaurant_id)?.slug ?? null,
     loved: lovedSet.has(photo.id),
+    lovedAt: lovedAtMap.get(photo.id) ?? null,
     createdAt: photo.created_at,
+    viewCount: photo.view_count ?? 0,
     loveCount: photo.love_count ?? 0,
     primaryVotes: photo.primary_votes ?? 0,
     comparisonReady: photo.comparison_ready ?? false,
+    relatedPhotos: photo.menu_item_id ? relatedMap.get(photo.menu_item_id) ?? [] : [],
   });
 
   const visitMap = new Map<string, MemberRestaurant>();

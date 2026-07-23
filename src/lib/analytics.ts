@@ -1,4 +1,4 @@
-export type AnalyticsEventName = "app_open" | "love" | "share" | "photo_add";
+export type AnalyticsEventName = "app_open" | "love" | "share" | "photo_add" | "photo_view";
 
 export function getVisitorId(): string {
   const key = "seefood-visitor-id";

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCoverageReadinessMetrics } from "@/lib/db";
-import { CoverageScope, TEMECULA_GEOGRAPHY } from "@/lib/geography";
+import {
+  CoverageScope,
+  MAJOR_METROS,
+  STATE_BOUNDS,
+  STATE_NAMES,
+  TEMECULA_GEOGRAPHY,
+} from "@/lib/geography";
 
 interface GeocodedScope {
   label: string;
@@ -33,6 +39,37 @@ async function geocodeScope(query: string, scope: CoverageScope): Promise<Geocod
   };
 }
 
+async function lookupZip(zip: string): Promise<GeocodedScope | null> {
+  if (!/^\d{5}$/.test(zip)) return null;
+  const response = await fetch(`https://api.zippopotam.us/us/${zip}`, {
+    next: { revalidate: 86400 * 30 },
+  }).catch(() => null);
+  if (!response?.ok) return null;
+  const result = await response.json();
+  const place = result.places?.[0];
+  if (!place) return null;
+  return {
+    label: `${place["place name"]}, ${place["state abbreviation"]} ${zip}`,
+    lat: Number(place.latitude),
+    lng: Number(place.longitude),
+  };
+}
+
+const ZERO_METRICS = {
+  identifiedRestaurants: 0,
+  menuCoverage: 0,
+  basicPhotoCoverage: 0,
+  basicMenuPhotoCoverage: 0,
+  twentyPercentMenuPhotoCoverage: 0,
+  fiftyPercentMenuPhotoCoverage: 0,
+  comparisonCoverage: 0,
+  visits: 0,
+  visitors: 0,
+  newVisitors: 0,
+  uploadSessions: 0,
+  loves: 0,
+};
+
 export async function GET(request: NextRequest) {
   const scope = (request.nextUrl.searchParams.get("scope") || "temecula") as CoverageScope;
   const period = request.nextUrl.searchParams.get("period") === "month" ? "month" : "week";
@@ -47,19 +84,30 @@ export async function GET(request: NextRequest) {
     params.radiusKm = TEMECULA_GEOGRAPHY.radiusKm;
   } else if (scope !== "nationwide") {
     if (!query) return NextResponse.json({ error: `Enter a ${scope === "zip" ? "ZIP code" : scope}.` }, { status: 400 });
-    const found = await geocodeScope(query, scope);
-    if (!found) return NextResponse.json({ error: "We could not find that geography." }, { status: 404 });
-    locationLabel = found.label;
+    let found: GeocodedScope | null = null;
     if (scope === "metro") {
-      // Official MSA polygons are the long-term boundary source. Google's
-      // returned metro viewport is a practical live approximation today.
-      if (found.bounds) Object.assign(params, found.bounds);
-      else Object.assign(params, { lat: found.lat, lng: found.lng, radiusKm: 60 });
+      const metro = MAJOR_METROS.find((item) => item.name === query);
+      if (!metro) return NextResponse.json({ error: "Choose one of the 50 largest metro areas." }, { status: 400 });
+      locationLabel = `${metro.name} Metro Area`;
+      Object.assign(params, { lat: metro.lat, lng: metro.lng, radiusKm: metro.radiusKm });
     } else if (scope === "state") {
-      if (!found.bounds) return NextResponse.json({ error: "State bounds were unavailable." }, { status: 502 });
-      Object.assign(params, found.bounds);
+      if (!(STATE_NAMES as readonly string[]).includes(query)) {
+        return NextResponse.json({ error: "Choose a US state." }, { status: 400 });
+      }
+      locationLabel = query;
+      const bounds = STATE_BOUNDS[query as keyof typeof STATE_BOUNDS];
+      if (bounds) Object.assign(params, bounds);
+      else {
+        found = await geocodeScope(query, scope);
+        if (found?.bounds) Object.assign(params, found.bounds);
+      }
     } else {
-      Object.assign(params, { lat: found.lat, lng: found.lng, radiusKm: 8 });
+      found = await lookupZip(query) ?? await geocodeScope(query, scope);
+      locationLabel = found?.label ?? `ZIP ${query}`;
+      if (found) Object.assign(params, { lat: found.lat, lng: found.lng, radiusKm: 8 });
+    }
+    if (!found && scope !== "metro" && !(scope === "state" && STATE_BOUNDS[query as keyof typeof STATE_BOUNDS])) {
+      return NextResponse.json({ ...ZERO_METRICS, locationLabel, period }, { headers: { "Cache-Control": "no-store" } });
     }
   } else {
     locationLabel = "United States";

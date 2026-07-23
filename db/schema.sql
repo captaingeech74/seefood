@@ -45,6 +45,7 @@ create table if not exists photos (
   is_orderable      boolean default true,
   width             int,
   height            int,
+  view_count        int default 0,
   love_count        int default 0,  -- "I Loved This" tap count (no accounts — dedup is per-browser via localStorage only)
   primary_votes     int default 0,  -- thumbs-up while browsing same-dish variants — promotes which photo represents the dish in the grid (see computePrimaryPhoto)
   photo_quality_score numeric default 0,

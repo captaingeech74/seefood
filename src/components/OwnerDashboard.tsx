@@ -1,0 +1,231 @@
+"use client";
+
+import { FormEvent, useEffect, useRef, useState } from "react";
+import {
+  createPromotion,
+  getMemberHookups,
+  getPromotions,
+  HookupPromotion,
+  redeemHookup,
+} from "@/lib/demoHookups";
+
+const USER_PHOTOS = [
+  "/api/r2-photo?key=fixture-photos/lrays-kitchen/notion-10187-0.webp",
+  "/api/r2-photo?key=fixture-photos/lrays-kitchen/notion-10191-0.webp",
+  "/api/r2-photo?key=fixture-photos/lrays-kitchen/notion-10199-0.webp",
+  "/api/r2-photo?key=fixture-photos/lrays-kitchen/notion-10201-0.webp",
+];
+
+function Metric({ value, label, tone = "white" }: { value: string; label: string; tone?: "white" | "orange" | "green" }) {
+  const color = tone === "orange" ? "var(--accent)" : tone === "green" ? "#38d996" : "white";
+  return <div className="min-w-0"><p className="text-[23px] font-bold tabular-nums" style={{ color }}>{value}</p><p className="text-white/38 text-[9.5px] font-bold uppercase leading-tight mt-1">{label}</p></div>;
+}
+
+function RedeemPanel() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const controlsRef = useRef<{ stop: () => void } | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => () => controlsRef.current?.stop(), []);
+
+  const finish = (code: string) => {
+    const redeemed = redeemHookup(code);
+    setMessage(redeemed ? `${redeemed.title} marked used.` : "That code is not an active SeeFood Hookup.");
+    controlsRef.current?.stop();
+    controlsRef.current = null;
+    setScanning(false);
+  };
+
+  const start = async () => {
+    setMessage("");
+    setScanning(true);
+    try {
+      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const reader = new BrowserMultiFormatReader();
+      if (!videoRef.current) return;
+      controlsRef.current = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
+        if (result) finish(result.getText());
+      });
+    } catch {
+      setScanning(false);
+      setMessage("Camera scanning is unavailable here. The sample redemption button still exercises the full flow.");
+    }
+  };
+
+  return (
+    <section className="pt-5">
+      <p className="text-[9px] uppercase font-bold text-emerald-400">At the restaurant</p>
+      <h2 className="text-white text-[18px] font-bold mt-1">Redeem a Hookup</h2>
+      <p className="text-white/42 text-[11px] leading-relaxed mt-1">Scan the member’s code. SeeFood marks it used; no payment information changes hands.</p>
+      <div className="mt-3 overflow-hidden rounded-lg border border-white/10 bg-[#151515]">
+        {scanning && <video ref={videoRef} className="w-full aspect-[4/3] object-cover bg-black" muted playsInline />}
+        <div className="flex gap-2 p-3">
+          <button type="button" onClick={scanning ? () => { controlsRef.current?.stop(); setScanning(false); } : start} className="flex-1 min-h-11 rounded-md bg-white text-black text-[12px] font-bold">{scanning ? "Stop Camera" : "Scan QR Code"}</button>
+          <button type="button" onClick={() => finish(getMemberHookups()[0]?.code || "")} className="px-3 min-h-11 rounded-md border border-white/12 text-white/60 text-[11px] font-bold">Try Sample</button>
+        </div>
+      </div>
+      {message && <p className="mt-2 text-[11px] text-emerald-300">{message}</p>}
+    </section>
+  );
+}
+
+export default function OwnerDashboard() {
+  const [tab, setTab] = useState<"home" | "hookups" | "redeem">("home");
+  const [strengthOpen, setStrengthOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [expandedPromotion, setExpandedPromotion] = useState<string | null>(null);
+  const [promotions, setPromotions] = useState<HookupPromotion[]>([]);
+  const [managers, setManagers] = useState(["Kyle · Owner", "Maya · General Manager", "Chris · Shift Manager"]);
+  const [managerDraft, setManagerDraft] = useState("");
+
+  useEffect(() => setPromotions(getPromotions()), []);
+
+  const submitPromotion = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const promotion = createPromotion({
+      title: String(form.get("title") || "A Hookup for Your Table"),
+      offer: String(form.get("offer") || "20% off for you and friends"),
+      audienceSize: Number(form.get("audienceSize") || 25),
+      expiresAt: new Date(`${String(form.get("expiresAt"))}T23:59:59Z`).toISOString(),
+    });
+    setPromotions((current) => [promotion, ...current]);
+    setCreateOpen(false);
+    setTab("hookups");
+  };
+
+  return (
+    <main className="min-h-screen max-w-3xl mx-auto bg-[var(--surface-0)] pb-24">
+      <header className="sticky top-0 z-30 bg-black/95 backdrop-blur border-b border-white/8 px-4 py-3 flex items-center gap-3">
+        <a href="/me" className="w-9 h-9 rounded-full bg-white/7 flex items-center justify-center text-white/65" aria-label="Back to My SeeFood">←</a>
+        <div className="min-w-0 flex-1"><p className="text-[9px] uppercase font-bold text-[var(--accent)]">Management sample</p><h1 className="text-[19px] font-bold truncate">LRay’s Kitchen</h1></div>
+        <span className="px-2 py-1 rounded-md bg-emerald-400/12 text-emerald-300 text-[9px] font-bold">STANDARD</span>
+      </header>
+
+      <div className="px-4">
+        {tab === "home" && (
+          <div className="fade-up">
+            <section className="py-5 border-b border-white/8">
+              <div className="flex items-start justify-between gap-4">
+                <div><p className="text-white text-[17px] font-bold">Good morning, Kyle</p><p className="text-white/38 text-[11px] mt-1">Your menu is getting more useful.</p></div>
+                <button onClick={() => { setTab("hookups"); setCreateOpen(true); }} className="px-3.5 min-h-10 rounded-md bg-[var(--accent)] text-white text-[11px] font-bold">Send a Hookup</button>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mt-5">
+                <Metric value="36" label="Menu items" />
+                <Metric value="29" label="With photos" tone="orange" />
+                <Metric value="487" label="Dish loves" tone="green" />
+              </div>
+            </section>
+
+            <section className="py-5 border-b border-white/8">
+              <button onClick={() => setStrengthOpen((value) => !value)} aria-expanded={strengthOpen} className="w-full flex items-center gap-3 text-left">
+                <div className="min-w-0 flex-1"><p className="text-[9px] uppercase font-bold text-sky-300">Menu health</p><h2 className="text-white text-[18px] font-bold mt-1">Photo strength</h2><p className="text-white/38 text-[11px] mt-1">81% of your menu can be seen.</p></div>
+                <div className="w-12 h-12 rounded-full border-4 border-[var(--accent)] flex items-center justify-center text-[11px] font-bold">81%</div>
+              </button>
+              {strengthOpen && (
+                <div className="grid grid-cols-2 gap-y-5 mt-5 pt-4 border-t border-white/8 fade-in">
+                  <Metric value="29" label="Items photographed" />
+                  <Metric value="1.8" label="Photos per item" />
+                  <Metric value="31" label="Customer photos" tone="green" />
+                  <Metric value="22" label="Management photos" tone="orange" />
+                  <Metric value="6" label="Comparison-ready items" />
+                  <Metric value="Rotisserie Chicken" label="Most loved item" />
+                </div>
+              )}
+            </section>
+
+            <section className="py-5 border-b border-white/8">
+              <div className="flex items-end justify-between"><div><p className="text-[9px] uppercase font-bold text-emerald-400">What diners show</p><h2 className="text-white text-[18px] font-bold mt-1">Customer photos</h2></div><span className="text-white/30 text-[10px]">31 total</span></div>
+              <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
+                {USER_PHOTOS.map((photo, index) => <div key={photo} className="relative w-32 aspect-[4/5] shrink-0 overflow-hidden rounded-lg bg-white/5">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={photo} alt={`Customer food photo ${index + 1}`} className="w-full h-full object-cover" /><span className="absolute left-2 bottom-2 px-1.5 py-1 rounded bg-black/75 text-white text-[9px] font-bold">{[82, 61, 49, 37][index]} loves</span></div>)}
+              </div>
+            </section>
+
+            <section className="py-5 border-b border-white/8">
+              <p className="text-[9px] uppercase font-bold text-violet-300">Profiles</p>
+              <div className="mt-3 space-y-3">
+                <div className="flex justify-between gap-4"><span className="text-white/42 text-[11px]">Restaurant</span><span className="text-white text-[11px] font-bold text-right">LRay’s Kitchen · Temecula</span></div>
+                <div className="flex justify-between gap-4"><span className="text-white/42 text-[11px]">Owner</span><span className="text-white text-[11px] font-bold text-right">Kyle · Owner</span></div>
+                <div className="flex justify-between gap-4"><span className="text-white/42 text-[11px]">Managers</span><span className="text-white text-[11px] font-bold text-right">Kyle + 2 managers</span></div>
+              </div>
+              <button onClick={() => setProfileOpen(true)} className="mt-4 min-h-10 px-3 rounded-md border border-white/12 text-white/60 text-[11px] font-bold">Manage Profiles & Team</button>
+            </section>
+          </div>
+        )}
+
+        {tab === "hookups" && (
+          <div className="fade-up pt-5">
+            <div className="flex items-start justify-between gap-4"><div><p className="text-[9px] uppercase font-bold text-[var(--accent)]">Your biggest fans</p><h2 className="text-white text-[21px] font-bold mt-1">Hookups</h2><p className="text-white/42 text-[11px] leading-relaxed mt-1 max-w-sm">Single out the diners who show you the most love. Give them a reason to bring friends back sooner.</p></div><button onClick={() => setCreateOpen(true)} className="shrink-0 px-3 min-h-10 rounded-md bg-[var(--accent)] text-white text-[11px] font-bold">New</button></div>
+            <div className="mt-5 border-y border-white/8">
+              {promotions.map((promotion) => (
+                <div key={promotion.id} className="border-b border-white/7 last:border-0">
+                  <button onClick={() => setExpandedPromotion(expandedPromotion === promotion.id ? null : promotion.id)} className="w-full py-4 text-left">
+                    <div className="flex justify-between gap-3"><div className="min-w-0"><p className="text-white text-[13px] font-bold truncate">{promotion.title}</p><p className="text-white/38 text-[10.5px] truncate mt-1">{promotion.offer}</p></div><span className="text-white/30 text-[10px] whitespace-nowrap">{new Date(promotion.expiresAt).toLocaleDateString()}</span></div>
+                    <div className="flex gap-4 mt-2 text-[9.5px] font-bold"><span className="text-[var(--accent)]">{promotion.audienceSize} sent</span><span className="text-emerald-300">{promotion.redeemedBy.length} used</span></div>
+                  </button>
+                  {expandedPromotion === promotion.id && <div className="pb-4 fade-in"><p className="text-white/32 text-[9px] uppercase font-bold">Redeemed by</p><p className="text-white/60 text-[11px] mt-2">{promotion.redeemedBy.length ? promotion.redeemedBy.join(" · ") : "No redemptions yet"}</p></div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab === "redeem" && <div className="fade-up"><RedeemPanel /></div>}
+      </div>
+
+      <nav className="fixed bottom-0 inset-x-0 z-30 max-w-3xl mx-auto bg-black/95 backdrop-blur border-t border-white/8 grid grid-cols-3" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        {([["home", "Overview"], ["hookups", "Hookups"], ["redeem", "Redeem"]] as const).map(([value, label]) => <button key={value} onClick={() => setTab(value)} className="min-h-14 text-[10px] font-bold" style={{ color: tab === value ? "var(--accent)" : "rgba(255,255,255,.35)" }}>{label}</button>)}
+      </nav>
+
+      {createOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-end justify-center" role="dialog" aria-modal="true" aria-label="Create a Hookup" onClick={() => setCreateOpen(false)}>
+          <form onSubmit={submitPromotion} onClick={(event) => event.stopPropagation()} className="w-full max-w-3xl bg-[#151515] rounded-t-2xl border-t border-white/12 px-4 pt-4 pb-7 slide-up">
+            <div className="w-9 h-1 bg-white/15 rounded-full mx-auto mb-4" />
+            <h2 className="text-white text-[19px] font-bold">Send a Hookup</h2>
+            <p className="text-white/42 text-[11px] mt-1">Make your best supporters feel recognized. Offers for friends are selected by default.</p>
+            <div className="space-y-3 mt-4">
+              <label className="block text-white/45 text-[10px] font-bold">Promotion<input name="title" required defaultValue="A Hookup for Your Table" className="mt-1.5 w-full bg-white/7 border border-white/10 rounded-md px-3 py-3 text-white text-[12px] outline-none" /></label>
+              <label className="block text-white/45 text-[10px] font-bold">Offer<input name="offer" required defaultValue="20% off for you and up to 3 friends" className="mt-1.5 w-full bg-white/7 border border-white/10 rounded-md px-3 py-3 text-white text-[12px] outline-none" /></label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-white/45 text-[10px] font-bold">Top supporters<select name="audienceSize" defaultValue="25" className="mt-1.5 w-full bg-[#242424] border border-white/10 rounded-md px-3 py-3 text-white text-[12px]"><option>10</option><option>25</option><option>50</option><option>100</option></select></label>
+                <label className="block text-white/45 text-[10px] font-bold">Expires<input name="expiresAt" type="date" required defaultValue={new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10)} className="mt-1.5 w-full bg-[#242424] border border-white/10 rounded-md px-3 py-3 text-white text-[12px]" /></label>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5"><button type="button" onClick={() => setCreateOpen(false)} className="flex-1 min-h-11 border border-white/10 rounded-md text-white/45 text-[12px] font-bold">Cancel</button><button className="flex-[2] min-h-11 bg-[var(--accent)] rounded-md text-white text-[12px] font-bold">Send to Top Supporters</button></div>
+          </form>
+        </div>
+      )}
+
+      {profileOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-end justify-center" role="dialog" aria-modal="true" aria-label="Manage profiles and team" onClick={() => setProfileOpen(false)}>
+          <div className="w-full max-w-3xl h-[90vh] overflow-y-auto bg-[#151515] rounded-t-2xl border-t border-white/12 px-4 pt-4 pb-8 slide-up" onClick={(event) => event.stopPropagation()}>
+            <div className="w-9 h-1 bg-white/15 rounded-full mx-auto mb-4" />
+            <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><p className="text-[9px] uppercase font-bold text-violet-300">Management identity</p><h2 className="text-white text-[19px] font-bold mt-1">Profiles & Team</h2></div><button onClick={() => setProfileOpen(false)} className="w-9 h-9 rounded-full bg-white/7 text-white/60 text-lg" aria-label="Close">×</button></div>
+            <section className="mt-5 pb-5 border-b border-white/8">
+              <p className="text-white text-[13px] font-bold">Restaurant profile</p>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <input defaultValue="LRay’s Kitchen" aria-label="Restaurant name" className="col-span-2 bg-white/7 border border-white/10 rounded-md px-3 py-3 text-white text-[12px]" />
+                <input defaultValue="Temecula, CA 92591" aria-label="Restaurant location" className="col-span-2 bg-white/7 border border-white/10 rounded-md px-3 py-3 text-white text-[12px]" />
+                <input defaultValue="(951) 555-0148" aria-label="Restaurant phone" className="bg-white/7 border border-white/10 rounded-md px-3 py-3 text-white text-[12px] min-w-0" />
+                <input defaultValue="lrayskitchen.com" aria-label="Restaurant website" className="bg-white/7 border border-white/10 rounded-md px-3 py-3 text-white text-[12px] min-w-0" />
+              </div>
+            </section>
+            <section className="py-5 border-b border-white/8">
+              <p className="text-white text-[13px] font-bold">Owner profile</p>
+              <div className="grid grid-cols-2 gap-2 mt-3"><input defaultValue="Kyle" aria-label="Owner name" className="bg-white/7 border border-white/10 rounded-md px-3 py-3 text-white text-[12px] min-w-0" /><input defaultValue="Owner" aria-label="Owner role" className="bg-white/7 border border-white/10 rounded-md px-3 py-3 text-white text-[12px] min-w-0" /><input defaultValue="kyle@lrayskitchen.com" aria-label="Owner email" className="col-span-2 bg-white/7 border border-white/10 rounded-md px-3 py-3 text-white text-[12px]" /></div>
+            </section>
+            <section className="py-5">
+              <p className="text-white text-[13px] font-bold">Managers</p>
+              <p className="text-white/35 text-[10px] mt-1">Growth plans can give multiple managers redemption and page access.</p>
+              <div className="mt-3 border-y border-white/8">{managers.map((manager, index) => <div key={manager} className="flex items-center gap-3 py-3 border-b border-white/7 last:border-0"><span className="w-7 h-7 rounded-full bg-violet-300/10 text-violet-200 flex items-center justify-center text-[9px] font-bold">{manager.charAt(0)}</span><span className="text-white/65 text-[11px] flex-1">{manager}</span>{index > 0 && <button onClick={() => setManagers((current) => current.filter((item) => item !== manager))} className="text-white/25 text-lg" aria-label={`Remove ${manager}`}>×</button>}</div>)}</div>
+              <div className="flex gap-2 mt-3"><input value={managerDraft} onChange={(event) => setManagerDraft(event.target.value)} placeholder="Name · Role" className="min-w-0 flex-1 bg-white/7 border border-white/10 rounded-md px-3 py-3 text-white text-[12px]" /><button onClick={() => { if (managerDraft.trim()) setManagers((current) => [...current, managerDraft.trim()]); setManagerDraft(""); }} className="px-4 rounded-md bg-violet-300 text-black text-[11px] font-bold">Add</button></div>
+            </section>
+            <button onClick={() => setProfileOpen(false)} className="w-full min-h-11 rounded-md bg-white text-black text-[12px] font-bold">Save Profiles</button>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}

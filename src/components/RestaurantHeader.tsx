@@ -107,17 +107,6 @@ export default function RestaurantHeader({
               <path d="M4 19V9M10 19V5M16 19v-7M22 19V3" />
             </svg>
           </a>
-          <a
-            href="/me"
-            className="hit-target relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/12 bg-white/7 text-white/75 active:bg-white/12 active:scale-95 transition-all shrink-0"
-            aria-label="Open My SeeFood"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
-            </svg>
-            <span className="text-[11px] font-bold whitespace-nowrap">My SeeFood</span>
-          </a>
           <button
             onClick={onChangeRestaurant}
             className="hit-target relative flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
@@ -135,6 +124,17 @@ export default function RestaurantHeader({
               Change Restaurant
             </span>
           </button>
+          <a
+            href="/me"
+            className="hit-target relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/12 bg-white/7 text-white/75 active:bg-white/12 active:scale-95 transition-all shrink-0"
+            aria-label="Open My SeeFood"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+            </svg>
+            <span className="text-[11px] font-bold whitespace-nowrap">My SeeFood</span>
+          </a>
         </div>
       </div>
 

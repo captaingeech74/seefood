@@ -365,6 +365,16 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   };
 
   const [sharing, setSharing] = useState(false);
+  useEffect(() => {
+    if (!activePhoto?.id) return;
+    const key = `seefood-viewed-${activePhoto.id}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {}
+    trackEvent("photo_view", restaurant.placeId || restaurant.id, { photoId: activePhoto.id });
+  }, [activePhoto?.id, restaurant.id, restaurant.placeId]);
+
   const handleShare = async () => {
     if (!activePhoto || sharing) return;
     setSharing(true);
