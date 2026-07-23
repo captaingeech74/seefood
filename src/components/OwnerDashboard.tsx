@@ -8,6 +8,7 @@ import {
   HookupPromotion,
   redeemHookup,
 } from "@/lib/demoHookups";
+import ManagementMenuWorkspace from "@/components/ManagementMenuWorkspace";
 
 const USER_PHOTOS = [
   "/api/r2-photo?key=fixture-photos/lrays-kitchen/notion-10187-0.webp",
@@ -114,6 +115,8 @@ function MenuHealthDrawer({ onClose }: { onClose: () => void }) {
 export default function OwnerDashboard() {
   const [tab, setTab] = useState<"home" | "hookups" | "redeem">("home");
   const [healthOpen, setHealthOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuMode, setMenuMode] = useState<"rank" | "scan">("rank");
   const [createOpen, setCreateOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [expandedPromotion, setExpandedPromotion] = useState<string | null>(null);
@@ -179,6 +182,11 @@ export default function OwnerDashboard() {
               <div className="grid grid-cols-3 gap-4 mt-5"><Metric value="36" label="Menu items" /><Metric value="29" label="With photos" tone="orange" /><Metric value="487" label="Menu item loves" tone="green" /></div>
             </section>
 
+            <section className="py-5 border-b border-white/8">
+              <div className="flex items-end justify-between gap-3"><div><p className="text-[9px] uppercase font-bold text-[var(--accent)]">Management controls</p><h2 className="text-white text-[18px] font-bold mt-1">Your Menu</h2><p className="text-white/38 text-[11px] mt-1">Rank management favorites · 36 menu items known</p></div><span className="text-emerald-300 text-[10px] font-bold">MANAGE</span></div>
+              <div className="grid grid-cols-2 gap-2 mt-4"><button onClick={() => { setMenuMode("rank"); setMenuOpen(true); }} className="min-h-11 rounded-md bg-white text-black text-[11px] font-bold">Rank Top 7</button><button onClick={() => { setMenuMode("scan"); setMenuOpen(true); }} className="min-h-11 rounded-md border border-white/12 text-white/70 text-[11px] font-bold">Scan Menu</button></div>
+            </section>
+
             <a href="/manage/insights" className="py-5 border-b border-white/8 flex items-center gap-3">
               <div className="min-w-0 flex-1"><p className="text-[9px] uppercase font-bold text-amber-300">Customer-side truth</p><h2 className="text-white text-[18px] font-bold mt-1">Menu Intelligence</h2><p className="text-white/38 text-[11px] mt-1">See what is rising, slipping, and changing, then act.</p></div>
               <div className="text-right"><p className="text-emerald-300 text-[12px] font-bold">3 rising</p><p className="text-rose-300 text-[9px] mt-1">2 need attention</p></div><span className="text-white/25">›</span>
@@ -221,6 +229,7 @@ export default function OwnerDashboard() {
       </nav>
 
       {healthOpen && <MenuHealthDrawer onClose={() => setHealthOpen(false)} />}
+      {menuOpen && <ManagementMenuWorkspace initialMode={menuMode} onClose={() => setMenuOpen(false)} />}
 
       {createOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 flex items-end justify-center" role="dialog" aria-modal="true" aria-label="Create a Hookup" onClick={() => setCreateOpen(false)}>

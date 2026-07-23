@@ -73,6 +73,8 @@ export interface DishPhoto {
   /** Persisted signals used by the shared hero/grid/map ranking pipeline. */
   photoQualityScore?: number;
   dishPopularityScore?: number;
+  /** Explicit rank supplied by verified management; separate from inferred popularity. */
+  managementPopularityRank?: number;
   isHeroCandidate?: boolean;
   isStorefront?: boolean;
   isMenuPhoto?: boolean;

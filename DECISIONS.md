@@ -1548,3 +1548,20 @@ portion changes to create a before/after learning window. Signals are not sales
 or sentiment claims and must carry minimum-sample and confidence treatment
 before production use. See `docs/MENU_INTELLIGENCE.md` for definitions and the
 closed loop between item insight and supporter Hookups.
+
+## Management Top 7 and menu capture (July 23, 2026)
+
+Management can explicitly rank up to seven menu items. This is stored as
+management's stated popularity, separate from customer loves and SeeFood's
+observed popularity. Popular 7 uses the ranked set as its core menu; all plans
+may supply it as useful hero-ranking input. A management rank strongly informs
+the hero score and enables #1 through #3 labels, but still requires a usable
+food photo and does not erase photo quality or customer behavior.
+
+Management can also photograph or select up to twelve menu pages. Pages are
+compressed in the browser, normalized again on the server, read independently
+with Gemini, merged by normalized item name, and shown as an editable draft.
+Management must confirm before any item is published. Published rows use the
+`merchant` source, while R2 retains the menu-page evidence and
+`management_menu_imports` records the import audit. Full behavior and current
+authentication boundary are in `docs/MANAGEMENT_MENU_TOOLS.md`.

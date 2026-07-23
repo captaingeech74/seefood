@@ -124,7 +124,7 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
 
   const isTestFixture = restaurant.status === "test_fixture";
 
-  const [{ data: photoRows }, { data: menuItemRows }] = await Promise.all([
+  const [{ data: photoRows }, { data: menuItemRows }, { data: managementRanks }] = await Promise.all([
     supabase
       .from("photos")
       .select("*")
@@ -133,9 +133,19 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
       .order("tier", { ascending: true })
       .order("id", { ascending: true }),
     supabase.from("menu_items").select("id,name,description").eq("restaurant_id", placeId).eq("active", true),
+    supabase
+      .from("management_popular_items")
+      .select("menu_item_name,popularity_rank")
+      .eq("restaurant_id", placeId)
+      .order("popularity_rank", { ascending: true }),
   ]);
+  const managementRankByName = new Map(
+    (managementRanks ?? []).map((row) => [normalizeDishName(row.menu_item_name), Number(row.popularity_rank)])
+  );
   if (!photoRows || photoRows.length === 0) {
-    return isTestFixture ? { photos: [], popularDishes: [], isFresh: true } : null;
+    return isTestFixture
+      ? { photos: [], popularDishes: (managementRanks ?? []).map((row) => row.menu_item_name), isFresh: true }
+      : null;
   }
 
   const menuItemsById = new Map<number, MenuItemRow>(
@@ -144,7 +154,18 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
 
   const photos: DishPhoto[] = (photoRows as PhotoRow[]).map((p) => {
     const menuItem = p.menu_item_id ? menuItemsById.get(p.menu_item_id) : undefined;
-    return rowToDishPhoto(p, menuItem);
+    const photo = rowToDishPhoto(p, menuItem);
+    const managementPopularityRank = photo.dishName
+      ? managementRankByName.get(normalizeDishName(photo.dishName))
+      : undefined;
+    return managementPopularityRank
+      ? {
+        ...photo,
+        managementPopularityRank,
+        dishPopularityScore: Math.max(photo.dishPopularityScore ?? 0, 100 - (managementPopularityRank - 1) * 10),
+        isHeroCandidate: true,
+      }
+      : photo;
   });
 
   const ageMs = Date.now() - new Date(restaurant.updated_at).getTime();
@@ -1393,6 +1414,98 @@ export async function saveMenuItems(
   }
   for (const row of data ?? []) nameToId.set(row.name, row.id);
   return nameToId;
+}
+
+export interface ManagementMenuItem {
+  name: string;
+  description: string | null;
+  price: number | null;
+  source: string;
+  popularityRank: number | null;
+}
+
+export async function getManagementMenu(placeId: string): Promise<ManagementMenuItem[]> {
+  const [{ data: rows, error }, { data: ranks }] = await Promise.all([
+    supabase
+      .from("menu_items")
+      .select("name,description,price_captured,source,active")
+      .eq("restaurant_id", placeId)
+      .eq("active", true),
+    supabase
+      .from("management_popular_items")
+      .select("menu_item_name,popularity_rank")
+      .eq("restaurant_id", placeId)
+      .order("popularity_rank", { ascending: true }),
+  ]);
+  if (error) throw error;
+
+  const rankByName = new Map(
+    (ranks ?? []).map((row) => [normalizeDishName(row.menu_item_name), Number(row.popularity_rank)])
+  );
+  const byName = new Map<string, ManagementMenuItem>();
+  for (const row of rows ?? []) {
+    const key = normalizeDishName(row.name);
+    const current = byName.get(key);
+    const next: ManagementMenuItem = {
+      name: row.name,
+      description: row.description ?? null,
+      price: row.price_captured === null ? null : Number(row.price_captured),
+      source: row.source,
+      popularityRank: rankByName.get(key) ?? null,
+    };
+    if (!current || row.source === "merchant" || (!current.description && next.description)) {
+      byName.set(key, next);
+    }
+  }
+  return [...byName.values()].sort((a, b) =>
+    (a.popularityRank ?? 99) - (b.popularityRank ?? 99) || a.name.localeCompare(b.name)
+  );
+}
+
+export async function saveManagementPopularItems(placeId: string, names: string[]): Promise<void> {
+  const requested = [...new Set(names.map((name) => normalizeDishName(name)).filter(Boolean))].slice(0, 7);
+  const { data: menuRows, error: menuError } = await supabase
+    .from("menu_items")
+    .select("name")
+    .eq("restaurant_id", placeId)
+    .eq("active", true);
+  if (menuError) throw menuError;
+  const available = new Map((menuRows ?? []).map((row) => [normalizeDishName(row.name), row.name]));
+  const cleanNames = requested.flatMap((name) => available.get(name) ?? []).slice(0, 7);
+  const { error: deleteError } = await supabase
+    .from("management_popular_items")
+    .delete()
+    .eq("restaurant_id", placeId);
+  if (deleteError) throw deleteError;
+  if (!cleanNames.length) return;
+  const { error } = await supabase.from("management_popular_items").insert(
+    cleanNames.map((name, index) => ({
+      restaurant_id: placeId,
+      menu_item_name: name,
+      popularity_rank: index + 1,
+      tagged_at: new Date().toISOString(),
+    }))
+  );
+  if (error) throw error;
+}
+
+export async function saveManagementMenuImport(input: {
+  placeId: string;
+  items: MenuItemData[];
+  pageUrls: string[];
+}): Promise<void> {
+  const items = input.items.map((item) => ({ ...item, source: "merchant" as const }));
+  await saveMenuItems(input.placeId, items);
+  const { error } = await supabase.from("management_menu_imports").insert({
+    restaurant_id: input.placeId,
+    page_count: input.pageUrls.length,
+    extracted_item_count: items.length,
+    published_item_count: items.length,
+    page_urls: input.pageUrls,
+    status: "published",
+    published_at: new Date().toISOString(),
+  });
+  if (error) throw error;
 }
 
 export async function savePhotos(

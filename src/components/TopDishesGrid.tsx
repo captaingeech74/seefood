@@ -178,7 +178,9 @@ export default function TopDishesGrid({
           <DishTile
             dish={hero}
             hero
-            popularityRank={1}
+            popularityRank={(hero.managementPopularityRank && hero.managementPopularityRank <= 3
+              ? hero.managementPopularityRank
+              : 1) as 1 | 2 | 3}
             variantCount={variantCounts.get(hero.id) ?? 1}
             sourceMix={sourceMixes.get(hero.id)}
             onOpen={() => onOpenReveal(rankedList, 0, dishes)}
@@ -192,6 +194,9 @@ export default function TopDishesGrid({
             <DishTile
               key={dish.id}
               dish={dish}
+              popularityRank={dish.managementPopularityRank && dish.managementPopularityRank <= 3
+                ? dish.managementPopularityRank as 1 | 2 | 3
+                : undefined}
               variantCount={variantCounts.get(dish.id) ?? 1}
               sourceMix={sourceMixes.get(dish.id)}
               onOpen={() => onOpenReveal(rankedList, i + 1, dishes)}
