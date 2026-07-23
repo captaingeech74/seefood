@@ -6,12 +6,14 @@
 
 ## Current Phase
 
-Setup and baseline measurement.
+Benchmark specification complete; baseline measurement is next.
 
 ## Current Goal
 
-Measure the existing SeeFood acquisition stack on a Temecula census and a
-locked national holdout before testing any new source.
+Calibrate the existing comparison flag on 12 deterministic Temecula candidates,
+then use an independent local identity/status frame to freeze the Temecula
+census and evaluator-owned national holdout and measure the full existing stack
+from a forced-read-only snapshot.
 
 ## Why This Comes First
 
@@ -20,12 +22,27 @@ experiment created useful new coverage or merely collected more raw data.
 
 ## Last Verified Result
 
-No DataLab baseline has been completed yet. Existing historical benchmark and
-source results in `DECISIONS.md` are inputs, not a substitute for this baseline.
+DL-000 completed the static inventory. It found no valid DataLab baseline:
+
+- the legacy 25-restaurant set is not a Temecula census;
+- its stored results contain no Management-versus-Customer metric;
+- its harness calls a production route that persists on cache misses; and
+- the production coverage SQL treats canonicalized AI labels as matched, which
+  is weaker than the DataLab strong-match definition.
+
+No coverage improvement is claimed. The existing code, source history, and
+stored results are reusable inputs after the measurement defects are removed.
+
+## Confidence
+
+High for the inventory and benchmark defects because they were traced directly
+through the committed routes, persistence code, SQL, and result files. No
+confidence claim is made yet about current production coverage.
 
 ## Cost
 
-$0 authorized. Paid services require Kyle's explicit approval.
+$0. No production reads or writes, external source calls, model calls, crawls,
+or paid quota were used.
 
 ## Production Impact
 
@@ -34,10 +51,12 @@ merges.
 
 ## Next Action
 
-Create the benchmark specification, inventory the existing acquisition paths,
-and produce the first measured baseline.
+Run DL-001 on one 12-restaurant, 120-photo-maximum sanitized local evidence
+bundle. The Benchmark Guardian compares current SQL claims with the
+strong-match definition to expose failure mechanisms, not estimate a population
+error rate. No live photo or source fetch is allowed.
 
 ## Kyle Needs To Do
 
-Nothing until the Lead provides the initial Gemini Deep Research prompt or
-requests a specific approval.
+Run the exact Gemini Deep Research prompt in `GEMINI_HANDOFF.md` and paste the
+complete result back here. No technical interpretation is needed.
