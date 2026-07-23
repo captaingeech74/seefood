@@ -37,6 +37,11 @@ Who evaluated it, on which holdout, and what differed from the builder's claim?
 
 Keep, Revise, Reject, or Quarantine.
 
+## Access Action
+
+Test now, Pursue permission, Pursue a commercial deal, Monitor, or Do not
+pursue. Record the current access posture separately from technical value.
+
 ## Plain-English Meaning
 
 What did SeeFood gain, how confident are we, and is this bearing fruit?

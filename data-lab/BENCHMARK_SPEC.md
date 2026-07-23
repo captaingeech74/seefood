@@ -177,8 +177,10 @@ The census is the deduplicated union of versioned, bounded snapshots from:
 
 No single provider is treated as ground truth. DL-002 cannot lock the census
 until the independent local frame has been versioned, bounded, and reconciled.
-If no lawful $0 frame is available, DL-002 must stop with a corpus-derived
-candidate baseline and must not call it a census.
+If no $0 frame currently authorized for this benchmark is available, DL-002
+must stop with a corpus-derived candidate baseline and must not call it a
+census. A superior permission-gated frame should still be recorded as an
+opportunity, but it cannot enter the benchmark before permission.
 
 ### Manifest
 
@@ -217,10 +219,12 @@ geographically separated locations. The selection log records ambiguous cases.
 ### Candidate Frame And Deterministic Selection
 
 The Guardian freezes a deduplicated national candidate frame from existing
-SeeFood identities plus one versioned public or licensed national identity
-snapshot available without new paid access. Every candidate receives the six
-holdout stratum fields and a stable public-data-derived ID. The frame, source
-versions, field rules, exclusions, and hash remain Guardian-owned.
+SeeFood identities plus one versioned national identity snapshot currently
+authorized for this use and available without new paid access. Every candidate
+receives the six holdout stratum fields and a stable public-data-derived ID.
+The frame, source versions, field rules, exclusions, and hash remain
+Guardian-owned. Better restricted frames remain valid deal opportunities but
+do not enter the locked holdout until access is authorized.
 
 Selection is a deterministic constrained optimization:
 

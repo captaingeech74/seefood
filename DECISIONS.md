@@ -1590,3 +1590,18 @@ place where a successful lab recommendation may be integrated and deployed.
 The complete charter, reporting language, operating cadence, Gemini manual
 bridge, and future-agent rules are in `docs/SEEFOOD_DATALAB.md` and
 `data-lab/`.
+
+### DataLab access-opportunity posture (July 23, 2026)
+
+Current availability is not a proxy for technical value. The DataLab must
+actively discover and rank partner-only, licensed, merchant-authorized,
+custom-permission, and bespoke-deal sources when they could materially improve
+strongly matched Management-versus-Customer comparisons. Each path receives a
+separate technical-value rating, current access posture, and access action.
+
+This widens discovery but does not authorize execution. The lab may turn public
+evidence about a restricted capability into a permission-gated validation plan
+or human-to-human deal brief, but it may not bypass controls, misuse
+credentials, collect private/restricted data without permission, or count
+inferred supply as coverage. Actual access, commercial commitments, integration,
+and deployment remain decisions for Kyle and the main SeeFood thread.

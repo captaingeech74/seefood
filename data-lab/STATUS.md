@@ -6,7 +6,8 @@
 
 ## Current Phase
 
-Benchmark specification complete; baseline measurement is next.
+Discovery charter widened; benchmark specification remains complete and
+baseline measurement is next.
 
 ## Current Goal
 
@@ -33,11 +34,17 @@ DL-000 completed the static inventory. It found no valid DataLab baseline:
 No coverage improvement is claimed. The existing code, source history, and
 stored results are reusable inputs after the measurement defects are removed.
 
+The access-opportunity governance was revised after Kyle's direction. The lab
+now rates technical value independently from current access. Partner-only,
+licensed, custom-permission, and bespoke-deal sources remain in scope as
+permission-gated opportunities. They still cannot be accessed or counted as
+coverage until an authorized pilot is independently measured.
+
 ## Confidence
 
-High for the inventory and benchmark defects because they were traced directly
-through the committed routes, persistence code, SQL, and result files. No
-confidence claim is made yet about current production coverage.
+High for the inventory, benchmark defects, and the clarity of the revised
+decision boundary. No confidence claim is made yet about current production
+coverage or the value of any newly admitted restricted opportunity.
 
 ## Cost
 
@@ -58,5 +65,6 @@ error rate. No live photo or source fetch is allowed.
 
 ## Kyle Needs To Do
 
-Run the exact Gemini Deep Research prompt in `GEMINI_HANDOFF.md` and paste the
-complete result back here. No technical interpretation is needed.
+Run the revised exact Gemini Deep Research prompt in `GEMINI_HANDOFF.md` and
+paste the complete result back here. It now seeks safe-now sources and
+high-value permission/deal candidates. No technical interpretation is needed.

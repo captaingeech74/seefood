@@ -11,6 +11,19 @@ one Keep/Revise/Reject/Quarantine decision. Update `STATUS.md`,
 `EXPERIMENT_QUEUE.md`, `SOURCE_REGISTRY.md`, and the experiment record before
 ending a cycle.
 
+Do not equate "unavailable today" with "low value." Evaluate technical
+potential, current access posture, and the recommended access action
+separately, following `ACCESS_OPPORTUNITY_POLICY.md`. Discover partner-only,
+commercial, custom-permission, and bespoke-deal opportunities when they could
+materially improve comparison coverage. Preserve strong blocked paths as
+permission or deal briefs.
+
+Discovery is not authorization. Never defeat authentication, evade access
+controls, misuse credentials, or collect private/restricted data without
+permission. A restricted opportunity may be researched from public evidence,
+but it never counts as coverage until an authorized pilot is independently
+measured.
+
 Do not count raw records or unmatched restaurant photos as coverage. The north
 star is strongly matched Management-versus-Customer comparison dishes.
 

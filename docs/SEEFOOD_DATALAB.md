@@ -16,6 +16,17 @@ strategic value also includes measuring the boundary between data that can be
 acquired automatically and data SeeFood must generate through management and
 customer participation.
 
+The lab must not confuse current availability with strategic value. A source
+can be technically excellent even when SeeFood cannot use it today because it
+requires partner status, a commercial license, merchant authorization, a
+custom exception, or a bespoke data agreement. The lab should discover and
+rank those opportunities, identify the human path to permission, and preserve
+them as negotiation candidates instead of discarding them.
+
+Potential is not coverage. Permission-gated data never counts toward the
+benchmark until SeeFood has authorized access and the result is independently
+measured.
+
 ## Geographic Strategy
 
 Use the rollout in `docs/METRO_ROLLOUT.md`:
@@ -68,6 +79,32 @@ Temporary roles:
 
 The implementation agent must not be the final evaluator of its own experiment.
 
+## Opportunity And Access Model
+
+Evaluate every source on three separate axes:
+
+1. **Technical value:** its likely incremental strongly matched comparison
+   coverage, identity quality, item linkage, provenance, freshness, scale, and
+   uniqueness.
+2. **Current access posture:** Open/Public, Merchant-authorized, Partner-only,
+   Commercial license required, Custom permission required, Terms/rights
+   unclear, Technically observable but currently unauthorized,
+   Prohibited/unsafe, or Unknown.
+3. **Recommended action:** Test now, Pursue permission, Pursue a commercial
+   deal, Monitor, or Do not pursue.
+
+An unsupported, private, or restricted surface may be documented as an
+opportunity when public evidence suggests unusually high technical value. The
+lab may describe what the surface appears to contain, who controls it, and what
+permission would unlock a bounded validation. It may not defeat authentication,
+evade access controls, misuse credentials, or collect data without permission.
+
+For every high-value permission-gated opportunity, prepare a short deal brief:
+the gatekeeper, the exact access or rights requested, a bounded pilot, the
+value exchange, expected coverage, delivery and refresh needs, provenance and
+usage rights, likely commercial terms, and a fallback. Human negotiation is a
+valid next experiment path.
+
 ## Experiment Loop
 
 Each cycle must:
@@ -80,14 +117,17 @@ Each cycle must:
 6. Test against the development cohort.
 7. Have a separate evaluator test the locked holdout.
 8. Measure incremental coverage, precision, failures, cost, and runtime.
-9. Mark the experiment Keep, Revise, Reject, or Quarantine.
-10. Update the lab files and identify the next best experiment.
+9. Mark the evidence decision Keep, Revise, Reject, or Quarantine.
+10. Separately record the access action: Test now, Pursue permission, Pursue a
+    commercial deal, Monitor, or Do not pursue.
+11. Update the lab files and identify the next best experiment.
 
 Code running is not success. Verified coverage improvement is success.
 
 ## Promotion Gates
 
-A source may be recommended to the main SeeFood build only when it has:
+A source may be recommended to the main SeeFood build for implementation only
+when it has:
 
 - Incremental coverage beyond the existing stack.
 - High restaurant-identity precision.
@@ -101,6 +141,12 @@ Weak matches remain quarantined and never count as published item coverage.
 The main SeeFood thread reviews every recommendation and performs any actual
 integration, migration, production test, and deployment.
 
+A permission-gated source may be promoted earlier as an opportunity or
+negotiation recommendation when its technical potential is evidenced, its
+current access posture is explicit, and it has a concrete permission or deal
+path. This is not an implementation recommendation and its projected coverage
+must remain labeled as inferred until an authorized pilot is measured.
+
 ## Safety Boundary
 
 The DataLab may inspect the current repository and read existing acquisition
@@ -113,6 +159,9 @@ history. It must not:
 - change production infrastructure.
 - start a paid service or materially consume a paid quota.
 - run an unbounded crawl.
+- access a private or restricted system without permission, defeat
+  authentication, evade access controls, or use credentials outside their
+  authorized purpose.
 
 Raw samples and generated artifacts belong under ignored `data-lab/raw/`,
 `data-lab/artifacts/`, or `data-lab/tmp/`. Small reproducible fixtures may be
@@ -139,16 +188,20 @@ Then explain:
 5. What happens next.
 6. What Kyle needs to do, normally "Nothing."
 
-Pause when three consecutive cycles produce no meaningful gain, money or new
-credentials are required, production access would be needed, or a business
-decision cannot be inferred.
+Pause execution when three consecutive cycles produce no meaningful gain, money
+or new credentials are required, production access would be needed, permission
+is missing, or a business decision cannot be inferred. Do not erase the
+opportunity: convert a technically strong blocked path into a decision or deal
+brief for Kyle and the main SeeFood thread.
 
 ## Gemini Deep Research Bridge
 
 Gemini Deep Research is a discovery scout, not an authority. The Lead prepares
 an exact prompt in `data-lab/GEMINI_HANDOFF.md`. Kyle pastes it into Gemini and
 returns the full result to the DataLab thread. The Lead turns claims into a
-ranked experiment backlog and verifies every promising source with real data.
+ranked experiment backlog or a permission/deal backlog. It verifies every
+testable source with real data and clearly labels permission-gated potential
+that cannot yet be measured.
 
 Use Gemini initially and when the tested backlog is exhausted, not as a daily
 dependency.

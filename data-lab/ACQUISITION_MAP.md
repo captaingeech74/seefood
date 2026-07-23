@@ -58,7 +58,7 @@ All arrows ending in the production corpus are forbidden to the DataLab.
 | Brand templates | Exact-name brand membership, inherited template, location overrides | Production canonical/menu tables | Implemented; membership confidence is not independently audited | Read-only membership and override audit |
 | Management menu capture | Up to 12 page images, Gemini OCR, human confirmation/publish | R2 page upload then menu writes | Product workflow exists | UI/code review and sanitized fixtures only; no lab uploads |
 | Merchant provider connections | Google Business, Square, Toast, Clover availability and generic normalizer | Connection/import tables are scaffolded | No live connector route or measured import is present | Static inventory only |
-| Merchant social import | Specified in backlog with official authorization and explicit selection | Not implemented | Backlog only | Research gap; no experiment until official access and consent path are known |
+| Merchant social import | Specified in backlog with official authorization and explicit selection | Not implemented | Backlog only | Research all technically strong paths now; execution waits for merchant/platform permission |
 | Customer contributions | Direct photo upload and missing-dish suggestion | R2 plus customer/menu rows | Working product routes; no conversion/coverage baseline | Read-only aggregate export only |
 
 ## Current Normalization And Matching
@@ -168,13 +168,15 @@ audited precision. Historical values remain diagnostic inputs only.
 
 - Which of the seven newer ordering-provider families has a current, repeatable
   item-plus-image access path on real restaurants?
-- Which official merchant-authorized APIs can produce item-linked Management
-  photos without scraping or new paid infrastructure?
-- Which lawful, scalable sources can add Customer photos with defensible author
-  and item evidence beyond Google heuristics and direct SeeFood uploads?
+- Which public, merchant-authorized, partner-only, commercial, or custom-deal
+  paths can produce item-linked Management photos, and which are valuable
+  enough to justify permission or negotiation?
+- Which technically strong sources can add Customer photos with defensible
+  author and item evidence beyond Google heuristics and direct SeeFood uploads,
+  including sources not presently licensed or available to SeeFood?
 - What independent location/status source most economically closes the
   Temecula census gap after existing Google, OSM, and Overture identities are
-  reconciled?
+  reconciled, and is a superior restricted frame worth a bespoke agreement?
 - What is the actual verified precision of current restaurant identity,
   item-match, and photo-author heuristics?
 
