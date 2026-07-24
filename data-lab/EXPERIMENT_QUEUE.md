@@ -1,7 +1,15 @@
 # Experiment Queue
 
-Order after DL-000 and the completed DL-DR-001 Gemini evidence gate. Only one
+DL-DR-002 is the active pre-implementation discovery gate. DL-001 remains the
+next bounded measurement. Prompt 2 informs Kyle and the Lead's decision about
+the larger program; Gemini cannot authorize or veto lab work. Only one
 experiment may be active.
+
+## Active Discovery Gate
+
+| ID | Question | Bound | Status |
+|---|---|---|---|
+| DL-DR-002 | Is there a plausible Customer-photo corpus, partnership, or transaction-linked acquisition channel large enough to make the DataLab a game changer? | One manual Gemini Deep Research prompt; research only; no accounts, contact, crawling, credentials, or paid quota | Waiting for Kyle to run Prompt 2 |
 
 | Rank | ID | Hypothesis | Bounded evidence | Expected value | Status |
 |---|---|---|---|---|---|
