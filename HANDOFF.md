@@ -22,15 +22,18 @@ MSAs, and finally all 387 MSAs.
 - Production: <https://seefood-rho.vercel.app>
 - Repository: `/Users/ace/Documents/New project/seefood`
 - Production branch: `main`; a push to `main` triggers Vercel deployment.
-- Snapshot commit when this handoff was refreshed: `bfec4de`.
+- Baseline handoff commit for the current lead: `857242f`.
 - Stack: Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Supabase
   Postgres, Cloudflare R2, Google Maps, Sharp, and Vitest.
-- Verification baseline: 42 tests passing before this handoff.
+- Verification baseline: 47 tests passing after the photo-identity work.
 - Image bytes are stored in R2 and delivered by signed R2 redirects instead of
   streaming through Vercel. A custom R2 domain remains the intended end state.
 - The corpus is persistent. It contains restaurant identity, menu, photo,
   provenance, acquisition, analytics, member, merchant, and management data.
   Do not treat this as the old stateless prototype.
+- Active acquired photos now use exact image bytes, not changing source URLs,
+  as their durable identity. Perceptual hashes are audit-only. All observed
+  origins and menu-item associations remain in dedicated provenance tables.
 
 ## Read Order
 
@@ -110,40 +113,34 @@ reviews and deliberately integrates them. See `docs/SEEFOOD_DATALAB.md`.
 Do not perform the general-development assignment in the DataLab worktree, and
 do not redirect the main build around an unfinished DataLab experiment.
 
-## Immediate Assignment
+## Current Data-Quality State
 
-The user's first task for the new senior lead is:
+The July 23 systemic photo audit and cleanup is complete in production. The
+rollback tag is `pre-photo-content-dedupe-2026-07-23`. Cleanup runs
+`9cb03d8a-fff1-49f4-976c-df07bec16994` and
+`8af21372-dad9-40b6-8789-30f92d30f9d9` contain the before/after measurements
+and per-row restoration state. Run `59c8ee33-f24d-4a4b-a86b-3b49f7ee3180`
+records the conservative restoration of 100 HTTP-429 rows. Run
+`8d3de92d-86cb-4682-8b82-f0a79fb5deac` records restoration of 98 canonical
+dish IDs from the rollback evidence onto surviving photo identities.
 
-> I just did some light QA, and I noticed that if you go to the Olive Garden on
-> Overland Drive in Temecula, there's a ton of duplicate photos. Can you
-> diagnose why this is the case? I expect it's impacting lots of our
-> restaurants. Fix it and then explain the results to me and tell me how that
-> affected our data strength.
+The original Temecula set had 10,637 active rows. It now has 7,812: 7,686
+byte-verified unique images and 126 temporarily unreachable rows retained for
+later remeasurement. The cleanup deactivated 1,114 exact copies and 1,711
+confirmed undeliverable or non-image rows. No exact active hash duplicates
+remain. Link-aware measurement now finds 4,408 matched unique photos across
+4,364 dishes and 22 comparison-ready dishes; the small increase over the
+pre-cleanup 4,405/4,361 is recovered association credit, not invented images.
+Near-duplicate candidates,
+cross-location chain/template reuse, provenance, and multi-item links were not
+deleted.
 
-Treat this as a systemic data-quality investigation, not a one-restaurant visual
-patch.
-
-1. Reproduce the Olive Garden issue and record a before-state.
-2. Distinguish exact duplicate records, repeated origin URLs, identical bytes at
-   different URLs or sizes, cross-source copies, one photo attached to multiple
-   menu items, chain/template reuse, and legitimate near-duplicate photos.
-3. Trace every duplication class through acquisition, normalization, storage,
-   matching, read APIs, and presentation.
-4. Sample other Temecula restaurants and at least one chain to establish blast
-   radius before choosing the fix.
-5. Preserve legitimate separate photos, source attribution, and menu matches.
-   Prefer durable ingest/storage identity controls plus a safe cleanup path;
-   use UI grouping only where it represents the intended product.
-6. Make cleanup idempotent, scoped, logged, and reversible. Create a rollback
-   point before changing production data.
-7. Measure before and after: total photo records, genuinely unique photos,
-   affected restaurants and menu items, useful menu-photo coverage, comparison
-   coverage, duplicate inflation removed, and any legitimate coverage lost.
-8. Add focused tests, run the full verification bar, deploy, and verify the
-   actual Olive Garden production experience.
-9. Report the result in nontechnical language and state honestly whether
-   SeeFood's real data strength rose, stayed level while its metrics became more
-   truthful, or both.
+Olive Garden on Overland has 11 active, byte-unique photos instead of 25
+inflated rows. The root cause was changing Google photo-reference tokens being
+treated as identity across the three-snapshot retirement window. A separate
+website extractor bug also treated arbitrary metadata such as viewport values
+and theme colors as image URLs. Both responsible layers are fixed; the UI did
+not receive a cosmetic duplicate-hiding rule.
 
 ## Handoff Maintenance
 

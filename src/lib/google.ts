@@ -2,6 +2,11 @@ import { Restaurant, DishPhoto, MenuItemData, DataSource } from "./types";
 import { extractPopularDishes } from "./reviewParser";
 import { fetchMenuFromUrl } from "./menuSources";
 import { defaultPhotoQuality, heroScore, withPhotoSignals } from "./photoSignals";
+import {
+  fingerprintPhoto,
+  isImageContentType,
+  isTransientPhotoFetchStatus,
+} from "./photoFingerprint";
 
 const API_KEY   = process.env.GOOGLE_MAPS_API_KEY!.trim();
 const VISION_KEY = (process.env.VISION_API_KEY || API_KEY).trim();
@@ -248,14 +253,44 @@ export function extractGrubhubItems(obj: unknown, out: MenuItemData[]): void {
 
 async function fetchImageAsBase64(
   url: string
-): Promise<{ data: string; mimeType: string } | null> {
+): Promise<{
+  data: string;
+  mimeType: string;
+  contentHash: string;
+  perceptualHash: string;
+} | null | undefined> {
+  let res: Response;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return null;
-    const buffer = await res.arrayBuffer();
-    const contentType = res.headers.get("content-type") ?? "image/jpeg";
-    const mimeType = contentType.split(";")[0].trim() || "image/jpeg";
-    return { data: Buffer.from(buffer).toString("base64"), mimeType };
+    res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  } catch {
+    return undefined;
+  }
+  if (!res.ok) {
+    // A timeout, rate limit, or upstream outage says nothing about whether
+    // the photo itself is valid. Preserve those candidates without a hash;
+    // only stable client errors are evidence that this URL is unusable.
+    if (isTransientPhotoFetchStatus(res.status)) {
+      return undefined;
+    }
+    return null;
+  }
+  const contentType = res.headers.get("content-type");
+  if (!isImageContentType(contentType)) return null;
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(await res.arrayBuffer());
+  } catch {
+    return undefined;
+  }
+  if (buffer.length === 0) return null;
+  try {
+    const fingerprint = await fingerprintPhoto(buffer);
+    const mimeType = contentType!.split(";")[0].trim() || "image/jpeg";
+    return {
+      data: buffer.toString("base64"),
+      mimeType,
+      ...fingerprint,
+    };
   } catch {
     return null;
   }
@@ -271,16 +306,21 @@ async function fetchImageAsBase64(
  * originalIdx it's byte-identical to.
  */
 function findExactImageDuplicates(
-  images: ({ data: string; mimeType: string } | null)[],
+  images: ({
+    data: string;
+    mimeType: string;
+    contentHash: string;
+    perceptualHash: string;
+  } | null | undefined)[],
   validIndices: number[]
 ): Map<number, number> {
   const seen = new Map<string, number>();
   const duplicates = new Map<number, number>();
   for (const idx of validIndices) {
-    const data = images[idx]!.data;
-    const earlier = seen.get(data);
+    const contentHash = images[idx]!.contentHash;
+    const earlier = seen.get(contentHash);
     if (earlier !== undefined) duplicates.set(idx, earlier);
-    else seen.set(data, idx);
+    else seen.set(contentHash, idx);
   }
   return duplicates;
 }
@@ -302,6 +342,8 @@ interface GeminiResult {
   photoQualityScore: number;
   /** Original analysisUrls index of an earlier near-duplicate photo, or null. */
   duplicateOfIndex: number | null;
+  contentHash: string | null;
+  perceptualHash: string | null;
 }
 
 // A name is unusable if it looks cut off mid-thought — trailing conjunctions,
@@ -339,14 +381,23 @@ async function analyzePhotosWithGeminiBatch(
     isStorefront: false,
     photoQualityScore: 55,
     duplicateOfIndex: null,
+    contentHash: null,
+    perceptualHash: null,
+  };
+  const invalidImage: GeminiResult = {
+    ...fallback,
+    isFood: false,
+    isOrderable: false,
   };
   if (analysisUrls.length === 0) return [];
 
   const images = await Promise.all(analysisUrls.map(fetchImageAsBase64));
   const validIndices = images
-    .map((img, i) => (img ? i : -1))
+    .map((img, i) => (img && "data" in img ? i : -1))
     .filter((i) => i >= 0);
-  if (validIndices.length === 0) return analysisUrls.map(() => fallback);
+  if (validIndices.length === 0) {
+    return images.map((image) => image === undefined ? fallback : invalidImage);
+  }
 
   const hasMenu = menuItems.length > 0;
   const referenceNames: string[] = hasMenu
@@ -463,14 +514,26 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
           (typeof dupNum === "number" && dupNum >= 1 && dupNum <= validIndices.length && validIndices[dupNum - 1] !== originalIdx
             ? validIndices[dupNum - 1]
             : null);
+        result.contentHash = images[originalIdx]!.contentHash;
+        result.perceptualHash = images[originalIdx]!.perceptualHash;
         out[originalIdx] = result;
+      });
+      images.forEach((image, index) => {
+        if (image === null) out[index] = invalidImage;
       });
       return out;
     } catch (e) {
       console.error(`[Gemini batch] ${model} request failed:`, e);
     }
   }
-  return analysisUrls.map(() => fallback);
+  return images.map((image) => image && "data" in image
+    ? {
+        ...fallback,
+        contentHash: image.contentHash,
+        perceptualHash: image.perceptualHash,
+      }
+    : image === undefined ? fallback : invalidImage
+  );
 }
 
 function resolveGeminiEntry(
@@ -501,6 +564,8 @@ function resolveGeminiEntry(
     isStorefront: false,
     photoQualityScore: 55,
     duplicateOfIndex: null,
+    contentHash: null,
+    perceptualHash: null,
   };
   if (!entry) return fallback;
   if (!entry.isFood || !entry.isOrderable || entry.isPromotional || !entry.name) {
@@ -515,6 +580,8 @@ function resolveGeminiEntry(
       isStorefront: !!entry.isStorefront,
       photoQualityScore: Math.min(100, Math.max(0, Number(entry.photoQualityScore) || 40)),
       duplicateOfIndex: null,
+      contentHash: null,
+      perceptualHash: null,
     };
   }
 
@@ -531,6 +598,8 @@ function resolveGeminiEntry(
       isStorefront: false,
       photoQualityScore: Math.min(100, Math.max(0, Number(entry.photoQualityScore) || 55)),
       duplicateOfIndex: null,
+      contentHash: null,
+      perceptualHash: null,
     };
   }
 
@@ -565,6 +634,8 @@ function resolveGeminiEntry(
     isStorefront: false,
     photoQualityScore: Math.min(100, Math.max(0, Number(entry.photoQualityScore) || 55)),
     duplicateOfIndex: null,
+    contentHash: null,
+    perceptualHash: null,
   };
 }
 
@@ -579,21 +650,37 @@ function resolveGeminiEntry(
 // food photo, so only unambiguous marketing graphics get flagged.
 
 interface PreLabeledQualityResult {
+  isValidImage: boolean;
   isPromotional: boolean;
   duplicateOfIndex: number | null; // index within `photos` of an earlier duplicate, or null
   photoQualityScore: number;
+  contentHash: string | null;
+  perceptualHash: string | null;
 }
 
 async function assessPreLabeledPhotos(
   photos: DishPhoto[],
   restaurantName: string
 ): Promise<PreLabeledQualityResult[]> {
-  const fallback: PreLabeledQualityResult = { isPromotional: false, duplicateOfIndex: null, photoQualityScore: 70 };
+  const fallback: PreLabeledQualityResult = {
+    isValidImage: true,
+    isPromotional: false,
+    duplicateOfIndex: null,
+    photoQualityScore: 70,
+    contentHash: null,
+    perceptualHash: null,
+  };
+  const invalidImage: PreLabeledQualityResult = {
+    ...fallback,
+    isValidImage: false,
+  };
   if (photos.length === 0) return [];
 
   const images = await Promise.all(photos.map((p) => fetchImageAsBase64(p.url)));
-  const validIndices = images.map((img, i) => (img ? i : -1)).filter((i) => i >= 0);
-  if (validIndices.length === 0) return photos.map(() => fallback);
+  const validIndices = images.map((img, i) => (img && "data" in img ? i : -1)).filter((i) => i >= 0);
+  if (validIndices.length === 0) {
+    return images.map((image) => image === undefined ? fallback : invalidImage);
+  }
 
   const promptIntro = `You are reviewing ${validIndices.length} photos "${restaurantName}" itself uploaded to its ordering menu, numbered in order (Photo 1, Photo 2, ...). Each is already labeled with a real dish name from the menu — you do NOT need to identify the dish.
 
@@ -663,17 +750,30 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
             ? validIndices[dupNum - 1]
             : null);
         out[originalIdx] = {
+          isValidImage: true,
           isPromotional: !!entry?.isPromotional,
           duplicateOfIndex: dupOriginalIdx,
           photoQualityScore: Math.min(100, Math.max(0, Number(entry?.photoQualityScore) || 70)),
+          contentHash: images[originalIdx]!.contentHash,
+          perceptualHash: images[originalIdx]!.perceptualHash,
         };
+      });
+      images.forEach((image, index) => {
+        if (image === null) out[index] = invalidImage;
       });
       return out;
     } catch (e) {
       console.error(`[Pre-labeled quality] ${model} request failed:`, e);
     }
   }
-  return photos.map(() => fallback);
+  return images.map((image) => image && "data" in image
+    ? {
+        ...fallback,
+        contentHash: image.contentHash,
+        perceptualHash: image.perceptualHash,
+      }
+    : image === undefined ? fallback : invalidImage
+  );
 }
 
 // ── Menu-photo OCR ─────────────────────────────────────────────────────────────
@@ -1105,6 +1205,8 @@ export async function finalizeWithGemini(
       isStorefront: false,
       photoQualityScore: 55,
       duplicateOfIndex: null,
+      contentHash: null,
+      perceptualHash: null,
     };
     // Drop non-food, non-orderable (facility/decor/fridge shots), promotional
     // ad graphics, and menu-board photos — confirmed live July 2026: Cross
@@ -1133,6 +1235,8 @@ export async function finalizeWithGemini(
         isHeroCandidate: !!result.dishName && !result.isStorefront && result.photoQualityScore >= 55,
         isStorefront: result.isStorefront,
         isMenuPhoto: result.isMenuPhoto,
+        contentHash: result.contentHash,
+        perceptualHash: result.perceptualHash,
       });
     geminiPhotos.push({
       photo,
@@ -1151,7 +1255,7 @@ export async function finalizeWithGemini(
   const PRE_LABELED_SCORE = 60;
   const scoredPreLabeled = preLabeledPhotos
     .map((photo, i) => ({ photo, quality: preLabeledQuality[i] }))
-    .filter(({ quality }) => !quality?.isPromotional && quality?.duplicateOfIndex === null)
+    .filter(({ quality }) => quality?.isValidImage && !quality.isPromotional && quality.duplicateOfIndex === null)
     .map(({ photo, quality }) => {
       const signaled = withPhotoSignals({
         ...photo,
@@ -1161,6 +1265,8 @@ export async function finalizeWithGemini(
         isHeroCandidate: !!photo.dishName && (quality?.photoQualityScore ?? 70) >= 55,
         isStorefront: false,
         isMenuPhoto: false,
+        contentHash: quality?.contentHash ?? null,
+        perceptualHash: quality?.perceptualHash ?? null,
       });
       return { photo: signaled, score: heroScore(signaled) };
     });

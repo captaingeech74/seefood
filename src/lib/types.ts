@@ -84,6 +84,10 @@ export interface DishPhoto {
   submittedAt?: string | null;
   moderationStatus?: ModerationStatus;
   duplicateHash?: string | null;
+  /** Stable acquisition identity. Exact bytes drive automatic deduplication. */
+  contentHash?: string | null;
+  /** 64-bit dHash for conservative near-duplicate auditing only. */
+  perceptualHash?: string | null;
   abuseFlags?: string[];
 }
 

@@ -55,6 +55,8 @@ interface PhotoRow {
   submitted_at: string | null;
   moderation_status: string | null;
   duplicate_hash: string | null;
+  content_hash: string | null;
+  perceptual_hash: string | null;
   abuse_flags: string[] | null;
   active?: boolean | null;
 }
@@ -95,6 +97,8 @@ function rowToDishPhoto(p: PhotoRow, menuItem?: MenuItemRow): DishPhoto {
     submittedAt: p.submitted_at,
     moderationStatus: (p.moderation_status as DishPhoto["moderationStatus"]) ?? "approved",
     duplicateHash: p.duplicate_hash,
+    contentHash: p.content_hash,
+    perceptualHash: p.perceptual_hash,
     abuseFlags: p.abuse_flags ?? [],
   });
 }
@@ -1328,6 +1332,33 @@ async function retireMissingSourceRows(
   }
 }
 
+async function retireMissingPhotos(
+  placeId: string,
+  source: string,
+  photos: DishPhoto[]
+): Promise<void> {
+  const { data } = await supabase
+    .from("photos")
+    .select("id,origin_url,content_hash,missing_streak")
+    .eq("restaurant_id", placeId)
+    .eq("source", source)
+    .eq("active", true);
+  const seenHashes = new Set(photos.flatMap((photo) => photo.contentHash ?? []));
+  const seenOrigins = new Set(photos.map((photo) => photo.url));
+  const missing = (data ?? []).filter((row) =>
+    row.content_hash
+      ? !seenHashes.has(row.content_hash) && !seenOrigins.has(String(row.origin_url))
+      : !seenOrigins.has(String(row.origin_url))
+  );
+  for (const row of missing) {
+    const next = (row.missing_streak ?? 0) + 1;
+    await supabase.from("photos").update({
+      missing_streak: next,
+      active: next < SOURCE_RETIREMENT_MISSES,
+    }).eq("id", row.id);
+  }
+}
+
 async function finishSourceSnapshot(input: {
   snapshotId: string;
   entityId: string;
@@ -1526,6 +1557,8 @@ export async function savePhotos(
     isHeroCandidate?: boolean;
     isStorefront?: boolean;
     isMenuPhoto?: boolean;
+    contentHash?: string | null;
+    perceptualHash?: string | null;
   }>,
   options: { snapshotId?: string } = {}
 ): Promise<void> {
@@ -1540,10 +1573,13 @@ export async function savePhotos(
   // (Google/website candidates) occasionally repeats the identical URL
   // within one restaurant's candidate set, which previously nuked the
   // entire restaurant's save instead of just silently keeping one copy.
-  const seen = new Set<string>();
+  const seenOrigins = new Set<string>();
+  const seenHashes = new Set<string>();
   const deduped = photos.filter((p) => {
-    if (seen.has(p.originUrl)) return false;
-    seen.add(p.originUrl);
+    if (seenOrigins.has(p.originUrl)) return false;
+    if (p.contentHash && seenHashes.has(p.contentHash)) return false;
+    seenOrigins.add(p.originUrl);
+    if (p.contentHash) seenHashes.add(p.contentHash);
     return true;
   });
 
@@ -1552,45 +1588,165 @@ export async function savePhotos(
     deduped.filter((p) => p.geminiLabel).map((p) => ({ name: p.geminiLabel! }))
   );
   const now = new Date().toISOString();
+  const hashes = deduped.flatMap((photo) => photo.contentHash ?? []);
+  const { data: existingHashRows } = hashes.length
+    ? await supabase
+      .from("photos")
+      .select("id,content_hash,perceptual_hash,origin_url,storage_url,source,attribution,source_platform,photo_author_type,trust_label,is_orderable,tier,width,height,gemini_label,menu_item_id,canonical_dish_id,photo_quality_score,dish_popularity_score,is_hero_candidate,is_storefront,is_menu_photo")
+      .eq("restaurant_id", placeId)
+      .in("content_hash", hashes)
+      .is("duplicate_of_photo_id", null)
+    : { data: [] };
+  const existingByHash = new Map(
+    (existingHashRows ?? []).map((row) => [row.content_hash as string, row])
+  );
+
   const rows = deduped.map((p) => {
     const source = p.source as DishPhoto["source"];
     const authorType = normalizePhotoAuthor(source, p.attribution as DishPhoto["attribution"]);
+    const existing = p.contentHash ? existingByHash.get(p.contentHash) : undefined;
+    const existingTier = Number(existing?.tier ?? 3);
+    const nextTier = Math.min(existingTier, p.tier);
+    const existingLabel = existing?.gemini_label as string | null | undefined;
+    const existingMenuItemId = existing?.menu_item_id as number | null | undefined;
+    const nextLabel = existingLabel ?? p.geminiLabel ?? null;
+    const nextCanonical = nextLabel ? canonical.get(normalizeDishName(nextLabel)) ?? existing?.canonical_dish_id ?? null : existing?.canonical_dish_id ?? null;
     return {
+      id: existing?.id as number | undefined,
       restaurant_id: placeId,
-      origin_url: p.originUrl,
-      storage_url: p.storageUrl ?? null,
-      source: p.source,
-      attribution: p.attribution,
-      source_platform: p.source,
-      photo_author_type: authorType,
-      trust_label: trustLabel(source, authorType),
-      is_orderable: p.isOrderable,
-      tier: p.tier,
-      width: p.width,
-      height: p.height,
-      gemini_label: p.geminiLabel ?? null,
-      menu_item_id: p.menuItemId ?? null,
-      canonical_dish_id: p.geminiLabel ? canonical.get(normalizeDishName(p.geminiLabel)) ?? null : null,
+      origin_url: existing?.origin_url ?? p.originUrl,
+      storage_url: p.storageUrl ?? existing?.storage_url ?? null,
+      source: existing?.source ?? p.source,
+      attribution: existing?.attribution ?? p.attribution,
+      source_platform: existing?.source_platform ?? p.source,
+      photo_author_type: existing?.photo_author_type ?? authorType,
+      trust_label: existing?.trust_label ?? trustLabel(source, authorType),
+      is_orderable: existing?.is_orderable ?? p.isOrderable,
+      tier: nextTier,
+      width: existing?.width ?? p.width,
+      height: existing?.height ?? p.height,
+      gemini_label: nextLabel,
+      menu_item_id: existingMenuItemId ?? p.menuItemId ?? null,
+      canonical_dish_id: nextCanonical,
       source_snapshot_id: options.snapshotId ?? null,
       active: true,
       last_seen_at: now,
       missing_streak: 0,
-      photo_quality_score: p.photoQualityScore ?? 0,
-      dish_popularity_score: p.dishPopularityScore ?? 0,
-      is_hero_candidate: p.isHeroCandidate ?? false,
-      is_storefront: p.isStorefront ?? false,
-      is_menu_photo: p.isMenuPhoto ?? false,
+      photo_quality_score: Math.max(Number(existing?.photo_quality_score ?? 0), p.photoQualityScore ?? 0),
+      dish_popularity_score: Math.max(Number(existing?.dish_popularity_score ?? 0), p.dishPopularityScore ?? 0),
+      is_hero_candidate: Boolean(existing?.is_hero_candidate || p.isHeroCandidate),
+      is_storefront: Boolean(existing?.is_storefront || p.isStorefront),
+      is_menu_photo: Boolean(existing?.is_menu_photo || p.isMenuPhoto),
+      content_hash: p.contentHash ?? null,
+      perceptual_hash: p.perceptualHash ?? existing?.perceptual_hash ?? null,
+      duplicate_of_photo_id: null,
+      dedupe_reason: null,
+      dedupe_run_id: null,
+      deduped_at: null,
     };
   });
-  // Upsert on (restaurant_id, origin_url), not insert: every repeat crawl/live
-  // re-persist of an already-seen restaurant used to append a full duplicate
-  // copy of every photo (see db/schema.sql migration note). The unique index
-  // there makes this the only safe way to write.
-  const { error } = await supabase
-    .from("photos")
-    .upsert(rows, { onConflict: "restaurant_id,origin_url" });
-  if (error) console.error("[corpus] savePhotos failed:", error.message);
-  else await refreshRestaurantPhotoSignals(placeId);
+  const hashedRows = rows.filter((row) => row.content_hash);
+  const unhashedRows = rows.filter((row) => !row.content_hash);
+  const savedRows: Array<{ id: number; content_hash: string | null; origin_url: string | null }> = [];
+  if (hashedRows.length) {
+    // The database enforces one active hash per restaurant with a partial
+    // unique index. Update known canonical rows by primary key so archived
+    // duplicate rows remain available for rollback; insert only genuinely
+    // new hashes.
+    const existingRows = hashedRows.filter((row) => row.id);
+    const newRows = hashedRows.filter((row) => !row.id).map(({ id: _id, ...row }) => row);
+    if (existingRows.length) {
+      const { data, error } = await supabase
+        .from("photos")
+        .upsert(existingRows, { onConflict: "id" })
+        .select("id,content_hash,origin_url");
+      if (error) console.error("[corpus] savePhotos canonical hash update failed:", error.message);
+      else savedRows.push(...(data ?? []));
+    }
+    if (newRows.length) {
+      const { data, error } = await supabase
+        .from("photos")
+        .insert(newRows)
+        .select("id,content_hash,origin_url");
+      if (!error) {
+        savedRows.push(...(data ?? []));
+      } else if (error.code === "23505") {
+        // A concurrent crawl may have inserted the same hash after our
+        // initial lookup. Resolve that race to the now-canonical rows rather
+        // than losing provenance/menu links for the batch.
+        const { data: racedRows, error: racedError } = await supabase
+          .from("photos")
+          .select("id,content_hash,origin_url")
+          .eq("restaurant_id", placeId)
+          .eq("active", true)
+          .in("content_hash", newRows.flatMap((row) => row.content_hash ?? []));
+        if (racedError) console.error("[corpus] savePhotos hash race lookup failed:", racedError.message);
+        else {
+          savedRows.push(...(racedRows ?? []));
+          const racedHashes = new Set((racedRows ?? []).map((row) => row.content_hash));
+          const stillNew = newRows.filter((row) => !racedHashes.has(row.content_hash));
+          if (stillNew.length) {
+            const { data: retriedRows, error: retryError } = await supabase
+              .from("photos")
+              .insert(stillNew)
+              .select("id,content_hash,origin_url");
+            if (retryError) console.error("[corpus] savePhotos hash race retry failed:", retryError.message);
+            else savedRows.push(...(retriedRows ?? []));
+          }
+        }
+      } else {
+        console.error("[corpus] savePhotos new hashes failed:", error.message);
+      }
+    }
+  }
+  if (unhashedRows.length) {
+    const { data, error } = await supabase
+      .from("photos")
+      .upsert(unhashedRows, { onConflict: "restaurant_id,origin_url" })
+      .select("id,content_hash,origin_url");
+    if (error) console.error("[corpus] savePhotos by origin failed:", error.message);
+    else savedRows.push(...(data ?? []));
+  }
+
+  const idByHash = new Map(savedRows.flatMap((row) => row.content_hash ? [[row.content_hash, row.id] as const] : []));
+  const idByOrigin = new Map(savedRows.flatMap((row) => row.origin_url ? [[row.origin_url, row.id] as const] : []));
+  const provenanceRows = photos.flatMap((photo) => {
+    const photoId = (photo.contentHash ? idByHash.get(photo.contentHash) : undefined) ?? idByOrigin.get(photo.originUrl);
+    if (!photoId) return [];
+    const source = photo.source as DishPhoto["source"];
+    const authorType = normalizePhotoAuthor(source, photo.attribution as DishPhoto["attribution"]);
+    return [{
+      photo_id: photoId,
+      restaurant_id: placeId,
+      source: photo.source,
+      origin_url: photo.originUrl,
+      storage_url: photo.storageUrl ?? null,
+      attribution: photo.attribution,
+      photo_author_type: authorType,
+      source_snapshot_id: options.snapshotId ?? null,
+      content_hash: photo.contentHash ?? null,
+      last_seen_at: now,
+    }];
+  });
+  if (provenanceRows.length) {
+    const { error } = await supabase
+      .from("photo_origins")
+      .upsert(provenanceRows, { onConflict: "restaurant_id,source,origin_url" });
+    if (error) console.error("[corpus] photo provenance save failed:", error.message);
+  }
+
+  const linkRows = photos.flatMap((photo) => {
+    if (!photo.menuItemId) return [];
+    const photoId = (photo.contentHash ? idByHash.get(photo.contentHash) : undefined) ?? idByOrigin.get(photo.originUrl);
+    return photoId ? [{ photo_id: photoId, menu_item_id: photo.menuItemId, source: photo.source }] : [];
+  });
+  if (linkRows.length) {
+    const { error } = await supabase
+      .from("photo_menu_item_links")
+      .upsert(linkRows, { onConflict: "photo_id,menu_item_id" });
+    if (error) console.error("[corpus] photo menu-link save failed:", error.message);
+  }
+  if (savedRows.length) await refreshRestaurantPhotoSignals(placeId);
 }
 
 /**
@@ -1803,6 +1959,8 @@ async function reconcileSourceBatch(
       isHeroCandidate: p.isHeroCandidate,
       isStorefront: p.isStorefront,
       isMenuPhoto: p.isMenuPhoto,
+      contentHash: p.contentHash,
+      perceptualHash: p.perceptualHash,
     })), { snapshotId: snapshot.id });
 
     if (sourceItems.length > 0) {
@@ -1810,7 +1968,7 @@ async function reconcileSourceBatch(
     } else {
       await retireMissingSourceRows("menu_items", placeId, source, [], "source_key");
     }
-    await retireMissingSourceRows("photos", placeId, source, photos.map((photo) => photo.url), "origin_url");
+    await retireMissingPhotos(placeId, source, photos);
     await finishSourceSnapshot({
       snapshotId: snapshot.id,
       entityId: snapshot.entityId,

@@ -1607,3 +1607,52 @@ starting, and verifying a transfer.
 Only one thread owns general production development at a time. The outgoing lead
 stops production edits once the new lead begins. SeeFood DataLab remains an
 isolated research role and never inherits general-development authority.
+
+## Photo identity is image content, not a source URL (July 23, 2026)
+
+The systemic Temecula duplicate-photo investigation proved that Google may
+return a new `photo_reference` token for the same underlying image on each
+crawl. The corpus treated that changing URL as photo identity, while the
+three-successful-snapshot retirement window kept the preceding tokens active.
+Olive Garden on Overland therefore showed 25 active rows even though only 11
+byte-unique images existed. The UI grouped by dish name correctly; it was
+rendering storage inflation rather than creating it.
+
+Exact SHA-256 image content is now the only automatic acquired-photo
+deduplication identity within a restaurant. A 64-bit perceptual hash identifies
+resized, re-encoded, or visually similar candidates for audit, but never
+automatically deletes them. Ingest validates that fetched bytes decode as an
+image, compares new photos with the persisted corpus, updates a canonical photo,
+and records every observed source URL in `photo_origins`. Every legitimate
+photo-to-menu-item association remains in `photo_menu_item_links`, and coverage
+metrics count a physical image once while crediting all of its real dish links.
+The database enforces one active exact content hash per restaurant.
+
+The website asset extractor may read only real image-bearing elements and
+metadata (`img`, `source`, video posters, Open Graph/Twitter image metadata, and
+image preload links). It must never treat arbitrary `<meta content>` values
+such as viewport configuration, theme colors, or canonical page URLs as photos.
+
+The production cleanup was scoped, measured, logged, and reversible. Rollback
+tag `pre-photo-content-dedupe-2026-07-23` points to the pre-change application
+state. The original Temecula corpus had 10,637 active photo rows. Cleanup
+deactivated 1,114 byte-identical copies and 1,711 confirmed undeliverable or
+non-image rows, leaving 7,686 verified unique images plus 126 temporarily
+unreachable rows retained rather than guessed invalid. HTTP 429 is explicitly
+treated as temporary; 100 such rows were restored in audit run
+`59c8ee33-f24d-4a4b-a86b-3b49f7ee3180`.
+
+The exact duplicates affected 79 restaurants and 98 menu items, including both
+chains and independents. There were no exact cross-source groups. Thirty-five
+duplicate groups had legitimate links to multiple menu items, so those links
+were merged onto the canonical photo. Another 3,451 perceptual near-duplicate
+pairs and 407 cross-location chain/template groups were preserved. Useful
+coverage did not fall. The pre-cleanup audit found 4,405 matched unique photos
+and 4,361 matched dishes; the link-aware post-cleanup calculation finds 4,408
+and 4,364 because it credits three legitimate preserved associations the old
+single-row calculation missed. The 22 comparison-ready dishes remained.
+Metadata-repair run `8d3de92d-86cb-4682-8b82-f0a79fb5deac` restored 98
+canonical dish IDs from the cleanup log after the idempotency audit caught that
+the best label and canonical ID could live on different duplicate rows. The
+cleanup did not invent new unique food content; it made current strength
+measurable and improved the reliability of future acquisition.

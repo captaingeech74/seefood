@@ -211,16 +211,32 @@ export function extractPageAssets(html: string, baseUrl: string): { photoUrls: s
     if (!candidate || candidate.startsWith("data:") || candidate.startsWith("blob:") || NON_FOOD_IMAGE_HINTS.test(candidate)) return;
     try { photoUrls.push(new URL(candidate, base).href); } catch {}
   };
-  $("img,source,video,meta,link").each((_, element) => {
+  $("img").each((_, element) => {
     const node = $(element);
-    for (const attribute of ["src", "data-src", "data-lazy-src", "data-original", "data-image", "poster", "content"]) {
+    for (const attribute of ["src", "data-src", "data-lazy-src", "data-original", "data-image"]) {
       addPhoto(node.attr(attribute));
     }
     for (const attribute of ["srcset", "data-srcset"]) {
       const srcset = node.attr(attribute);
       if (srcset) for (const entry of srcset.split(",")) addPhoto(entry.trim().split(/\s+/)[0]);
     }
-    if (node.is('link[rel="preload"][as="image"]')) addPhoto(node.attr("href"));
+  });
+  $("source").each((_, element) => {
+    const node = $(element);
+    addPhoto(node.attr("src"));
+    for (const attribute of ["srcset", "data-srcset"]) {
+      const srcset = node.attr(attribute);
+      if (srcset) for (const entry of srcset.split(",")) addPhoto(entry.trim().split(/\s+/)[0]);
+    }
+  });
+  $("video[poster]").each((_, element) => addPhoto($(element).attr("poster")));
+  $("meta[property='og:image'],meta[property='og:image:url'],meta[name='twitter:image'],meta[name='twitter:image:src']")
+    .each((_, element) => addPhoto($(element).attr("content")));
+  $("link[rel='image_src'],link[rel='preload'][as='image']").each((_, element) => {
+    const node = $(element);
+    addPhoto(node.attr("href"));
+    const srcset = node.attr("imagesrcset");
+    if (srcset) for (const entry of srcset.split(",")) addPhoto(entry.trim().split(/\s+/)[0]);
   });
   $("[style*='url(']").each((_, element) => {
     const style = $(element).attr("style") ?? "";

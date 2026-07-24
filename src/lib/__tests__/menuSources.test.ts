@@ -7,6 +7,7 @@ import {
   parseSchemaOrgMenuItems,
   detectOrderingPlatform,
   extractEmbeddedJsonMenuItems,
+  extractPageAssets,
 } from "../menuSources";
 
 function fixture(name: string): string {
@@ -54,6 +55,25 @@ describe("Schema.org LD+JSON", () => {
 
     const cheeseburger = items.find((i) => i.name === "Classic Cheeseburger");
     expect(cheeseburger?.price).toBe(12.5);
+  });
+});
+
+describe("Website photo extraction", () => {
+  it("only treats image-bearing metadata as photos", () => {
+    const html = `
+      <meta name="viewport" content="width=device-width">
+      <meta name="theme-color" content="#FFFFFF">
+      <meta property="og:url" content="/locations/1678">
+      <meta property="og:image" content="/food/alfredo.jpg">
+      <link rel="preload" as="image" href="/food/salad.webp">
+      <img src="/food/scampi.jpg" srcset="/food/scampi-small.jpg 400w, /food/scampi.jpg 800w">
+    `;
+    expect(extractPageAssets(html, "https://example.com/locations/temecula").photoUrls).toEqual([
+      "https://example.com/food/scampi.jpg",
+      "https://example.com/food/scampi-small.jpg",
+      "https://example.com/food/alfredo.jpg",
+      "https://example.com/food/salad.webp",
+    ]);
   });
 });
 
