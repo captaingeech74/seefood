@@ -204,6 +204,35 @@ in the documented review API, and Clover does not currently document item
 images. The Customer side of SeeFood's comparison pair is still the binding
 problem.
 
+## Post-Record Correction — 2026-07-23
+
+After this experiment was committed, Kyle asked specifically whether
+Tripadvisor photo captions or linked comments could support menu matching. A
+new primary-source check found a materially newer product surface:
+
+- [Tripadvisor Terra overview](https://docs.terra.tripadvisor.com/docs/overview)
+  says the platform covers restaurants and delivers reviews and photos through
+  tiered APIs or feeds.
+- [Terra Location Reviews](https://docs.terra.tripadvisor.com/reference/locationreviewsget)
+  describes restaurant/location reviews with titles, bodies, photos, and
+  reviewer details.
+- The legacy [PhotoList Mega Feed](https://developer-tripadvisor.com/partner/mega-feeds/photolist-mega-feed/index.html)
+  documents caption, author, photo ID, and review ID fields, while the
+  [partner portal](https://developer-tripadvisor.com/partner/index.html) says
+  those legacy products are migrating to Terra.
+- Tripadvisor's published [Master Terms](https://developer-tripadvisor.com/partner/master-partnerships-terms-and-conditions/index.html)
+  restrict AI/ML and algorithmic use, derivatives, combining licensed content
+  with other content, selective display, and caching unless an applicable
+  Order changes the rights.
+
+The earlier self-service two-photo response is not dispositive for the newer
+Terra path. This does not verify that current restaurant contracts expose
+captions or review IDs, that SeeFood may retain or display the content, or that
+national depth and pricing are viable. Without explicit written exceptions for
+matching and paired display, the path is unusable despite its technical
+promise. Prompt 2 now treats Tripadvisor Terra as a top research lead with a
+hard rights gate.
+
 ## Next Action
 
 Run DL-001 exactly as queued. After DL-002 freezes the baseline and cohorts,

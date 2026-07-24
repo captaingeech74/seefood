@@ -51,9 +51,10 @@ rights, and whether data may be combined with non-Toast Customer photos.
 **Delivery and refresh:** Menus V3 using partner tokens and the documented
 one-request-per-second/location limit. Webhooks or change feeds are not assumed.
 
-**Economics:** Unknown. Do not invent a per-item ceiling before the Temecula
-baseline establishes the value of one additional verified comparison-ready
-restaurant. No paid commitment may be made by the DataLab.
+**Economics:** Unknown. Do not invent a per-item ceiling before the national
+baseline and Temecula validation establish the value of one additional
+verified comparison-ready restaurant. No paid commitment may be made by the
+DataLab.
 
 **Coverage upside:** Unknown until the baseline, photo-field proof, merchant
 population, and authorized pilot. Gemini's nationwide upside language is not
@@ -230,7 +231,7 @@ recording the loss of structured modifier and image linkage.
 
 | Source | Why retained | Why not ready |
 |---|---|---|
-| Tripadvisor Content API | Documented reviews, Management-photo labeling, attribution fields, and up to two photos per location | Requires billing signup; exact item linkage and useful Customer-photo yield are unknown. Run DL-008 only after the baseline and Kyle approval. |
+| Tripadvisor Terra | Current docs describe restaurant reviews with photos, review text, and reviewer details; legacy partner feeds show caption and review-ID fields that may aid matching | Published Master Terms appear incompatible with SeeFood matching and pairing absent explicit written exceptions. Prompt 2 must resolve whether an Order can permit algorithmic dish matching, combination with Management content, selective display, retention, derived labels, and model use, plus national depth and economics. |
 
 ## Monitor, Not Outreach
 

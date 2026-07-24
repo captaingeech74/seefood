@@ -10,8 +10,9 @@ Final pre-implementation potential check; Gemini Prompt 2 is ready for Kyle.
 
 ## Current Goal
 
-Decide whether the combined Management-data and Customer-photo opportunity is
-large enough to justify the full DataLab workload.
+Decide whether the combined Management-data and Customer-photo opportunity can
+materially transform SeeFood's national data coverage. Temecula is the
+development and validation market, not the scope of the value case.
 
 ## Why This Comes First
 
@@ -51,14 +52,20 @@ first-party documentation:
   lists, but Gemini did not prove a complete bulk census frame.
 - Oracle's official GloriaFood end-of-service date is March 31, 2027, more
   precise than the report's repeated April 2027 wording.
-- Tripadvisor is self-service pay-as-you-go with up to two photos per location
-  and 5,000 free calls per month after billing signup, not strictly a bespoke
-  enterprise-only API.
+- A later official-documentation check found that Tripadvisor's newer Terra
+  platform describes restaurant reviews with photos, review text, and reviewer
+  details. Legacy partner feeds also document captions and review IDs. The
+  earlier two-photo Content API result is not dispositive for Terra; current
+  restaurant depth, field parity, rights, tiers, price, and national yield
+  remain unverified. Published Master Terms currently appear incompatible with
+  SeeFood's matching and paired-display use unless a negotiated Order grants
+  explicit exceptions.
 
 The independently challenged queue now puts recovery of already-held Customer
 photos and a read-only contribution-funnel audit ahead of new Management
-connectors. Square has a bounded schema-fixture experiment, and every retained
-High-value permission path has a complete evidence-gated brief. No coverage
+connectors. Tripadvisor Terra is elevated to a high-priority research lead, not
+accepted coverage. Square has a bounded schema-fixture experiment, and every
+retained High-value permission path has an evidence gate. No coverage
 improvement is claimed.
 
 ## Confidence

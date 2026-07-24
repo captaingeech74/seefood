@@ -8,6 +8,12 @@ that SeeFood can use immediately. Partner APIs, licensed datasets, restricted
 exports, merchant-mediated access, custom exceptions, and bespoke data deals
 are valid discoveries when they could materially change coverage.
 
+The value case is national. Temecula is the development slice, not the target
+market ceiling. A high-quality menu or Management-photo path may be strategically
+transformative on its own, but only when it has credible national reach; the
+claim that it will attract Customer contributions must be tested rather than
+assumed.
+
 The lab distinguishes discovery from execution:
 
 - Discovery asks whether the data would be valuable, what appears to exist, who
@@ -34,6 +40,9 @@ Rate High, Medium, Low, or Unknown using:
 - uniqueness beyond the frozen source stack;
 - geographic reach, freshness, refreshability, and expected economics; and
 - the strength of measured or cited evidence.
+
+For High technical value, require a credible national scaling path. A
+Temecula-only gain may validate mechanics but cannot establish strategic value.
 
 Do not reduce this rating merely because access is currently restricted.
 Projected value must be labeled `inferred`; only authorized, independently

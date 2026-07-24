@@ -26,6 +26,14 @@ measured.
 
 Do not count raw records or unmatched restaurant photos as coverage. The north
 star is strongly matched Management-versus-Customer comparison dishes.
+Transformative high-quality menu and Management-photo coverage may still be a
+strategic win, but its national reach and quality must be measured and any
+Customer-contribution flywheel must remain a hypothesis.
+
+Temecula is the development and validation market, not the scope of the value
+case. Prioritize only opportunities with a credible path to materially
+transform national coverage. Never promote a Temecula-only optimization as a
+game changer.
 
 Use `raw/`, `artifacts/`, and `tmp/` for generated data. These paths are ignored.
 Never commit credentials, session data, personal data, or large downloaded

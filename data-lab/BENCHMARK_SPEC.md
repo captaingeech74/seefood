@@ -323,6 +323,27 @@ repeatable incremental coverage, high identity and item-match precision,
 preserved provenance, known failure/cost behavior, and a plausible refresh
 path.
 
+## Strategic National Go/No-Go Screen
+
+The source-level promotion gates below can justify another bounded experiment
+or a useful connector recommendation. They do not by themselves justify the
+full DataLab program.
+
+For the larger program to proceed, at least one source or complementary
+portfolio of no more than three access paths must have a credible, evidenced
+route to one of these national outcomes:
+
+- at least a 20 percentage-point absolute increase in US restaurants with a
+  current menu and at least one strong Management photo; or
+- at least a twofold increase in strong Management-versus-Customer
+  comparison-ready restaurant coverage.
+
+Before the audited baseline exists, report low/base/high outcomes per 1,000
+eligible US restaurants and state the baseline required to pass the screen.
+After authorized measurement, gains must appear across multiple Census
+divisions, market-size strata, chains, and independents. A Temecula-only gain
+cannot pass; Temecula is the optimization and validation slice.
+
 ## Promotion Gates
 
 A recommendation to the main SeeFood thread requires:

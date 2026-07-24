@@ -227,9 +227,11 @@ opportunity and identify any evidence bearing on that hypothesis.
 The decision after this research is whether the potential justifies a large,
 multi-stage DataLab program. Do not return a generic source survey. Look for
 one source or a complementary portfolio of at most three sources that could
-plausibly transform Temecula coverage, repeat nationally, double SeeFood's
+plausibly transform SeeFood's data coverage nationally, double its
 comparison-ready coverage under a stated baseline scenario, or create a durable
-transaction-linked Customer photo acquisition loop.
+transaction-linked Customer photo acquisition loop. Temecula is the development
+and validation market, not the scope of the opportunity. A candidate cannot
+qualify as a game changer based only on improving Temecula.
 
 Research only. Do not create accounts, contact companies, use credentials,
 access private systems, crawl sites, bypass controls, or recommend evasion.
@@ -242,24 +244,53 @@ Use primary sources wherever possible. Every material claim must include an
 exact working URL, page title, publisher, and publication/update date when
 available. Mark secondary evidence and inference clearly. Do not label a
 capability verified without a citation that directly shows the relevant field
-or workflow. Every shortlisted candidate must have a primary-source citation
-that directly proves both the Customer-photo field/workflow and the stated
-access path. Move uncited candidates to Open Questions; do not shortlist them.
+or workflow. Every shortlisted Customer candidate must have a primary-source
+citation that directly proves both the Customer-photo field/workflow and the
+stated access path. Every shortlisted Management-only candidate must have
+equivalent primary proof for current menu/item-linked Management photos and
+access. Move uncited candidates to Open Questions; do not shortlist them.
 
 Already known; do not repeat these as discoveries:
 
-1. Tripadvisor's self-service Content API returns at most two photos per
-   location and does not document exact dish linkage.
-2. Yext documents item-linked Management menu photos, but its documented
+1. Yext documents item-linked Management menu photos, but its documented
    Reviews schemas do not show Customer photo fields.
-3. Generic image search, scraped social posts, and unattributed public photos
+2. Generic image search, scraped social posts, and unattributed public photos
    are not sufficient.
-4. Google Places photos do not provide SeeFood with reliable exact-item linkage.
-5. Flipdish, Square, Google Business Profile, Toast, and GloriaFood remain
-   Management-side opportunities. Mention them only when a Customer-photo path
-   can be paired with them.
-6. A source is not low value merely because access requires a partner deal or
+3. Google Places photos do not provide SeeFood with reliable exact-item linkage.
+4. Flipdish, Square, Google Business Profile, Toast, and GloriaFood remain
+   Management-side opportunities. Do not redo Prompt 1's source survey. Use
+   their prior evidenced potential when evaluating a combined portfolio or the
+   overall program, and clearly separate that prior evidence from new findings.
+5. A source is not low value merely because access requires a partner deal or
    custom permission.
+
+Resolve this high-priority Tripadvisor lead rather than relying on the earlier
+summary: Tripadvisor's current Terra documentation says the platform covers
+restaurants and delivers reviews and photos; its Location Reviews endpoint
+describes reviews with titles, bodies, photos, and reviewer details. Legacy
+partner PhotoList documentation exposes caption, author, photo ID, and review
+ID fields, but those products are migrating to Terra. Determine exactly which
+of those fields Terra exposes for restaurant reviews/photos, the available
+review/photo depth by tier or custom feed, national restaurant coverage,
+caption and review-to-photo linkage, whether that linkage is one-photo/one-dish
+or an ambiguous multi-photo/multi-dish review, permitted
+matching/display/retention use, pricing, and the smallest authorized sample. Do
+not assume legacy fields, restaurant eligibility, or rights carry into a
+current contract. Tripadvisor's published Master Terms restrict AI/ML and
+algorithmic use, modification/derivatives, combining licensed content with
+other content, selective display, and caching. Determine whether a negotiated
+Order can and realistically would grant explicit written exceptions for dish
+matching, pairing Customer photos with non-Tripadvisor Management menus/photos,
+matched-photo selection, persistent retention, derived dish labels, and any
+model inference or training. If not, treat the technical opportunity as
+commercially unusable for SeeFood.
+
+Start with:
+- https://docs.terra.tripadvisor.com/docs/overview
+- https://docs.terra.tripadvisor.com/reference/locationreviewsget
+- https://developer-tripadvisor.com/partner/mega-feeds/photolist-mega-feed/index.html
+- https://developer-tripadvisor.com/partner/index.html
+- https://developer-tripadvisor.com/partner/master-partnerships-terms-and-conditions/index.html
 
 Investigate five source classes deeply:
 
@@ -304,6 +335,26 @@ menu/photo production vendors, or other controllers that could unlock unusual
 scale. Do not include a dataset merely because it contains food images; it
 needs restaurant and dish value.
 
+F. Creative evidence fusion
+
+Investigate whether weak individual signals can combine into a high-precision,
+nationally repeatable item match: photo captions; linked review title/body;
+review IDs; author albums or upload sessions; timestamps; dish names mentioned
+near a photo; OCR of receipts, packaging, menus, or visible text; order-line
+context; multiple photos in one review; cross-source exact/perceptual duplicate
+evidence; and multimodal comparison against a current Management menu/photo.
+For each method, distinguish evidence usable for matching from content SeeFood
+may display, identify rights/privacy constraints, evaluate it against the fixed
+DataLab precision gates, and estimate how much national Customer-photo supply
+it could convert into strong matches. Do not treat model confidence alone as
+ground truth. A technically
+possible match is worthless if the applicable source terms prohibit the
+analysis, derived label, combination, retention, or display; identify the exact
+written exception needed. Do not invent a weaker source-specific quality bar:
+all projected strong matches must satisfy `BENCHMARK_SPEC.md`, including its
+item-match and provenance precision, wrong-restaurant, and duplicate-image
+requirements.
+
 For every credible candidate, determine:
 
 - whether photos already exist or would need to be newly collected;
@@ -343,26 +394,31 @@ Keep three judgments separate:
 Apply a high bar. A "game changer" may be one source or a complementary
 portfolio of at most three access paths. It should plausibly provide one of:
 
-- a step-change in high-quality current-menu and Management-photo coverage in
-  Temecula, with a credible path to repeat it nationally;
+- at least a plausible 20 percentage-point absolute increase in US restaurants
+  with a current menu and one strong Management photo;
 - an existing, rights-usable Customer-photo corpus with meaningful restaurant
-  and dish evidence at launch-changing scale;
+  and dish evidence at nationally meaningful scale;
 - an integration or partnership capable of producing verified,
-  line-item-linked contributions at launch-changing scale; or
+  line-item-linked contributions nationally; or
 - a defensible route to doubling SeeFood's comparison-ready restaurant
   coverage under at least one explicit baseline scenario.
 
 SeeFood's audited baseline is not yet available. Therefore, do not claim
 "doubling" from an assumed denominator. Report standardized low/base/high
-outcomes per 1,000 eligible restaurants, plus a Temecula launch scenario and a
-national replication scenario. Evaluate both individual sources and
-complementary portfolios. State what future measured baseline would be required
-for each candidate or portfolio to double coverage.
+outcomes per 1,000 eligible restaurants and total US addressable restaurants.
+Then show the expected Temecula result as a validation slice, not the value
+case. Evaluate both individual sources and complementary portfolios. State what
+future measured baseline would be required for each candidate or portfolio to
+double coverage.
 
 Return exactly these sections:
 
-1. Brutally honest verdict: Yes, No, or Unclear—does at least one plausible
-   Customer-photo game changer exist? Explain in no more than five bullets.
+1. Brutally honest verdict in no more than six bullets:
+   a. Customer side—Yes, No, or Unclear: does at least one plausible
+      Customer-photo game changer exist?
+   b. Overall program—Yes, No, or Unclear: can transformative national menu and
+      Management-photo gains, Customer-photo gains, or their combined flywheel
+      justify the full DataLab?
 2. Game-changer shortlist: at most five individual candidates and at most three
    complementary portfolios, ranked by potential rather than ease of access.
 3. Evidence matrix: one row per candidate with exact capability, existing
@@ -373,22 +429,27 @@ Return exactly these sections:
 5. Transaction-triggered acquisition findings: detailed evidence for class D,
    including the exact order-line-to-upload data flow when documented.
 6. Unconventional findings: detailed evidence for class E.
-7. Permission and deal briefs: for each shortlisted candidate, give the exact
+7. Creative matching findings: detailed evidence for class F, with a ranked
+   signal-fusion plan and realistic precision/coverage limits.
+8. Permission and deal briefs: for each shortlisted candidate, give the exact
    data/right ask, likely decision-maker, smallest pilot, mutual value exchange,
    delivery method, security/privacy/retention terms, pricing or minimums,
    success gate, negotiation stop condition, and fallback.
-8. Quantified upside: compare each candidate against the game-changer bar.
-   Separate sourced facts from arithmetic assumptions. Do not turn provider
-   marketing footprint into expected SeeFood coverage.
-9. Fast falsification plan: the smallest research, sample, or authorized pilot
+9. Quantified national upside: compare each candidate against the game-changer
+   bar. Separate sourced facts from arithmetic assumptions. Do not turn
+   provider marketing footprint into expected SeeFood coverage. Report
+   Temecula only as the first validation slice.
+10. Fast falsification plan: the smallest research, sample, or authorized pilot
    that could kill each thesis before substantial engineering.
-10. Rejected paths: false positives, weak generic-photo sources, Management-only
-    sources, and ideas lacking restaurant/dish identity.
-11. Open Questions: uncited but potentially important candidates, the exact
+11. Rejected paths: false positives, weak generic-photo sources,
+    non-transformative Management-only sources, and ideas lacking
+    restaurant/dish identity.
+12. Open Questions: uncited but potentially important candidates, the exact
     missing proof, and the primary source or decision-maker most likely to
     resolve it.
-12. Final recommendation: Proceed, Proceed only if one named permission is
-    obtained, or Stop. State the single strongest reason.
+13. Final recommendation for the full national DataLab: Proceed, Proceed only
+    if one named permission is obtained, or Stop. State the single strongest
+    reason.
 
 Do not write code. Do not pad the result with ordinary menu providers. Do not
 count raw photos as success. If no candidate clears the bar, say so plainly.

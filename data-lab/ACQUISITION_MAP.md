@@ -176,9 +176,11 @@ DL-DR-001 resolved capability questions, not coverage:
 - Slice documents a partner shop/menu API, but its item-photo and
   fractional-modifier details remain unverified. Clover, Lightspeed, and Yext
   did not support the photo claims Gemini made about their documented paths.
-- Tripadvisor documents a capped photo supply, Management-photo labeling, and
-  attribution fields, but not exact dish linkage. No automatic external
-  Customer-photo path has yet passed the north-star evidence requirements.
+- Tripadvisor Terra now documents restaurant/location reviews containing
+  photos, review text, and reviewer details; legacy feeds also show captions
+  and review IDs. Current contract fields, rights, national depth, and exact
+  dish-match yield remain unverified. No automatic external Customer-photo path
+  has yet passed the north-star evidence requirements.
 - Riverside County DEH is useful status evidence, but its public site has not
   yet yielded a stable, complete, city-bounded food-facility snapshot. It is a
   candidate for DL-002, not the accepted census frame.

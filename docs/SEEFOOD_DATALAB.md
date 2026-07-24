@@ -10,11 +10,17 @@ The lab optimizes for the number of restaurants with at least one strongly
 matched comparison dish containing both a Management photo and a Customer
 photo. Raw records or raw photos acquired are not success.
 
-The lab is expected to produce meaningful improvements, but it is not expected
-to discover one magical source that provides perfect nationwide coverage. Its
-strategic value also includes measuring the boundary between data that can be
-acquired automatically and data SeeFood must generate through management and
-customer participation.
+Transformative, high-quality current-menu and Management-photo coverage is also
+a valid strategic win even before Customer photos arrive, because it improves
+the product users encounter and may create a contribution flywheel. That
+flywheel is a hypothesis to measure, not an assumed fact.
+
+The lab is national in ambition. It need not discover one magical source, but
+large work advances only for a source or small complementary portfolio with a
+credible path to materially transform US coverage. Its strategic value also
+includes measuring the boundary between data that can be acquired
+automatically and data SeeFood must generate through management and customer
+participation.
 
 The lab must not confuse current availability with strategic value. A source
 can be technically excellent even when SeeFood cannot use it today because it
@@ -38,6 +44,12 @@ Use the rollout in `docs/METRO_ROLLOUT.md`:
 5. Remaining major California metros.
 6. Top 50 US MSAs.
 7. All 387 US MSAs.
+
+Temecula is the complete development and validation market, not the scope of
+the opportunity. Source selection and go/no-go decisions must be driven by
+credible national leverage. A source that works only in Temecula does not
+qualify as a game changer; a national source should improve Temecula as one
+validation slice.
 
 Maintain two evaluation sets:
 
@@ -112,6 +124,8 @@ Each cycle must:
 1. Read `data-lab/STATUS.md`, `EXPERIMENT_QUEUE.md`, and `SOURCE_REGISTRY.md`.
 2. Select one highest-value unresolved hypothesis.
 3. State the expected coverage gain and evidence required before starting.
+   Include the national scaling thesis; Temecula-only upside is insufficient
+   for a large experiment.
 4. Build the smallest useful probe in the isolated worktree.
 5. Capture raw evidence and normalized output locally.
 6. Test against the development cohort.
