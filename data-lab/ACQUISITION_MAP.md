@@ -164,20 +164,27 @@ Only one restaurant reached seven reported menu matches in each stored run.
 The files contain no Management/Customer counts, no comparison dishes, and no
 audited precision. Historical values remain diagnostic inputs only.
 
-## Gaps Prior Research Did Not Answer
+## Gaps After The Gemini Evidence Gate
 
-- Which of the seven newer ordering-provider families has a current, repeatable
-  item-plus-image access path on real restaurants?
-- Which public, merchant-authorized, partner-only, commercial, or custom-deal
-  paths can produce item-linked Management photos, and which are valuable
-  enough to justify permission or negotiation?
-- Which technically strong sources can add Customer photos with defensible
-  author and item evidence beyond Google heuristics and direct SeeFood uploads,
-  including sources not presently licensed or available to SeeFood?
-- What independent location/status source most economically closes the
-  Temecula census gap after existing Google, OSM, and Overture identities are
-  reconciled, and is a superior restricted frame worth a bespoke agreement?
-- What is the actual verified precision of current restaurant identity,
-  item-match, and photo-author heuristics?
+DL-DR-001 resolved capability questions, not coverage:
 
-These gaps define the initial Gemini handoff and later bounded experiments.
+- Flipdish V3 officially documents exact item IDs, `imageUrl`, nested modifiers,
+  and merchant-authorized access. It is the first selected newer provider.
+- Google Business Profile and Square also document item-linked Management image
+  structures. Toast V3 is real but ordering-partner-only. GloriaFood is
+  time-limited to existing merchants before its March 31, 2027 shutdown.
+- Slice documents a partner shop/menu API, but its item-photo and
+  fractional-modifier details remain unverified. Clover, Lightspeed, and Yext
+  did not support the photo claims Gemini made about their documented paths.
+- Tripadvisor documents a capped photo supply, Management-photo labeling, and
+  attribution fields, but not exact dish linkage. No automatic external
+  Customer-photo path has yet passed the north-star evidence requirements.
+- Riverside County DEH is useful status evidence, but its public site has not
+  yet yielded a stable, complete, city-bounded food-facility snapshot. It is a
+  candidate for DL-002, not the accepted census frame.
+- Actual verified precision and incremental comparison coverage remain unknown
+  for every path.
+
+The remaining gaps define DL-001 through DL-010. See
+`experiments/DL-DR-001-gemini-evidence-triage.md` for primary sources and
+corrections.

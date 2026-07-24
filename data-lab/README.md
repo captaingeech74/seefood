@@ -10,6 +10,7 @@ SeeFood DataLab described in `../docs/SEEFOOD_DATALAB.md`.
 - `ACQUISITION_MAP.md`: current identity, menu, photo, and contribution paths.
 - `ACCESS_OPPORTUNITY_POLICY.md`: separates technical value from present access
   and defines permission/deal recommendations.
+- `DEAL_BACKLOG.md`: evidence-gated permission pilots and human deal briefs.
 - `GEMINI_HANDOFF.md`: exact prompts/results for the manual Gemini bridge.
 - `experiments/`: one committed record per completed experiment.
 - `templates/EXPERIMENT.md`: required experiment format.

@@ -2,12 +2,17 @@
 
 ## Status
 
-**READY FOR KYLE — 2026-07-23**
+**RESULT RECEIVED AND TRIAGED — 2026-07-23**
 
 The static inventory is complete. This prompt targets gaps not answered by the
 existing DoorDash, Grubhub, Google, Menufy, schema.org, and infrastructure
 research. It deliberately includes sources that may require partner approval,
 custom permission, licensing, or a bespoke data deal.
+
+Kyle returned the full Gemini result on 2026-07-23. The response omitted every
+requested citation URL, so none of its `Verified` labels were accepted at face
+value. `experiments/DL-DR-001-gemini-evidence-triage.md` records the bounded
+primary-source check, corrections, and resulting queue changes.
 
 ## Kyle's Manual Bridge
 

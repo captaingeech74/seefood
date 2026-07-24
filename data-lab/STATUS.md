@@ -6,8 +6,7 @@
 
 ## Current Phase
 
-Discovery charter widened; benchmark specification remains complete and
-baseline measurement is next.
+Gemini research triaged against primary sources; baseline measurement is next.
 
 ## Current Goal
 
@@ -34,22 +33,45 @@ DL-000 completed the static inventory. It found no valid DataLab baseline:
 No coverage improvement is claimed. The existing code, source history, and
 stored results are reusable inputs after the measurement defects are removed.
 
-The access-opportunity governance was revised after Kyle's direction. The lab
-now rates technical value independently from current access. Partner-only,
-licensed, custom-permission, and bespoke-deal sources remain in scope as
-permission-gated opportunities. They still cannot be accessed or counted as
-coverage until an authorized pilot is independently measured.
+DL-DR-001 then checked the citation-free Gemini response against current
+first-party documentation:
+
+- Google Business Profile, Square, Toast, Flipdish, GloriaFood, Overture, Slice,
+  Tripadvisor, and parts of Lightspeed/Clover/Yext are real documented
+  capabilities, but none has measured SeeFood comparison coverage.
+- Square and Flipdish clearly document item-linked Management images.
+- Google Business Profile documents item-level `mediaKeys`; actual merchant
+  population remains unknown.
+- Toast V3 is ordering-partner-only. Slice documents a partner shop/menu API,
+  but not the photo and fractional-modifier details Gemini claimed.
+- Clover's documented inventory item schema does not expose images. Yext's
+  documented review objects do not expose Customer photos.
+- Riverside County publishes inspection search and 60-day closure/downgrade
+  lists, but Gemini did not prove a complete bulk census frame.
+- Oracle's official GloriaFood end-of-service date is March 31, 2027, more
+  precise than the report's repeated April 2027 wording.
+- Tripadvisor is self-service pay-as-you-go with up to two photos per location
+  and 5,000 free calls per month after billing signup, not strictly a bespoke
+  enterprise-only API.
+
+The independently challenged queue now puts recovery of already-held Customer
+photos and a read-only contribution-funnel audit ahead of new Management
+connectors. Square has a bounded schema-fixture experiment, and every retained
+High-value permission path has a complete evidence-gated brief. No coverage
+improvement is claimed.
 
 ## Confidence
 
-High for the inventory, benchmark defects, and the clarity of the revised
-decision boundary. No confidence claim is made yet about current production
-coverage or the value of any newly admitted restricted opportunity.
+High for the corrected API/access facts that have direct primary-source
+support. Medium for the opportunity ranking. Low for expected incremental
+comparison coverage because Gemini supplied no usable sample measurements and
+the DataLab baseline is still unknown.
 
 ## Cost
 
-$0. No production reads or writes, external source calls, model calls, crawls,
-or paid quota were used.
+$0. Primary-source documentation was read. No production reads or writes,
+provider API calls, model calls, account creation, vendor contact, crawls, or
+paid quota were used.
 
 ## Production Impact
 
@@ -65,6 +87,4 @@ error rate. No live photo or source fetch is allowed.
 
 ## Kyle Needs To Do
 
-Run the revised exact Gemini Deep Research prompt in `GEMINI_HANDOFF.md` and
-paste the complete result back here. It now seeks safe-now sources and
-high-value permission/deal candidates. No technical interpretation is needed.
+Nothing. The Gemini result has been received and triaged.

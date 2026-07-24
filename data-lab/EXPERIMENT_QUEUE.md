@@ -1,22 +1,35 @@
 # Experiment Queue
 
-Order after DL-000. Only one experiment may be active.
+Order after DL-000 and the completed DL-DR-001 Gemini evidence gate. Only one
+experiment may be active.
 
 | Rank | ID | Hypothesis | Bounded evidence | Expected value | Status |
 |---|---|---|---|---|---|
 | 0 | DL-001 | Current SQL comparison flags can credit a pair that fails, or lacks evidence for, at least one DataLab gold requirement. | Deterministically selected 12 Temecula candidates: 4 claimed comparison-ready, 4 menu/photo-rich unpaired, 4 sparse; maximum 120 locally supplied photo/evidence records; Guardian blind audit; no source calls | Calibrates failure mechanisms before a full baseline; does not estimate a population error rate | Next |
-| 1 | DL-002 | A forced-read-only snapshot, an independent local identity/status frame, and frozen cohorts will reveal the real largest gap and separate claimed from verifiable comparisons. | Temecula union capped at 500 candidates; one versioned $0 frame currently authorized for benchmark use; 120-record Guardian-owned holdout; SELECT-only export; all seven rungs and missing-evidence counts | Required before source experiments | Pending DL-001 and cited local-frame evidence |
-| 2 | DL-003 | One newer ordering-provider path has high item-plus-Management-photo value, whether it is testable now or requires a permission/deal pilot. | One provider and one access path; public-evidence access classification first; if authorized, 12 development restaurants and maximum 10 pages each; otherwise no collection and one exact permission-gated validation/deal brief | High Management-photo leverage without discarding restricted paths | Pending DL-002 and Gemini evidence |
-| 3 | DL-008 | One restricted Customer-photo or marketplace source is valuable enough to justify human negotiation. | Public evidence only; one source; controller, exact data/right ask, 25-restaurant pilot design, inferred upside model with assumptions, economics ceiling, and fallback; no contact or access by the lab | Tests whether a bespoke deal could change the comparison-photo frontier | Pending Gemini evidence and DL-002 baseline |
-| 4 | DL-004 | Existing unmatched Customer/Unknown photos contain recoverable strong item matches using preserved menu evidence rather than label containment alone. | Maximum 100 existing photos; no new downloads until URLs and quota are approved; blind Guardian audit | Direct comparison-dish leverage | Pending DL-002 |
-| 5 | DL-005 | Confirmed chain templates can upgrade many locations without inventing location availability. | One chain; 10 geographically varied development locations; explicit exception audit | High location leverage | Pending DL-002 |
-| 6 | DL-006 | Common Crawl or deeper first-party site extraction adds current menu and Management-photo coverage beyond the live website path. | Maximum 20 visible development restaurants and 5 archive records per domain | Long-tail leverage | Pending DL-002 |
-| 7 | DL-007 | Targeted Management and Customer contribution prompts close the final comparison gap more cheaply than another automatic source. | Paper funnel and existing aggregate conversion evidence first; no outreach or production changes | Defines the automatic-data frontier | Pending DL-002 |
+| 1 | DL-002 | A forced-read-only snapshot, an independent local identity/status frame, and frozen cohorts will reveal the real largest gap and separate claimed from verifiable comparisons. | Temecula union capped at 500 candidates; qualify Riverside County DEH only if a stable, city-bounded $0 snapshot is documented; otherwise stop and do not call the search portal a census frame; 120-record Guardian-owned holdout; SELECT-only export | Required before source experiments | Pending DL-001 and DEH frame qualification |
+| 2 | DL-004 | Existing unmatched Customer/Unknown photos contain recoverable strong item matches using preserved menu evidence rather than label containment alone. | Maximum 100 existing photos; no new downloads until URLs and quota are approved; blind Guardian audit | Direct comparison-dish leverage against the bottleneck Gemini did not solve | Pending DL-002 |
+| 3 | DL-007 | Targeted Management and Customer contribution prompts close the final comparison gap more cheaply than another automatic source. | Read-only first-party funnel audit and paper experiment using existing aggregate conversion evidence; no outreach, account creation, or production changes | Tests the Customer-supply frontier before adding more Management-only pipes | Pending DL-002 |
+| 4 | DL-008 | Tripadvisor's self-service Content API adds enough distinct Customer photos with usable attribution and item evidence to justify its paid-signup risk. | DataLab performs paper/API-schema review only; if Kyle or the main thread separately creates and authorizes the billing-backed account, analyze a supplied fixture or run at most 25 Temecula location calls returning at most 50 photos; no overage; blind item/provenance audit | Only newly evidenced external Customer-photo candidate, but capped supply and weak item linkage may kill it | Needs Kyle decision after DL-002; DataLab cannot start service |
+| 5 | DL-003 | Flipdish's documented merchant-authorized menu path produces exact item-linked Management images and useful freshness signals beyond the frozen stack. | One access path; public docs and local schema fixture first; only with permission, 3 development merchants, one current menu each, maximum 30 item images; Guardian hidden holdout | Best evidenced newer provider path; Management-side leverage | Pending DL-002 and merchant permission |
+| 6 | DL-009 | A time-limited GloriaFood merchant rescue preserves exact item-linked Management images before service ends on March 31, 2027. | Identify one consenting existing merchant through the main thread; one menu request or merchant export; no outreach by lab; no customer/order data; maximum 500 items | Urgent preservation opportunity, but Management-only | Pending DL-002 and merchant permission |
+| 7 | DL-010 | Google Business Profile FoodMenus returns item-level `mediaKeys` often enough to justify an approved merchant connector. | Documentation/schema fixture first; only with API approval and merchant OAuth, 3 locations and maximum 100 menu items; no writes | High-quality Management linkage if merchants actually populate the field | Pending DL-002 and API/merchant permission |
+| 8 | DL-011 | Square Catalog's documented `image_ids` and related objects translate cleanly into a SeeFood Management-item fixture. | Local synthetic schema fixture first; live step only after baseline, merchant OAuth, and separate authorization; 3 merchants, maximum 100 items and 30 images | De-risks a documented Management connector without implying real coverage | Pending DL-002; local fixture is authorized but must wait its turn |
+| 9 | DL-005 | Confirmed chain templates can upgrade many locations without inventing location availability. | One chain; 10 geographically varied development locations; explicit exception audit | High location leverage | Pending DL-002 |
+| 10 | DL-006 | Common Crawl or deeper first-party site extraction adds current menu and Management-photo coverage beyond the live website path. | Maximum 20 visible development restaurants and 5 archive records per domain | Long-tail leverage | Pending DL-002 |
 
 The Lead may reorder this list only after recording the measured reason.
-Gemini findings may cause DL-003 or DL-008 to move ahead of other source work,
-but DL-001 and DL-002 remain prerequisites for measuring real incremental
+DL-DR-001 moved Customer-photo recovery and the read-only contribution audit
+ahead of new Management connectors because the primary-source check found no
+automatic external source with both strong Customer provenance and item
+linkage. It also added a bounded Square fixture so documented capability is not
+lost. DL-001 and DL-002 remain prerequisites for measuring real incremental
 coverage.
+
+## Completed Discovery Gate
+
+| ID | Decision | Result |
+|---|---|---|
+| DL-DR-001 | Revise | Primary sources supported 8 useful capabilities, corrected or narrowed 8 claims, and left expected comparison coverage entirely unmeasured. |
 
 ## DL-001 Stop Conditions
 
