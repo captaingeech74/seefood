@@ -6,7 +6,8 @@
 
 ## Current Phase
 
-Final pre-implementation potential check; Gemini Prompt 2 is ready for Kyle.
+Baseline measurement resumes after completing the second pre-implementation
+potential check.
 
 ## Current Goal
 
@@ -14,13 +15,13 @@ Decide whether the combined Management-data and Customer-photo opportunity can
 materially transform SeeFood's national data coverage. Temecula is the
 development and validation market, not the scope of the value case.
 
-## Why This Comes First
+## Why The Program Continues
 
-Transformative menu and Management-photo coverage is valuable on its own. Kyle
-hypothesizes that it can also attract contributors, but that cold-start effect
-is unverified. Before beginning the large benchmark and connector program, Kyle
-wants one harder search for a comparably transformative Customer-photo corpus
-or acquisition channel.
+Transformative menu and Management-photo coverage is valuable on its own.
+DL-DR-002 also found a credible national Customer-photo collection partner
+class. The evidence is strong enough to justify the bounded DataLab measurement
+program, but not an integration, vendor commitment, or claim of game-changing
+coverage.
 
 ## Last Verified Result
 
@@ -61,25 +62,58 @@ first-party documentation:
   SeeFood's matching and paired-display use unless a negotiated Order grants
   explicit exceptions.
 
-The independently challenged queue now puts recovery of already-held Customer
-photos and a read-only contribution-funnel audit ahead of new Management
-connectors. Tripadvisor Terra is elevated to a high-priority research lead, not
-accepted coverage. Square has a bounded schema-fixture experiment, and every
-retained High-value permission path has an evidence gate. No coverage
-improvement is claimed.
+DL-DR-002 then tested Gemini's transaction-triggered Customer-photo thesis:
+
+- Tattle currently documents transaction-triggered surveys, item-level
+  feedback, optional meal-photo uploads, API access, 34+ named integrations,
+  250+ brands, and a claimed 15,000+ locations. This is a materially stronger
+  lead than a generic survey vendor.
+- Tattle's public evidence links a meal photo to a survey, visit, and
+  transaction context, but not to one exact order line. Its public documents
+  also do not establish a photo export schema or SeeFood's right to retain,
+  pair, label, display, sublicense, or train on the restaurant-controlled
+  submissions.
+- Ovation currently documents 50+ SMS integrations and order-triggered,
+  item-specific survey questions. It does not publicly document a meal-photo
+  upload, external photo export, exact order-line schema, reusable rights, or
+  its exact active location footprint.
+- Tripadvisor remains technically interesting but unusable under its published
+  default terms for SeeFood's paired-display and matching use. Round Two found
+  no new evidence that changes that gate.
+- Gemini's low/base/high arithmetic produces 1,200 / 14,175 / 111,562.5
+  expected raw upload attempts, not comparison-ready restaurants. The maximum
+  distinct restaurants in those 1,000-location scenarios is only 500 / 700 /
+  850, and
+  actual accepted coverage must also survive rights, usefulness, exact-item,
+  Management-counterpart, and duplicate gates.
+- A POS order line does not prove that an uploaded photo depicts that item.
+  The claimed 100% precision is rejected.
+
+The corrected conclusion is `Proceed with bounded validation`, not `build the
+integration`. The opportunity could double a small comparison-ready baseline,
+and Tattle's current footprint makes national relevance credible. It has not
+yet proved the fixed national game-changer gate because the SeeFood baseline,
+photo-upload yield, exact-item yield, Management-photo overlap, rights, export
+path, and distinct-location distribution are all unknown.
+
+No third Gemini query is queued. The remaining decisive questions require
+measured SeeFood evidence or a controller-supplied schema/rights packet, not
+another public-web synthesis. No coverage improvement is claimed.
 
 ## Confidence
 
-High for the corrected API/access facts that have direct primary-source
-support. Medium for the opportunity ranking. Low for expected incremental
-comparison coverage because Gemini supplied no usable sample measurements and
-the DataLab baseline is still unknown.
+High that Tattle has transaction-contextual item feedback and optional
+Customer meal-photo collection, and that Ovation has order-targeted surveys.
+Medium that Tattle is the best current partnership lead. Low for incremental
+comparison coverage because exact photo-to-item linkage, rights-valid export
+yield, and the SeeFood baseline remain unmeasured.
 
 ## Cost
 
-$0. Primary-source documentation was read. No production reads or writes,
-provider API calls, model calls, account creation, vendor contact, crawls, or
-paid quota were used.
+$0. Primary-source documentation was read and three independent agents
+challenged the source claims and model. No production reads or writes, provider
+API calls, model calls, account creation, vendor contact, crawl, or paid quota
+were used.
 
 ## Production Impact
 
@@ -88,11 +122,16 @@ merges.
 
 ## Next Action
 
-Kyle runs Prompt 2 in `GEMINI_HANDOFF.md` and pastes the complete result back.
-The Lead then verifies it, estimates the true combined upside, and gives Kyle a
-plain go/no-go recommendation on the larger program. DL-001 remains the next
-bounded measurement and starts only after Kyle's decision.
+Run DL-001, the 12-restaurant local calibration of the existing comparison
+flags, using only a guaranteed read-only or already-sanitized evidence bundle.
+This establishes which current claims are trustworthy before the Temecula
+census and locked national holdout are frozen.
+
+Retain Tattle as a high-priority permission-gated deal candidate. A later
+controller packet must prove exact photo-to-order-line binding, exportability,
+SeeFood-compatible rights, and real photo yield before any code or outreach
+campaign is authorized.
 
 ## Kyle Needs To Do
 
-Run Gemini Prompt 2 and paste the complete output back into this task.
+Nothing.

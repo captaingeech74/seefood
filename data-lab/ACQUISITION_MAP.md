@@ -164,9 +164,9 @@ Only one restaurant reached seven reported menu matches in each stored run.
 The files contain no Management/Customer counts, no comparison dishes, and no
 audited precision. Historical values remain diagnostic inputs only.
 
-## Gaps After The Gemini Evidence Gate
+## Gaps After The Gemini Evidence Gates
 
-DL-DR-001 resolved capability questions, not coverage:
+DL-DR-001 and DL-DR-002 resolved capability questions, not coverage:
 
 - Flipdish V3 officially documents exact item IDs, `imageUrl`, nested modifiers,
   and merchant-authorized access. It is the first selected newer provider.
@@ -176,17 +176,26 @@ DL-DR-001 resolved capability questions, not coverage:
 - Slice documents a partner shop/menu API, but its item-photo and
   fractional-modifier details remain unverified. Clover, Lightspeed, and Yext
   did not support the photo claims Gemini made about their documented paths.
-- Tripadvisor Terra now documents restaurant/location reviews containing
-  photos, review text, and reviewer details; legacy feeds also show captions
-  and review IDs. Current contract fields, rights, national depth, and exact
-  dish-match yield remain unverified. No automatic external Customer-photo path
-  has yet passed the north-star evidence requirements.
+- Tattle now documents transaction-triggered surveys, ordered-item feedback,
+  optional Customer meal-photo upload, API/export capability, and a claimed
+  15,000+ location footprint. It is the strongest Customer-photo partnership
+  lead, but no public evidence proves exact photo-to-order-line binding,
+  SeeFood-compatible rights, photo yield, or incremental unique-location
+  coverage.
+- Ovation documents order-triggered item questions and 50+ SMS integrations,
+  but not a current meal-photo upload or media export. It is the fallback, not
+  accepted coverage.
+- Tripadvisor Terra documents restaurant/location reviews containing photos,
+  review text, and reviewer details; legacy feeds also show captions and review
+  IDs. Published default terms remain incompatible with SeeFood's intended
+  matching and paired display absent a negotiated written exception.
 - Riverside County DEH is useful status evidence, but its public site has not
   yet yielded a stable, complete, city-bounded food-facility snapshot. It is a
   candidate for DL-002, not the accepted census frame.
 - Actual verified precision and incremental comparison coverage remain unknown
   for every path.
 
-The remaining gaps define DL-001 through DL-010. See
-`experiments/DL-DR-001-gemini-evidence-triage.md` for primary sources and
-corrections.
+The remaining gaps define DL-001 through DL-012. See
+`experiments/DL-DR-001-gemini-evidence-triage.md` and
+`experiments/DL-DR-002-customer-photo-game-changer-triage.md` for primary
+sources and corrections.

@@ -8,10 +8,71 @@ outreach, spending, account creation, or data access.
 
 None.
 
-The Gemini report proposed five deals, but supplied no citations and overstated
-several photo capabilities. DL-DR-001 retained only the evidence-supported
-opportunities below. Kyle and the main SeeFood thread decide whether an entry
-ever becomes outreach-ready.
+The Gemini reports proposed several deals, but supplied no usable citations and
+overstated multiple photo and coverage claims. DL-DR-001 and DL-DR-002 retained
+only the evidence-supported opportunities below. Kyle and the main SeeFood
+thread decide whether an entry ever becomes outreach-ready.
+
+## Tattle — Transaction-Triggered Customer Photo Partnership
+
+**Readiness:** Highest-priority Customer opportunity, but still behind a
+documentary schema-and-rights gate. Not ready for outreach from the DataLab.
+
+**Technical value:** Potentially High. Tattle already documents the difficult
+building blocks: post-transaction SMS/email surveys, ordered-item context,
+item-level feedback, an optional guest meal-photo upload, API access, advanced
+exports, 34+ named integrations, 250+ brands, and a claimed 15,000+ locations.
+Public evidence does not show that the uploaded photo is attached to one exact
+order line, exportable with that relationship, or reusable by SeeFood.
+
+**Controllers:** Tattle plus the participating restaurant or brand, which
+Tattle's public privacy materials describe as controller for survey feedback.
+The Customer/photographer must receive the required notice and grant the
+required rights. A broad Tattle platform license does not by itself prove the
+restaurant may transfer the image to SeeFood.
+
+**Exact documentary ask if Kyle authorizes human contact:** One redacted
+schema/export example and applicable contract language proving:
+
+1. stable location, transaction, exact order-line/item, and photo identifiers;
+2. the photo capture and selected-item interaction for multi-item orders;
+3. a supported export/API delivery path with deletion state;
+4. controller authority and Customer consent for SeeFood retention, pairing,
+   display, derived labels, sublicensing as needed, deletion propagation, and
+   any agreed model use; and
+5. exact active locations eligible for the relevant POS/order integrations.
+
+**Smallest data pilot after the documentary gate:** Aggregate funnel counts for
+at least 1,000 already-delivered, lawfully consented prompts plus a blinded
+35-photo historical fixture from at least 10 locations, deliberately including
+multi-item orders. The fixture excludes names, phone/email, payment data, free
+text, device IDs, and exact timestamps. The DataLab does not send messages or
+export a customer list.
+
+**Pilot success:** At least 95% audited point precision for restaurant and
+exact/strong item attachment, with the Wilson interval reported; zero missing
+rights; zero duplicate Management/Customer pairs; a documented refresh and
+deletion path; and enough unique comparison-ready restaurants to satisfy a
+baseline-derived national scale model. Raw photos are not success.
+
+**Immediate stop conditions:** No exact photo-to-line binding, no supported
+photo export, no participating-controller authority, no Customer grant for
+SeeFood's intended use, or no credible path from Tattle's claimed footprint to
+the frozen national gate.
+
+**Value exchange to test:** SeeFood could return item-level presentation and
+comparison analytics to participating brands and route visual-discovery traffic
+to brand-approved ordering destinations. No traffic, revenue, exclusivity, or
+improvement promise is authorized.
+
+**Economics:** Current public per-location pricing is not a SeeFood data-deal
+quote. Do not adopt Gemini's invented `$15,000` integration estimate or
+`$0.10-$0.25` photo estimate. Set a ceiling only after verified unique
+comparison yield and the frozen baseline establish the value.
+
+**Fallback:** Ovation, if it can first prove a real meal-photo question, exact
+order-line export, and equivalent rights. A first-party SeeFood contribution
+loop remains the strategic fallback.
 
 ## Toast Menus V3 — Technology Partnership
 
@@ -231,7 +292,9 @@ recording the loss of structured modifier and image linkage.
 
 | Source | Why retained | Why not ready |
 |---|---|---|
-| Tripadvisor Terra | Current docs describe restaurant reviews with photos, review text, and reviewer details; legacy partner feeds show caption and review-ID fields that may aid matching | Published Master Terms appear incompatible with SeeFood matching and pairing absent explicit written exceptions. Prompt 2 must resolve whether an Order can permit algorithmic dish matching, combination with Management content, selective display, retention, derived labels, and model use, plus national depth and economics. |
+| Tattle | Current docs establish transaction context, ordered-item feedback, optional meal-photo upload, API/export capability, and claimed 15,000+ location reach | Exact photo-to-order-line binding, photo export schema, controller/Customer rights, photo yield, Management overlap, and unique-location coverage are private and unmeasured |
+| Ovation | Current docs establish 50+ SMS integrations and questions targeted to what a guest ordered | No public meal-photo upload, media export, stable order-line schema, exact footprint, or third-party reuse rights |
+| Tripadvisor Terra | Current docs describe restaurant reviews with photos, review text, and reviewer details; legacy partner feeds show caption and review-ID fields that may aid matching | Published Master Terms appear incompatible with SeeFood matching and pairing absent explicit written exceptions. Treat as unusable unless an Order permits algorithmic dish matching, combination with Management content, selective display, retention, derived labels, and model use, plus acceptable national depth and economics. |
 
 ## Monitor, Not Outreach
 

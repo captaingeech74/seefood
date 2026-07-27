@@ -2,11 +2,11 @@
 
 ## Status
 
-**PROMPT 2 READY FOR KYLE — 2026-07-23**
+**PROMPT 2 COMPLETED AND TRIAGED — 2026-07-27**
 
-Prompt 1 is complete and triaged. Prompt 2 is a final pre-implementation
-discovery gate focused on finding Customer-photo opportunities with enough
-potential to make the DataLab a game changer.
+Prompt 1 and Prompt 2 are complete and triaged. No third Gemini prompt is
+queued. The remaining decisive gaps require a controller-supplied schema and
+rights packet or measured SeeFood evidence, not another public-web synthesis.
 
 Kyle returned the full Gemini result on 2026-07-23. The response omitted every
 requested citation URL, so none of its `Verified` labels were accepted at face
@@ -208,7 +208,22 @@ unproven. A source that needs permission must be labeled permission-gated, not
 quietly discarded.
 ```
 
-## Prompt 2 — READY FOR KYLE
+## Prompt 2 — Completed
+
+Kyle returned the complete response on 2026-07-27. Gemini identified Tattle and
+Ovation as transaction-triggered feedback candidates. Primary-source review
+verified Tattle's existing Customer meal-photo upload and national platform
+footprint, but not exact photo-to-order-line binding, a usable photo export
+schema, SeeFood-compatible rights, photo yield, or incremental comparison
+coverage. Ovation verified the order-targeted survey concept but not a current
+meal-photo upload.
+
+Gemini's quantified table confused raw photo attempts with distinct
+comparison-ready restaurants and assumed 100% precision. Both claims were
+rejected. The complete triage and corrected model are recorded in
+`experiments/DL-DR-002-customer-photo-game-changer-triage.md`.
+
+Archived prompt:
 
 Copy everything inside the block verbatim:
 

@@ -1,15 +1,14 @@
 # Experiment Queue
 
-DL-DR-002 is the active pre-implementation discovery gate. DL-001 remains the
-next bounded measurement. Prompt 2 informs Kyle and the Lead's decision about
-the larger program; Gemini cannot authorize or veto lab work. Only one
-experiment may be active.
+DL-DR-002 is complete. It supports continuing the bounded DataLab program but
+does not authorize a vendor integration or claim any coverage. DL-001 is the
+next bounded measurement. Only one experiment may be active.
 
-## Active Discovery Gate
+## Active Experiment
 
 | ID | Question | Bound | Status |
 |---|---|---|---|
-| DL-DR-002 | Is there a plausible Customer-photo corpus, partnership, or transaction-linked acquisition channel large enough to make the DataLab a game changer? | One manual Gemini Deep Research prompt; research only; no accounts, contact, crawling, credentials, or paid quota | Waiting for Kyle to run Prompt 2 |
+| None | DL-DR-002 completed on 2026-07-27 | No second experiment begins in the same bounded cycle | DL-001 is next |
 
 | Rank | ID | Hypothesis | Bounded evidence | Expected value | Status |
 |---|---|---|---|---|---|
@@ -17,13 +16,14 @@ experiment may be active.
 | 1 | DL-002 | A forced-read-only snapshot, an independent local identity/status frame, and frozen cohorts will reveal the real largest gap and separate claimed from verifiable comparisons. | Temecula union capped at 500 candidates; qualify Riverside County DEH only if a stable, city-bounded $0 snapshot is documented; otherwise stop and do not call the search portal a census frame; 120-record Guardian-owned holdout; SELECT-only export | Required before source experiments | Pending DL-001 and DEH frame qualification |
 | 2 | DL-004 | Existing unmatched Customer/Unknown photos contain recoverable strong item matches using preserved menu evidence rather than label containment alone. | Maximum 100 existing photos; no new downloads until URLs and quota are approved; blind Guardian audit | Direct comparison-dish leverage against the bottleneck Gemini did not solve | Pending DL-002 |
 | 3 | DL-007 | Targeted Management and Customer contribution prompts close the final comparison gap more cheaply than another automatic source. | Read-only first-party funnel audit and paper experiment using existing aggregate conversion evidence; no outreach, account creation, or production changes | Tests the Customer-supply frontier before adding more Management-only pipes | Pending DL-002 |
-| 4 | DL-008 | Tripadvisor Terra review-linked photos, captions or review text can produce strong Customer-to-menu matches at nationally meaningful scale. | Prompt 2 and contract/schema review first; only if Kyle or the main thread separately authorizes access, analyze a supplied nationally stratified fixture capped at 30 restaurants and 150 review-photo records, including a Temecula validation slice; blind item/provenance audit; no overage | Potentially High Customer-photo leverage; current restaurant depth, rights, schema, and economics may still kill it | Needs Prompt 2 evidence and Kyle decision after DL-002; DataLab cannot start service |
-| 5 | DL-003 | Flipdish's documented merchant-authorized menu path produces exact item-linked Management images and useful freshness signals beyond the frozen stack. | One access path; public docs and local schema fixture first; only with permission, 3 development merchants, one current menu each, maximum 30 item images; Guardian hidden holdout | Best evidenced newer provider path; Management-side leverage | Pending DL-002 and merchant permission |
-| 6 | DL-009 | A time-limited GloriaFood merchant rescue preserves exact item-linked Management images before service ends on March 31, 2027. | Identify one consenting existing merchant through the main thread; one menu request or merchant export; no outreach by lab; no customer/order data; maximum 500 items | Urgent preservation opportunity, but Management-only | Pending DL-002 and merchant permission |
-| 7 | DL-010 | Google Business Profile FoodMenus returns item-level `mediaKeys` often enough to justify an approved merchant connector. | Documentation/schema fixture first; only with API approval and merchant OAuth, 3 locations and maximum 100 menu items; no writes | High-quality Management linkage if merchants actually populate the field | Pending DL-002 and API/merchant permission |
-| 8 | DL-011 | Square Catalog's documented `image_ids` and related objects translate cleanly into a SeeFood Management-item fixture. | Local synthetic schema fixture first; live step only after baseline, merchant OAuth, and separate authorization; 3 merchants, maximum 100 items and 30 images | De-risks a documented Management connector without implying real coverage | Pending DL-002; local fixture is authorized but must wait its turn |
-| 9 | DL-005 | Confirmed chain templates can upgrade many locations without inventing location availability. | One chain; 10 geographically varied development locations; explicit exception audit | High location leverage | Pending DL-002 |
-| 10 | DL-006 | Common Crawl or deeper first-party site extraction adds current menu and Management-photo coverage beyond the live website path. | Maximum 20 visible development restaurants and 5 archive records per domain | Long-tail leverage | Pending DL-002 |
+| 4 | DL-012 | A transaction-triggered Tattle partnership can export rights-valid Customer meal photos bound to exact order lines at nationally material unique-location yield. | Documentary gate first: controller-authorized redacted schema/rights packet; only if it passes, at least 1,000 aggregate already-delivered prompts plus 35 blinded historical photo records across at least 10 locations, including multi-item orders; no DataLab outreach or SMS | Highest-potential Customer channel found; Tattle claims 15,000+ locations and already has meal-photo upload, item context, and APIs, but exact binding, rights, and yield are unknown | Pending baseline and explicit main-thread authorization to approach controller |
+| 5 | DL-008 | Tripadvisor Terra review-linked photos, captions or review text can produce strong Customer-to-menu matches at nationally meaningful scale. | Contract/schema review first; only if Kyle or the main thread separately authorizes access, analyze a supplied nationally stratified fixture capped at 30 restaurants and 150 review-photo records, including a Temecula validation slice; blind item/provenance audit; no overage | Potentially High Customer-photo corpus; published default terms currently block SeeFood's intended use | Quarantined unless a negotiated Order grants explicit rights; DataLab cannot start service |
+| 6 | DL-003 | Flipdish's documented merchant-authorized menu path produces exact item-linked Management images and useful freshness signals beyond the frozen stack. | One access path; public docs and local schema fixture first; only with permission, 3 development merchants, one current menu each, maximum 30 item images; Guardian hidden holdout | Best evidenced newer provider path; Management-side leverage | Pending DL-002 and merchant permission |
+| 7 | DL-009 | A time-limited GloriaFood merchant rescue preserves exact item-linked Management images before service ends on March 31, 2027. | Identify one consenting existing merchant through the main thread; one menu request or merchant export; no outreach by lab; no customer/order data; maximum 500 items | Urgent preservation opportunity, but Management-only | Pending DL-002 and merchant permission |
+| 8 | DL-010 | Google Business Profile FoodMenus returns item-level `mediaKeys` often enough to justify an approved merchant connector. | Documentation/schema fixture first; only with API approval and merchant OAuth, 3 locations and maximum 100 menu items; no writes | High-quality Management linkage if merchants actually populate the field | Pending DL-002 and API/merchant permission |
+| 9 | DL-011 | Square Catalog's documented `image_ids` and related objects translate cleanly into a SeeFood Management-item fixture. | Local synthetic schema fixture first; live step only after baseline, merchant OAuth, and separate authorization; 3 merchants, maximum 100 items and 30 images | De-risks a documented Management connector without implying real coverage | Pending DL-002; local fixture is authorized but must wait its turn |
+| 10 | DL-005 | Confirmed chain templates can upgrade many locations without inventing location availability. | One chain; 10 geographically varied development locations; explicit exception audit | High location leverage | Pending DL-002 |
+| 11 | DL-006 | Common Crawl or deeper first-party site extraction adds current menu and Management-photo coverage beyond the live website path. | Maximum 20 visible development restaurants and 5 archive records per domain | Long-tail leverage | Pending DL-002 |
 
 The Lead may reorder this list only after recording the measured reason.
 DL-DR-001 moved Customer-photo recovery and the read-only contribution audit
@@ -38,6 +38,7 @@ coverage.
 | ID | Decision | Result |
 |---|---|---|
 | DL-DR-001 | Revise | Primary sources supported 8 useful capabilities, corrected or narrowed 8 claims, and left expected comparison coverage entirely unmeasured. |
+| DL-DR-002 | Revise and continue | Tattle became a verified transaction-contextual meal-photo partnership lead, but exact item binding, export rights, yield, and national incremental coverage remain unproved. Gemini's photo-versus-restaurant unit error and 100% precision claim were rejected. |
 
 ## DL-001 Stop Conditions
 
