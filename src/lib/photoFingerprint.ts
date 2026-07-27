@@ -27,6 +27,19 @@ export function canReactivateQuarantinedPhoto(
 }
 
 /**
+ * New acquired-photo URLs are evidence candidates, not displayable photos,
+ * until their bytes have been decoded and hashed. Preserve an already-active
+ * legacy row through a transient refresh failure, but do not promote a new or
+ * previously inactive unverified row.
+ */
+export function shouldActivatePhotoObservation(
+  priorActive: boolean | null | undefined,
+  incomingContentHash: string | null | undefined
+): boolean {
+  return Boolean(incomingContentHash) || priorActive === true;
+}
+
+/**
  * Exact bytes are the safe automatic identity. The 64-bit dHash is diagnostic:
  * it spots resized/re-encoded and near-identical candidates, but is never used
  * by itself to delete a photo.

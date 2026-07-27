@@ -477,7 +477,21 @@ async function applyCleanup(
   photos: MeasuredPhoto[],
   before: AuditMetrics
 ): Promise<string> {
-  const valid = photos.filter((photo) => photo.valid && photo.measuredContentHash);
+  // A current transient fetch failure does not erase an exact hash that was
+  // verified in an earlier run. Include that durable identity holder when
+  // grouping new duplicates, while still deactivating rows with an actionable
+  // current invalid result (404, non-image bytes, decode failure, and so on).
+  const valid = photos.flatMap((photo) => {
+    if (photo.valid && photo.measuredContentHash) return [photo];
+    if (!photo.actionableInvalid && photo.content_hash) {
+      return [{
+        ...photo,
+        measuredContentHash: photo.content_hash,
+        measuredPerceptualHash: photo.perceptual_hash ?? undefined,
+      }];
+    }
+    return [];
+  });
   const exactGroups = groupBy(valid, (photo) => `${photo.restaurant_id}:${photo.measuredContentHash}`);
   const canonicalUpdates: Array<Record<string, unknown>> = [];
   const duplicateUpdates: Array<Record<string, unknown>> = [];
@@ -637,6 +651,28 @@ async function applyCleanup(
         [JSON.stringify(batch)]
       );
     }
+    // Clear duplicate hashes before assigning them to a newly selected
+    // canonical row. Otherwise the active-hash uniqueness guard correctly
+    // rejects the temporary two-row collision inside this transaction.
+    for (const batch of chunks(duplicateUpdates)) {
+      await client.query(
+        `update photos p set
+           active = false,
+           content_hash = null,
+           perceptual_hash = x.perceptual_hash,
+           duplicate_of_photo_id = x.canonical_photo_id,
+           dedupe_reason = 'exact_content_duplicate',
+           dedupe_run_id = $2,
+           deduped_at = $3
+         from jsonb_to_recordset($1::jsonb) as x(
+           id bigint,
+           canonical_photo_id bigint,
+           perceptual_hash text
+         )
+         where p.id = x.id`,
+        [JSON.stringify(batch), runId, now]
+      );
+    }
     for (const batch of chunks(canonicalUpdates)) {
       await client.query(
         `update photos p set
@@ -664,25 +700,6 @@ async function applyCleanup(
          )
          where p.id = x.id`,
         [JSON.stringify(batch)]
-      );
-    }
-    for (const batch of chunks(duplicateUpdates)) {
-      await client.query(
-        `update photos p set
-           active = false,
-           content_hash = null,
-           perceptual_hash = x.perceptual_hash,
-           duplicate_of_photo_id = x.canonical_photo_id,
-           dedupe_reason = 'exact_content_duplicate',
-           dedupe_run_id = $2,
-           deduped_at = $3
-         from jsonb_to_recordset($1::jsonb) as x(
-           id bigint,
-           canonical_photo_id bigint,
-           perceptual_hash text
-         )
-         where p.id = x.id`,
-        [JSON.stringify(batch), runId, now]
       );
     }
     for (const batch of chunks(invalidUpdates)) {

@@ -9,7 +9,10 @@ import { dedupeToPrimary } from "./dishGrouping";
 import type { AnalyticsEventName } from "./analytics";
 import type { WebsiteExtractResult } from "./menuSources";
 import { normalizePhotoAuthor, trustLabel, withPhotoSignals } from "./photoSignals";
-import { canReactivateQuarantinedPhoto } from "./photoFingerprint";
+import {
+  canReactivateQuarantinedPhoto,
+  shouldActivatePhotoObservation,
+} from "./photoFingerprint";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -1584,7 +1587,7 @@ export async function savePhotos(
     return true;
   });
 
-  const existingPhotoFields = "id,content_hash,perceptual_hash,origin_url,storage_url,source,attribution,source_platform,photo_author_type,trust_label,is_orderable,tier,width,height,gemini_label,menu_item_id,canonical_dish_id,photo_quality_score,dish_popularity_score,is_hero_candidate,is_storefront,is_menu_photo,dedupe_reason,active";
+  const existingPhotoFields = "id,content_hash,perceptual_hash,origin_url,storage_url,source,attribution,source_platform,photo_author_type,trust_label,is_orderable,tier,width,height,gemini_label,menu_item_id,canonical_dish_id,photo_quality_score,dish_popularity_score,is_hero_candidate,is_storefront,is_menu_photo,dedupe_reason,dedupe_run_id,deduped_at,active";
   const existingOriginRows: Array<Record<string, unknown>> = [];
   for (let from = 0; ; from += 1000) {
     // Fetch by restaurant rather than putting long provider URLs in an `in`
@@ -1652,9 +1655,14 @@ export async function savePhotos(
   const rows = eligible.map((p) => {
     const source = p.source as DishPhoto["source"];
     const authorType = normalizePhotoAuthor(source, p.attribution as DishPhoto["attribution"]);
+    const existingOrigin = existingByOrigin.get(p.originUrl);
     const existing = p.contentHash
-      ? existingByHash.get(p.contentHash) ?? existingByOrigin.get(p.originUrl)
+      ? existingByHash.get(p.contentHash) ?? existingOrigin
       : undefined;
+    const nextActive = shouldActivatePhotoObservation(
+      existingOrigin?.active as boolean | null | undefined,
+      p.contentHash
+    );
     const existingTier = Number(existing?.tier ?? 3);
     const nextTier = Math.min(existingTier, p.tier);
     const existingLabel = existing?.gemini_label as string | null | undefined;
@@ -1679,7 +1687,7 @@ export async function savePhotos(
       menu_item_id: existingMenuItemId ?? p.menuItemId ?? null,
       canonical_dish_id: nextCanonical,
       source_snapshot_id: options.snapshotId ?? null,
-      active: true,
+      active: nextActive,
       last_seen_at: now,
       missing_streak: 0,
       photo_quality_score: Math.max(Number(existing?.photo_quality_score ?? 0), p.photoQualityScore ?? 0),
@@ -1690,9 +1698,9 @@ export async function savePhotos(
       content_hash: p.contentHash ?? null,
       perceptual_hash: p.perceptualHash ?? existing?.perceptual_hash ?? null,
       duplicate_of_photo_id: null,
-      dedupe_reason: null,
-      dedupe_run_id: null,
-      deduped_at: null,
+      dedupe_reason: nextActive ? null : "verification_pending",
+      dedupe_run_id: nextActive ? null : existingOrigin?.dedupe_run_id ?? null,
+      deduped_at: nextActive ? null : existingOrigin?.deduped_at ?? now,
     };
   });
   const hashedRows = rows.filter((row) => row.content_hash);

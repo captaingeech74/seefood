@@ -6,6 +6,7 @@ import {
   isImageContentType,
   isTransientPhotoFetchStatus,
   perceptualHashDistance,
+  shouldActivatePhotoObservation,
 } from "../photoFingerprint";
 
 describe("photo fingerprints", () => {
@@ -47,5 +48,12 @@ describe("photo fingerprints", () => {
     expect(canReactivateQuarantinedPhoto("exact_content_duplicate", undefined)).toBe(false);
     expect(canReactivateQuarantinedPhoto("non_image_text/html", "abc123")).toBe(true);
     expect(canReactivateQuarantinedPhoto(null, null)).toBe(true);
+  });
+
+  it("keeps new unverified acquisition candidates out of the live grid", () => {
+    expect(shouldActivatePhotoObservation(undefined, null)).toBe(false);
+    expect(shouldActivatePhotoObservation(false, null)).toBe(false);
+    expect(shouldActivatePhotoObservation(true, null)).toBe(true);
+    expect(shouldActivatePhotoObservation(false, "verified-hash")).toBe(true);
   });
 });

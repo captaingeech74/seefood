@@ -10,17 +10,26 @@ import process from "node:process";
 import path from "node:path";
 
 const BOUNDS = [33.43, 33.62, -117.3, -117.05];
-const SCOPE = "temecula:reactivated-photo-quarantine";
+const DEFAULT_CUTOFF = "2026-07-24T00:10:16Z";
+const SCOPES = {
+  rejected: "temecula:reactivated-photo-quarantine",
+  unverified: "temecula:post-identity-unverified-quarantine",
+};
 
 function args(argv) {
-  const parsed = { mode: "audit", runId: null };
+  const parsed = { mode: "audit", runId: null, kind: "rejected", cutoff: DEFAULT_CUTOFF };
   for (let index = 2; index < argv.length; index += 1) {
     if (argv[index] === "--mode") parsed.mode = argv[++index];
     else if (argv[index] === "--run") parsed.runId = argv[++index];
+    else if (argv[index] === "--kind") parsed.kind = argv[++index];
+    else if (argv[index] === "--created-after") parsed.cutoff = argv[++index];
     else throw new Error(`Unknown argument ${argv[index]}`);
   }
   if (!["audit", "apply", "rollback"].includes(parsed.mode)) {
     throw new Error("--mode must be audit, apply, or rollback");
+  }
+  if (!Object.hasOwn(SCOPES, parsed.kind)) {
+    throw new Error("--kind must be rejected or unverified");
   }
   if (parsed.mode === "rollback" && !parsed.runId) {
     throw new Error("--run is required for rollback");
@@ -110,7 +119,17 @@ target as (
   select p.*
   from photos p
   join scoped_restaurants sr on sr.place_id = p.restaurant_id
-  where p.active and p.dedupe_reason is not null
+  where p.active
+    and (
+      ($6::text = 'rejected' and p.dedupe_reason is not null)
+      or (
+        $6::text = 'unverified'
+        and p.content_hash is null
+        and p.dedupe_reason is null
+        and p.created_at > $7::timestamptz
+        and p.source not in ('user_upload', 'user_suggested', 'merchant')
+      )
+    )
 ),
 target_items as (
   select menu_item_id from target where menu_item_id is not null
@@ -164,34 +183,41 @@ select jsonb_build_object(
   'reasonCounts', (
     select coalesce(jsonb_object_agg(dedupe_reason, n), '{}'::jsonb)
     from (
-      select dedupe_reason, count(*)::int n
-      from target group by dedupe_reason order by dedupe_reason
+      select coalesce(dedupe_reason, 'verification_pending') as dedupe_reason, count(*)::int n
+      from target
+      group by coalesce(dedupe_reason, 'verification_pending')
+      order by dedupe_reason
     ) grouped
   )
 ) as metrics`;
 
-async function metrics(client) {
-  const result = await client.query(METRICS_SQL, [...BOUNDS, SCOPE]);
+async function metrics(client, context) {
+  const result = await client.query(METRICS_SQL, [
+    ...BOUNDS,
+    context.scope,
+    context.kind,
+    context.cutoff,
+  ]);
   return result.rows[0].metrics;
 }
 
-async function audit(client) {
+async function audit(client, context) {
   await client.query("begin transaction isolation level repeatable read read only");
   const proof = (
     await client.query(
       "select current_setting('transaction_read_only') read_only, current_setting('transaction_isolation') isolation"
     )
   ).rows[0];
-  const result = await metrics(client);
+  const result = await metrics(client, context);
   await client.query("rollback");
   return { status: "audited", transaction: proof, metrics: result };
 }
 
-async function apply(client) {
+async function apply(client, context) {
   await client.query("begin");
   try {
-    await client.query("select pg_advisory_xact_lock(hashtext($1))", [SCOPE]);
-    const before = await metrics(client);
+    await client.query("select pg_advisory_xact_lock(hashtext($1))", [context.scope]);
+    const before = await metrics(client, context);
     if (Number(before.activeKnownRejectedRows) === 0) {
       await client.query("rollback");
       return { status: "no_op", before };
@@ -202,11 +228,16 @@ async function apply(client) {
        values ($1, 'apply', 'running', $2::jsonb, $3::jsonb)
        returning id::text`,
       [
-        SCOPE,
+        context.scope,
         JSON.stringify(before),
         JSON.stringify({
-          rule: "active=true and dedupe_reason is not null",
-          rollback: "node scripts/quarantine-reactivated-photos.mjs --mode rollback --run <run-id>",
+          rule:
+            context.kind === "rejected"
+              ? "active=true and dedupe_reason is not null"
+              : `active acquired row has no content hash and was created after ${context.cutoff}`,
+          kind: context.kind,
+          cutoff: context.cutoff,
+          rollback: `node scripts/quarantine-reactivated-photos.mjs --kind ${context.kind} --mode rollback --run <run-id>`,
         }),
       ]
     );
@@ -219,30 +250,45 @@ async function apply(client) {
          p.id,
          p.duplicate_of_photo_id,
          'quarantine_reactivated',
-         p.dedupe_reason,
+         coalesce(p.dedupe_reason, 'verification_pending'),
          jsonb_build_object(
            'active', p.active,
+           'dedupe_reason', p.dedupe_reason,
            'dedupe_run_id', p.dedupe_run_id,
            'deduped_at', p.deduped_at
          )
        from photos p
        join restaurants r on r.place_id = p.restaurant_id
        join restaurant_entities e on e.id = r.entity_id
-       where p.active and p.dedupe_reason is not null
+       where p.active
+         and (
+           ($6::text = 'rejected' and p.dedupe_reason is not null)
+           or (
+             $6::text = 'unverified'
+             and p.content_hash is null
+             and p.dedupe_reason is null
+             and p.created_at > $7::timestamptz
+             and p.source not in ('user_upload', 'user_suggested', 'merchant')
+           )
+         )
          and r.status <> 'test_fixture' and e.status <> 'test_fixture'
          and r.lat between $1 and $2 and r.lng between $3 and $4
        on conflict (run_id, photo_id) do nothing`,
-      [...BOUNDS, runId]
+      [...BOUNDS, runId, context.kind, context.cutoff]
     );
     const updated = await client.query(
       `update photos p
-       set active = false, dedupe_run_id = $1, deduped_at = now()
+       set
+         active = false,
+         dedupe_reason = coalesce(p.dedupe_reason, 'verification_pending'),
+         dedupe_run_id = $1,
+         deduped_at = now()
        from photo_dedupe_actions a
        where a.run_id = $1 and a.photo_id = p.id and p.active
        returning p.id`,
       [runId]
     );
-    const after = await metrics(client);
+    const after = await metrics(client, context);
     await client.query(
       `update photo_dedupe_runs
        set status = 'completed', completed_at = now(), after_metrics = $2::jsonb,
@@ -268,22 +314,24 @@ async function apply(client) {
   }
 }
 
-async function rollback(client, originalRunId) {
+async function rollback(client, originalRunId, context) {
   await client.query("begin");
   try {
-    await client.query("select pg_advisory_xact_lock(hashtext($1))", [SCOPE]);
+    await client.query("select pg_advisory_xact_lock(hashtext($1))", [context.scope]);
     const original = await client.query(
       "select id::text, scope, status from photo_dedupe_runs where id = $1 and scope = $2",
-      [originalRunId, SCOPE]
+      [originalRunId, context.scope]
     );
-    if (!original.rowCount) throw new Error(`Run ${originalRunId} is not a ${SCOPE} run`);
-    const before = await metrics(client);
+    if (!original.rowCount) {
+      throw new Error(`Run ${originalRunId} is not a ${context.scope} run`);
+    }
+    const before = await metrics(client, context);
     const rollbackRun = await client.query(
       `insert into photo_dedupe_runs
          (scope, mode, status, before_metrics, notes)
        values ($1, 'rollback', 'running', $2::jsonb, $3::jsonb)
        returning id::text`,
-      [SCOPE, JSON.stringify(before), JSON.stringify({ originalRunId })]
+      [context.scope, JSON.stringify(before), JSON.stringify({ originalRunId })]
     );
     const rollbackRunId = rollbackRun.rows[0].id;
     await client.query(
@@ -294,6 +342,7 @@ async function rollback(client, originalRunId) {
          coalesce(p.dedupe_reason, 'restored'),
          jsonb_build_object(
            'active', p.active,
+           'dedupe_reason', p.dedupe_reason,
            'dedupe_run_id', p.dedupe_run_id,
            'deduped_at', p.deduped_at
          )
@@ -308,6 +357,7 @@ async function rollback(client, originalRunId) {
       `update photos p
        set
          active = coalesce((a.previous_state->>'active')::boolean, false),
+         dedupe_reason = a.previous_state->>'dedupe_reason',
          dedupe_run_id = (a.previous_state->>'dedupe_run_id')::uuid,
          deduped_at = (a.previous_state->>'deduped_at')::timestamptz
        from photo_dedupe_actions a
@@ -315,7 +365,7 @@ async function rollback(client, originalRunId) {
        returning p.id`,
       [originalRunId]
     );
-    const after = await metrics(client);
+    const after = await metrics(client, context);
     await client.query(
       `update photo_dedupe_runs
        set status = 'completed', completed_at = now(), after_metrics = $2::jsonb,
@@ -341,6 +391,11 @@ async function rollback(client, originalRunId) {
 async function main() {
   process.loadEnvFile(path.join(process.cwd(), ".env.local"));
   const options = args(process.argv);
+  const context = {
+    kind: options.kind,
+    cutoff: options.cutoff,
+    scope: SCOPES[options.kind],
+  };
   const client = new Client({
     connectionString: connectionString(),
     statement_timeout: 60_000,
@@ -350,10 +405,10 @@ async function main() {
   try {
     const result =
       options.mode === "audit"
-        ? await audit(client)
+        ? await audit(client, context)
         : options.mode === "apply"
-          ? await apply(client)
-          : await rollback(client, options.runId);
+          ? await apply(client, context)
+          : await rollback(client, options.runId, context);
     console.log(JSON.stringify(result, null, 2));
   } finally {
     await client.end();
