@@ -6,8 +6,10 @@
 
 ## Current Phase
 
-Baseline calibration is stopped at its pre-registered safety gate because the
-required sanitized photo-level evidence is not present locally.
+Baseline calibration is stopped at its reproducibility gate. A sanitized
+photo-level bundle arrived, but its comparison query does not reproduce the
+production V2 entity-level semantics and its record order reveals the blind
+4+4+4 buckets.
 
 ## Current Goal
 
@@ -124,18 +126,61 @@ transaction-read-only export the main SeeFood thread can provide without
 exposing credentials or personal data. DL-001 remains untested rather than
 rejected.
 
+On July 27, the main thread supplied a bounded ignored bundle and DL-001
+resumed. The bundle itself was read-only and stayed inside the safety limits:
+
+- one `REPEATABLE READ READ ONLY` transaction ending in `ROLLBACK`;
+- 183 candidate rows, 12 selected restaurants, 980 menu rows, and 82 local
+  WebP evidence images;
+- all manifest hashes passed, all 82 images decoded, no EXIF/XMP/ICC metadata
+  chunks were present, and no obvious credential, token, email, or forbidden
+  personal-data field was found;
+- the 12 restaurants were exactly the lowest seeded ranks in the supplied
+  four-claimed, four-rich-unpaired, and four-sparse buckets.
+
+The bundle nevertheless failed acceptance:
+
+- its claimed-comparison query scopes, groups, and pairs by
+  `restaurant_id`, while the production `coverage_v2_metrics` function at the
+  supplied commit scopes entities, includes all restaurants belonging to each
+  entity, and groups comparisons by `entity_id`;
+- `G01`–`G04`, `G05`–`G08`, and `G09`–`G12` preserve the bucket order, so the
+  supposedly blind packet reveals all three buckets;
+- no deterministic rule or complete candidate roster proves how a claimed dish
+  and the remaining photos were selected;
+- the redaction log says `passed` while its own environment-secret scan remains
+  `run_before_completion`; and
+- stored `comparison_ready` rows are historical signals, not current V2
+  comparison-dish claims, and some exported stored signals have no active dish
+  key.
+
+The independent Guardian completed an exploratory review of all 12 restaurants
+and 82 images before the packet was rejected. It found four same-key candidate
+dishes, five Management/Customer pair combinations, and zero pairs satisfying
+all supplied gold evidence. One soup Customer image was only a weak item match;
+one claimed Customer image was a cropped/re-encoded copy of the Management
+image; every author classification was heuristic; every rights status was
+`unreviewed`; and no record carried affirmative operating-status evidence.
+These are concrete failure examples, not a production precision estimate.
+
+No verified coverage changed. DL-001 remains `Quarantine / untested` against
+the actual production V2 signal.
+
 ## Confidence
 
-High that the local evidence is insufficient and DL-001 had to stop. High that
-the stored SQL omits several DataLab gold checks. Confidence in the actual
-comparison baseline remains Low because no underlying photo evidence was
-available to audit.
+High that the supplied export is read-only and bounded. High that it does not
+reproduce production V2 semantics and that its blindness is compromised. High
+that none of the five exploratory pair combinations satisfies the evidence
+provided in the packet. Confidence in the actual production comparison
+baseline remains Low because the wrong population and pairing semantics were
+sampled.
 
 ## Cost
 
-$0. Local repository/history inspection and independent review only. No
+$0. Local bundle validation and independent review only. The bundle had been
+prepared by the main thread through bounded reads; the DataLab made no
 production read or write, provider call, model call, image download, account,
-vendor contact, crawl, or paid quota was used.
+vendor contact, crawl, or paid-quota use.
 
 ## Production Impact
 
@@ -144,13 +189,13 @@ merges.
 
 ## Next Action
 
-Pause lab experiments. The main SeeFood thread supplies the sanitized bundle
-defined in `DL001_INPUT_HANDOFF.md` under ignored
-`data-lab/raw/baseline/DL-001/`. Then resume DL-001 with the same deterministic
-selection and the Guardian's blind audit. Do not substitute synthetic fixtures,
-live source calls, or `/api/dishes`.
+Regenerate the ignored DL-001 bundle using the corrected contract in
+`DL001_INPUT_HANDOFF.md`: exact production entity-level semantics, deterministic
+claimed-dish and photo selection evidence, a completed redaction scan, and an
+independently shuffled opaque Guardian packet. Then rerun the same calibration.
+Do not advance to DL-002 or a source connector from this invalid sample.
 
 ## Kyle Needs To Do
 
-Ask the main SeeFood thread to prepare the bounded sanitized DL-001 handoff.
-Kyle should not handle credentials or raw customer data himself.
+Nothing. The main SeeFood thread can regenerate the corrected bounded handoff;
+Kyle should not handle credentials or raw customer data.

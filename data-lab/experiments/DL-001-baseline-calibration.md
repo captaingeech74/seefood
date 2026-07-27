@@ -131,3 +131,99 @@ real Management-versus-Customer comparisons from those files.
 Pause experiments until the main thread supplies the bundle specified in
 `DL001_INPUT_HANDOFF.md`. Then resume DL-001 unchanged with the Guardian's
 blind audit.
+
+## Resume Attempt — 2026-07-27
+
+### Supplied Bundle
+
+The main thread supplied an ignored, local, sanitized bundle under
+`data-lab/raw/baseline/DL-001/`. The DataLab made no live or production call.
+
+Mechanical validation passed:
+
+- PostgreSQL attestation: `REPEATABLE READ READ ONLY`, followed by `ROLLBACK`;
+- 183 candidates in the calibration rectangle;
+- supplied bucket counts: 6 SQL-claimed, 76 rich-unpaired, 25 sparse, and 76
+  outside the three selection buckets;
+- exactly 4+4+4 selected by the registered restaurant hash rank;
+- 980 active menu evidence rows and 82 photo evidence rows, with no restaurant
+  above 10 photos and no total above 120;
+- all SHA-256 manifest entries passed;
+- every evidence image decoded as WebP, and none contained EXIF, XMP, or ICC
+  metadata chunks; and
+- an independent scan found no obvious credential, JWT, email value, forbidden
+  personal-data key, or live URL.
+
+### Reproducibility Failure
+
+The bundle cannot calibrate the current production V2 signal:
+
+1. The export query scopes restaurants by restaurant coordinates and groups
+   claims by `restaurant_id`. The production function at the bundle's recorded
+   commit scopes `restaurant_entities`, includes all restaurants attached to
+   each scoped entity, and groups claims by `entity_id`. This can change the
+   candidate frame, photo associations, comparison counts, buckets, and the
+   selected claimed cohort.
+2. The Guardian IDs preserve bucket order: `G01`–`G04` are claimed,
+   `G05`–`G08` are rich-unpaired, and `G09`–`G12` are sparse. The protocol
+   itself therefore reveals every supposedly withheld bucket.
+3. Multiple claimed restaurants have multiple claimed dish keys, but the
+   bundle records no deterministic selection rule for `selectedClaimDishKey`.
+   It also omits the full candidate photo roster or per-photo ranks needed to
+   reproduce the non-claim sample and independently prove that no claimed-dish
+   photo was omitted.
+4. The redaction result says `passed` while its environment-secret scan is
+   still marked `run_before_completion`, and it is not a per-file log.
+5. Historical stored `comparison_ready` signals are separated in filename but
+   are still described as claims even when the exported dish key is null or
+   the flagged row is inactive. They are not current V2 comparison claims.
+
+The first issue alone is decisive. DL-001 stopped at the resume gate before
+accepting a calibration metric.
+
+### Frozen Guardian Observation
+
+The Benchmark Guardian reviewed all 12 opaque records and all 82 images without
+opening the unblinded files. Because the packet order and upstream semantics
+failed, its findings are exploratory only:
+
+- four same-dish-key candidate groups and five Management/Customer pair
+  combinations;
+- zero verified comparison dishes and zero verified comparison-ready
+  restaurants from the evidence supplied;
+- one Customer soup image was only a weak match to the claimed dish;
+- one claimed Customer image was a cropped/re-encoded copy of its Management
+  counterpart;
+- every Management and Customer author class relied on a heuristic requiring
+  review;
+- all 82 images had `rightsStatus: unreviewed`; and
+- no record contained affirmative operating-status evidence.
+
+The Guardian also found a Management duplicate pair not grouped by the packet's
+dedupe evidence. These examples support the need for the gold gates, but they
+must not be converted into a production error rate.
+
+### Independent Verification
+
+The Adversarial Verifier independently confirmed the entity-versus-restaurant
+semantic mismatch, bucket-order leak, unreproducible claimed-dish/photo
+selection, incomplete redaction gate, and stored-signal terminology problem.
+No implementation worker evaluated its own result.
+
+### Decision
+
+**Quarantine / untested.**
+
+The original hypothesis remains plausible but is not measured against the
+actual production V2 population. No verified coverage or precision metric
+changed.
+
+### Cost And Impact
+
+$0 DataLab cost. No production read or write by the DataLab, source request,
+model call, crawl, deploy, infrastructure change, paid quota, push, or merge.
+
+### Next Action
+
+Regenerate the bundle under the corrected `DL001_INPUT_HANDOFF.md`, then rerun
+DL-001. Do not advance to DL-002 or a connector from this invalid sample.

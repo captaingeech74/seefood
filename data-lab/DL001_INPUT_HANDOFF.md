@@ -50,6 +50,19 @@ handpicked 12—with:
 - bucket eligibility and the mechanical reason; and
 - `SHA-256("DL-001-CAL-2026-07-23" || stable_restaurant_id)` rank.
 
+The recomputation must reproduce the exact production
+`coverage_v2_metrics` semantics at the recorded commit. In particular, scope
+by `restaurant_entities` coordinates, include every restaurant belonging to a
+scoped entity, and aggregate menu/photo/comparison evidence by `entity_id`.
+Do not substitute a restaurant-coordinate or `restaurant_id` grouping even
+when most entities currently map to one restaurant. Record the exact production
+function text or its hash beside the export query.
+
+Keep the registered rank input stable: for an entity-level candidate,
+`stable_restaurant_id` means the entity's preserved `legacy_place_id`; when
+that is absent, use the lexicographically smallest attached restaurant
+`place_id` and record that fallback. Emit only one candidate row per entity.
+
 Confirm that at least four candidates exist in each bucket:
 
 1. SQL-claimed comparison-ready;
@@ -96,6 +109,12 @@ For each selected SQL-claimed restaurant, include every photo attached to its
 claimed comparison dish before filling the remaining slots by stable hash.
 Stop rather than truncate a claimed dish if the total would exceed 120.
 
+Select the audited claimed dish by a recorded deterministic formula over the
+seed, stable entity ID, and dish key. Preserve the chosen dish's complete
+eligible photo roster and count so the DataLab can verify that no attached
+photo was omitted. Record the exact formula and candidate-roster hash used to
+fill all remaining photo slots.
+
 ## Reproducibility Record
 
 Include:
@@ -111,6 +130,15 @@ Include:
 - redaction log; and
 - an opaque Guardian packet that omits bucket and SQL-claim labels until the
   blind audit is complete.
+
+The redaction log must show the secret-value scan as completed, not
+`run_before_completion`, and give a result for every exported file.
+
+Randomize Guardian restaurant order independently of bucket and selection
+order, assign opaque IDs only after that shuffle, and keep the seed or mapping
+from the Guardian until all blind judgments are frozen. Commit or export a
+pre-audit hash commitment to the shuffle seed so the order remains
+reproducible after unblinding.
 
 ## Resume Gate
 
