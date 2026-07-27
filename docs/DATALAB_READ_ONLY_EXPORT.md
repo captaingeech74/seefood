@@ -54,10 +54,16 @@ four candidates, the photo bounds would be exceeded, a secret is detected, or
 the database does not confirm read-only mode, the exporter fails before
 publishing a completed bundle.
 
-The first run exercised that stop condition: an Epic Wings candidate was a
+An earlier run exercised that stop condition: an Epic Wings candidate was a
 restaurant webpage previously proven to be a non-image, but a later transient
 fetch failure had made it active again. The main thread repaired the responsible
-ingestion rule, re-quarantined only rows already carrying durable rejection
-evidence, and then regenerated the bundle. The final bundle has 183 candidates,
-12 selected restaurants, 980 menu rows, and 82 photo records. It records
-complete inclusion of every photo on each selected comparison dish.
+ingestion rule and re-quarantined only rows already carrying durable rejection
+evidence.
+
+The first completed bundle was later rejected because it grouped by restaurant
+row rather than production entity. It is retained as invalid evidence under
+`DL-001-invalid-restaurant-semantics-2026-07-27`. The corrected bundle has
+1,390 entity candidates, exactly 4+4+4 selected entities, 924 current menu rows,
+and 78 photo records. It passes exact parity for every exported production
+coverage field and records complete inclusion of every photo on each selected
+comparison dish.

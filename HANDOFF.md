@@ -25,8 +25,7 @@ MSAs, and finally all 387 MSAs.
 - Baseline handoff commit for the current lead: `857242f`.
 - Stack: Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Supabase
   Postgres, Cloudflare R2, Google Maps, Sharp, and Vitest.
-- Verification baseline: 60 tests passing after the delivery-source
-  restoration.
+- Verification baseline: 62 tests passing after the corrected DL-001 exporter.
 - DoorDash and Grubhub are enabled automatic acquisition sources. DoorDash
   discovery is city-bounded and ambiguity-safe; Grubhub now supplies a
   delivery location, reads its current first-party menu responses, and
@@ -133,7 +132,12 @@ DL-001 bundles live locally in both checkouts at
 `coverage_v2_metrics` entity semantics, one candidate per entity, four entities
 from each calibration bucket, deterministic complete photo rosters,
 independently shuffled Guardian records, and completed per-file secret/PII
-scans. The DataLab branch and its committed experiment files remain untouched.
+scans. The corrected bundle contains 1,390 entity candidates, exactly 4+4+4
+selected entities, 924 current menu rows, and 78 rendered photo records. Exact
+production-metric parity and all 196 manifest hashes pass. The rejected
+restaurant-row-scoped bundle is retained locally under
+`DL-001-invalid-restaurant-semantics-2026-07-27`; the DataLab branch and its
+committed experiment files remain untouched.
 
 ## Current Data-Quality State
 
