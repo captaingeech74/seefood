@@ -20,20 +20,30 @@ The exporter:
 - verifies the database's read-only setting before querying evidence;
 - executes no mutation, RPC, application route, cache operation, or storage
   write;
-- samples by the fixed DL-001 hash rules and stops above 10 photos per
-  restaurant or 120 photos total;
+- reproduces `coverage_v2_metrics` at the entity level, including every
+  restaurant row attached to each scoped entity;
+- emits one candidate per entity and samples by deterministic dish/photo rank
+  formulas, stopping above 10 photos per entity or 120 photos total;
+- records every candidate rank and the complete photo roster for the selected
+  claimed dish;
 - fetches only the selected image bytes through direct bounded reads;
 - creates metadata-stripped 512-pixel WebP evidence renders;
 - removes raw URLs, credentials, contributor/customer identifiers and content,
   device/session data, payment data, and precise personal timestamps;
-- secret-scans the staged output against the loaded production environment;
-- creates a SHA-256 manifest and a separate blind Guardian packet; and
+- scans every staged file for loaded environment-secret values and prohibited
+  personal-data patterns, recording per-file results and SHA-256 hashes;
+- keeps recomputed current V2 claims separate from historical stored flags;
+- creates a SHA-256 manifest and a separately shuffled blind Guardian packet,
+  while retaining its seed and identity mapping outside the lab mirror; and
 - makes both completed copies filesystem read-only.
 
-The generated bundle is ignored by Git. It includes the exact SQL, transaction
-proof, schema fingerprint, all candidates in the bounded calibration rectangle,
-separate recomputed and stored comparison signals, selected menu/photo evidence,
-the redaction record, and the blind Guardian packet.
+The generated bundle is ignored by Git. It includes the installed production
+metric function, its exact result and an equality proof against the exporter's
+recomputation; transaction proof; schema fingerprint; all entity candidates in
+the bounded calibration rectangle; separate current and historical signals;
+operating/menu/linkage/author/rights/accessibility/moderation evidence; robust
+near-duplicate review signals; deterministic selection audits; the completed
+redaction record; and the blind Guardian packet.
 
 The rectangle is deliberately labeled as a calibration bound rather than a
 Temecula census. DL-001 is meant to calibrate the benchmark. A later census must

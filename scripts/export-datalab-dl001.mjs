@@ -11,6 +11,7 @@
  * - output is staged, secret-scanned, hashed, then made filesystem read-only.
  */
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { randomBytes } from "node:crypto";
 import { Client } from "pg";
 import sharp from "sharp";
 import {
@@ -31,8 +32,16 @@ import process from "node:process";
 import { execFileSync } from "node:child_process";
 import {
   authorBasis,
+  canonicalRosterHash,
+  CLAIM_DISH_RANK_FORMULA,
+  claimDishRank,
   classifyCandidate,
   findSecretLeaks,
+  GUARDIAN_ORDER_FORMULA,
+  guardianOrderRank,
+  hammingDistanceHex,
+  PHOTO_RANK_FORMULA,
+  photoRank,
   redactLocator,
   selectBucketCandidates,
   sha256,
@@ -41,6 +50,10 @@ import {
 
 const ROOT = process.cwd();
 const OUTPUT_ROOT = path.join(ROOT, "data-lab/raw/baseline/DL-001");
+const UNBLINDING_OUTPUT = path.join(
+  ROOT,
+  "data-lab/raw/baseline/DL-001-GUARDIAN-UNBLINDING.json"
+);
 const MAX_PHOTOS_PER_RESTAURANT = 10;
 const MAX_PHOTOS_TOTAL = 120;
 const BOUNDS = {
@@ -82,25 +95,59 @@ const SECRET_ENV_NAMES = [
 ];
 
 const CANDIDATE_QUERY = String.raw`
-with scoped as (
+with scoped_entities as (
   select
-    r.place_id as restaurant_id,
-    r.entity_id,
-    r.name as restaurant_name,
-    r.lat,
-    r.lng,
-    r.status as restaurant_status,
+    e.id as entity_id,
+    e.legacy_place_id,
+    e.name as entity_name,
+    e.lat,
+    e.lng,
     e.status as entity_status
-  from restaurants r
-  join restaurant_entities e on e.id = r.entity_id
+  from restaurant_entities e
   where e.status <> 'test_fixture'
-    and r.status <> 'test_fixture'
-    and r.lat between $1 and $2
-    and r.lng between $3 and $4
+    and e.lat is not null
+    and e.lng is not null
+    and e.lat between $1 and $2
+    and e.lng between $3 and $4
+),
+scoped_restaurants as (
+  select
+    e.entity_id,
+    r.place_id,
+    r.name as restaurant_name,
+    r.status as restaurant_status,
+    r.lat as restaurant_lat,
+    r.lng as restaurant_lng,
+    r.last_crawled_at
+  from scoped_entities e
+  left join restaurants r on r.entity_id = e.entity_id
+),
+entity_identity as (
+  select
+    e.entity_id,
+    coalesce(nullif(e.legacy_place_id, ''), min(r.place_id)) as stable_restaurant_id,
+    case
+      when nullif(e.legacy_place_id, '') is not null then 'restaurant_entities.legacy_place_id'
+      else 'lexicographically_smallest_attached_restaurant.place_id'
+    end as stable_restaurant_id_basis,
+    jsonb_agg(
+      jsonb_build_object(
+        'restaurantId', r.place_id,
+        'publicName', r.restaurant_name,
+        'status', r.restaurant_status,
+        'coordinates', jsonb_build_object('lat', r.restaurant_lat, 'lng', r.restaurant_lng),
+        'lastCrawledEvidencePresent',
+          coalesce(r.last_crawled_at, '{}'::jsonb) <> '{}'::jsonb
+      )
+      order by r.place_id
+    ) filter (where r.place_id is not null) as attached_restaurants
+  from scoped_entities e
+  left join scoped_restaurants r on r.entity_id = e.entity_id
+  group by e.entity_id, e.legacy_place_id
 ),
 menu_counts as (
   select
-    s.restaurant_id,
+    e.entity_id,
     count(distinct coalesce(m.canonical_dish_id::text, 'menu-' || m.id::text))
       filter (where m.active) as current_menu_count,
     count(distinct coalesce(m.canonical_dish_id::text, 'menu-' || m.id::text))
@@ -111,32 +158,31 @@ menu_counts as (
             or (m.source = 'merchant' and m.last_seen_at >= current_timestamp - interval '90 days')
           )
       ) as benchmark_fresh_menu_count
-  from scoped s
-  left join menu_items m on m.restaurant_id = s.restaurant_id
-  group by s.restaurant_id
+  from scoped_entities e
+  left join scoped_restaurants r on r.entity_id = e.entity_id
+  left join menu_items m on m.restaurant_id = r.place_id
+  group by e.entity_id
 ),
 physical_photos as (
   select
-    s.restaurant_id,
-    s.entity_id,
+    r.entity_id,
     p.id as photo_id,
     p.photo_author_type,
     coalesce(
       p.canonical_dish_id::text,
       case when p.menu_item_id is not null then 'menu-' || p.menu_item_id::text end
     ) as primary_dish_key
-  from scoped s
-  join photos p on p.restaurant_id = s.restaurant_id
+  from scoped_restaurants r
+  join photos p on p.restaurant_id = r.place_id
   where p.active
     and not coalesce(p.is_storefront, false)
     and not coalesce(p.is_menu_photo, false)
 ),
 photo_associations as (
-  select restaurant_id, entity_id, photo_id, photo_author_type, primary_dish_key as dish_key
+  select entity_id, photo_id, photo_author_type, primary_dish_key as dish_key
   from physical_photos
   union
   select
-    p.restaurant_id,
     p.entity_id,
     p.photo_id,
     p.photo_author_type,
@@ -147,26 +193,36 @@ photo_associations as (
 ),
 claims as (
   select
-    restaurant_id,
+    entity_id,
     array_agg(dish_key order by dish_key) as sql_claim_keys,
     count(*)::int as sql_claim_count
   from (
-    select restaurant_id, dish_key
+    select entity_id, dish_key
     from photo_associations
     where dish_key is not null
-    group by restaurant_id, dish_key
+    group by entity_id, dish_key
     having bool_or(photo_author_type = 'management')
        and bool_or(photo_author_type = 'customer')
   ) claim_dishes
-  group by restaurant_id
+  group by entity_id
+),
+v2_photo_counts as (
+  select
+    entity_id,
+    count(distinct photo_id)::int as v2_photo_count,
+    count(distinct photo_id) filter (where dish_key is not null)::int as v2_matched_photo_count,
+    count(distinct dish_key) filter (where dish_key is not null)::int as v2_matched_dish_count
+  from photo_associations
+  group by entity_id
 ),
 useful_photos as (
   select
-    s.restaurant_id,
+    e.entity_id,
     count(distinct p.id)::int as useful_photo_count
-  from scoped s
+  from scoped_entities e
+  left join scoped_restaurants r on r.entity_id = e.entity_id
   left join photos p
-    on p.restaurant_id = s.restaurant_id
+    on p.restaurant_id = r.place_id
    and p.active
    and p.moderation_status = 'approved'
    and coalesce(p.is_orderable, true)
@@ -174,37 +230,108 @@ useful_photos as (
    and not coalesce(p.is_menu_photo, false)
    and p.dedupe_reason is null
    and coalesce(p.storage_url, p.origin_url) is not null
-  group by s.restaurant_id
+  group by e.entity_id
 ),
 stored_flags as (
   select
-    s.restaurant_id,
+    e.entity_id,
     count(*) filter (where p.active and p.comparison_ready)::int as stored_active_flag_count,
-    count(*) filter (where p.comparison_ready)::int as stored_all_flag_count,
+    count(*) filter (where not p.active and p.comparison_ready)::int as stored_inactive_flag_count,
+    count(*) filter (
+      where p.comparison_ready
+        and coalesce(
+          p.canonical_dish_id::text,
+          case when p.menu_item_id is not null then 'menu-' || p.menu_item_id::text end
+        ) is null
+    )::int as stored_null_dish_key_flag_count,
     array_agg(distinct coalesce(
       p.canonical_dish_id::text,
       case when p.menu_item_id is not null then 'menu-' || p.menu_item_id::text end
-    )) filter (where p.active and p.comparison_ready) as stored_flag_keys
-  from scoped s
-  left join photos p on p.restaurant_id = s.restaurant_id
-  group by s.restaurant_id
+    )) filter (
+      where p.comparison_ready
+        and coalesce(
+          p.canonical_dish_id::text,
+          case when p.menu_item_id is not null then 'menu-' || p.menu_item_id::text end
+        ) is not null
+    ) as stored_flag_keys
+  from scoped_entities e
+  left join scoped_restaurants r on r.entity_id = e.entity_id
+  left join photos p on p.restaurant_id = r.place_id
+  group by e.entity_id
+),
+operating_evidence as (
+  select
+    e.entity_id,
+    (
+      select count(*)::int from restaurant_identities ri
+      where ri.entity_id = e.entity_id and ri.active
+    ) as active_identity_count,
+    (
+      select array_agg(distinct ri.provider order by ri.provider)
+      from restaurant_identities ri
+      where ri.entity_id = e.entity_id and ri.active
+    ) as active_identity_providers,
+    (
+      select max(ri.last_seen_at)::date::text from restaurant_identities ri
+      where ri.entity_id = e.entity_id and ri.active
+    ) as latest_active_identity_date,
+    (
+      select count(*)::int from source_snapshots ss
+      where ss.entity_id = e.entity_id and ss.status = 'succeeded'
+    ) as successful_snapshot_count,
+    (
+      select max(ss.completed_at)::date::text from source_snapshots ss
+      where ss.entity_id = e.entity_id and ss.status = 'succeeded'
+    ) as latest_successful_snapshot_date,
+    (
+      select max(m.last_seen_at)::date::text
+      from scoped_restaurants r join menu_items m on m.restaurant_id = r.place_id
+      where r.entity_id = e.entity_id and m.active
+    ) as latest_active_menu_observation_date,
+    (
+      select max(p.last_seen_at)::date::text
+      from scoped_restaurants r join photos p on p.restaurant_id = r.place_id
+      where r.entity_id = e.entity_id and p.active
+    ) as latest_active_photo_observation_date
+  from scoped_entities e
 )
 select
-  s.*,
+  e.entity_id::text,
+  i.stable_restaurant_id,
+  i.stable_restaurant_id_basis,
+  e.entity_name,
+  e.lat,
+  e.lng,
+  e.entity_status,
+  coalesce(i.attached_restaurants, '[]'::jsonb) as attached_restaurants,
   coalesce(m.current_menu_count, 0)::int as current_menu_count,
   coalesce(m.benchmark_fresh_menu_count, 0)::int as benchmark_fresh_menu_count,
+  coalesce(v.v2_photo_count, 0)::int as v2_photo_count,
+  coalesce(v.v2_matched_photo_count, 0)::int as v2_matched_photo_count,
+  coalesce(v.v2_matched_dish_count, 0)::int as v2_matched_dish_count,
   coalesce(u.useful_photo_count, 0)::int as useful_photo_count,
   coalesce(c.sql_claim_count, 0)::int as sql_claim_count,
   coalesce(c.sql_claim_keys, array[]::text[]) as sql_claim_keys,
   coalesce(f.stored_active_flag_count, 0)::int as stored_active_flag_count,
-  coalesce(f.stored_all_flag_count, 0)::int as stored_all_flag_count,
-  coalesce(f.stored_flag_keys, array[]::text[]) as stored_flag_keys
-from scoped s
-left join menu_counts m using (restaurant_id)
-left join useful_photos u using (restaurant_id)
-left join claims c using (restaurant_id)
-left join stored_flags f using (restaurant_id)
-order by s.restaurant_id`;
+  coalesce(f.stored_inactive_flag_count, 0)::int as stored_inactive_flag_count,
+  coalesce(f.stored_null_dish_key_flag_count, 0)::int as stored_null_dish_key_flag_count,
+  coalesce(f.stored_flag_keys, array[]::text[]) as stored_flag_keys,
+  coalesce(o.active_identity_count, 0)::int as active_identity_count,
+  coalesce(o.active_identity_providers, array[]::text[]) as active_identity_providers,
+  o.latest_active_identity_date,
+  coalesce(o.successful_snapshot_count, 0)::int as successful_snapshot_count,
+  o.latest_successful_snapshot_date,
+  o.latest_active_menu_observation_date,
+  o.latest_active_photo_observation_date
+from scoped_entities e
+join entity_identity i on i.entity_id = e.entity_id
+left join menu_counts m on m.entity_id = e.entity_id
+left join v2_photo_counts v on v.entity_id = e.entity_id
+left join useful_photos u on u.entity_id = e.entity_id
+left join claims c on c.entity_id = e.entity_id
+left join stored_flags f on f.entity_id = e.entity_id
+left join operating_evidence o on o.entity_id = e.entity_id
+order by i.stable_restaurant_id`;
 
 const MENU_QUERY = String.raw`
 select
@@ -244,9 +371,9 @@ left join brand_menu_templates bmt
   on bmt.brand_id = rbm.brand_id
  and bmt.normalized_name = cd.normalized_name
  and bmt.active
-where m.restaurant_id = any($1::text[])
+where r.entity_id = any($1::uuid[])
   and m.active
-order by m.restaurant_id, coalesce(cd.normalized_name, lower(m.name)), m.source, m.id`;
+order by r.entity_id, m.restaurant_id, coalesce(cd.normalized_name, lower(m.name)), m.source, m.id`;
 
 const PHOTO_QUERY = String.raw`
 with associations as (
@@ -260,7 +387,8 @@ with associations as (
     p.canonical_dish_id::text as canonical_dish_id,
     'primary_photo_link'::text as link_basis
   from photos p
-  where p.restaurant_id = any($1::text[])
+  join restaurants r on r.place_id = p.restaurant_id
+  where r.entity_id = any($1::uuid[])
   union
   select
     l.photo_id,
@@ -270,7 +398,8 @@ with associations as (
     'preserved_many_to_many_link'::text as link_basis
   from photo_menu_item_links l
   join menu_items m on m.id = l.menu_item_id and m.active
-  where m.restaurant_id = any($1::text[])
+  join restaurants r on r.place_id = m.restaurant_id
+  where r.entity_id = any($1::uuid[])
 ),
 association_rollup as (
   select
@@ -307,7 +436,8 @@ origin_rollup as (
       )
     )::int as repeated_origin_url_count
   from photo_origins po
-  where po.restaurant_id = any($1::text[])
+  join restaurants r on r.place_id = po.restaurant_id
+  where r.entity_id = any($1::uuid[])
   group by po.photo_id
 )
 select
@@ -366,7 +496,7 @@ from photos p
 join restaurants r on r.place_id = p.restaurant_id
 left join association_rollup a on a.photo_id = p.id
 left join origin_rollup o on o.photo_id = p.id
-where p.restaurant_id = any($1::text[])
+where r.entity_id = any($1::uuid[])
   and p.active
   and not coalesce(p.is_storefront, false)
   and not coalesce(p.is_menu_photo, false)
@@ -391,6 +521,26 @@ select
       group by table_name
     ) table_columns
   ) as relevant_schema`;
+
+const PRODUCTION_METRIC_QUERY = String.raw`
+select coverage_v2_metrics(
+  p_min_lat => $1,
+  p_max_lat => $2,
+  p_min_lng => $3,
+  p_max_lng => $4
+) as metrics`;
+
+const PRODUCTION_FUNCTION_QUERY = String.raw`
+select
+  pg_get_functiondef(p.oid) as function_definition,
+  p.provolatile,
+  p.prosecdef
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname = 'coverage_v2_metrics'
+order by p.oid desc
+limit 1`;
 
 function parseArgs(argv) {
   const args = { mirror: null };
@@ -543,6 +693,41 @@ function locatorCandidates(photo) {
   return [...new Set(candidates)];
 }
 
+function bitsToHex(bits) {
+  let value = "";
+  for (let index = 0; index < bits.length; index += 4) {
+    value += Number.parseInt(bits.slice(index, index + 4).join(""), 2).toString(16);
+  }
+  return value;
+}
+
+async function robustPerceptualSignatures(orientedBytes, width, height) {
+  const signatures = [];
+  for (const cropRatio of [1, 0.9, 0.8, 0.7]) {
+    const cropWidth = Math.max(9, Math.floor(width * cropRatio));
+    const cropHeight = Math.max(8, Math.floor(height * cropRatio));
+    const left = Math.max(0, Math.floor((width - cropWidth) / 2));
+    const top = Math.max(0, Math.floor((height - cropHeight) / 2));
+    const pixels = await sharp(orientedBytes)
+      .extract({ left, top, width: cropWidth, height: cropHeight })
+      .resize(9, 8, { fit: "fill" })
+      .grayscale()
+      .raw()
+      .toBuffer();
+    const bits = [];
+    for (let y = 0; y < 8; y += 1) {
+      for (let x = 0; x < 8; x += 1) {
+        bits.push(pixels[y * 9 + x] > pixels[y * 9 + x + 1] ? 1 : 0);
+      }
+    }
+    signatures.push({
+      transform: cropRatio === 1 ? "full_image" : `center_crop_${Math.round(cropRatio * 100)}pct`,
+      dHash64: bitsToHex(bits),
+    });
+  }
+  return signatures;
+}
+
 async function renderEvidencePhoto(photo, target, readR2) {
   const errors = [];
   for (const locator of locatorCandidates(photo)) {
@@ -552,8 +737,8 @@ async function renderEvidencePhoto(photo, target, readR2) {
       if (!metadata.width || !metadata.height || !metadata.format) {
         throw new Error("bytes did not decode as a supported image");
       }
-      const rendered = await sharp(bytes)
-        .rotate()
+      const oriented = await sharp(bytes).rotate().toBuffer({ resolveWithObject: true });
+      const rendered = await sharp(oriented.data)
         .resize({ width: 512, height: 512, fit: "inside", withoutEnlargement: true })
         .webp({ quality: 82 })
         .toBuffer();
@@ -570,6 +755,11 @@ async function renderEvidencePhoto(photo, target, readR2) {
           width: metadata.width,
           height: metadata.height,
         },
+        robustPerceptualSignatures: await robustPerceptualSignatures(
+          oriented.data,
+          oriented.info.width,
+          oriented.info.height
+        ),
       };
     } catch (error) {
       errors.push(`${redactLocator(locator)?.locatorSha256}: ${error.message}`);
@@ -580,9 +770,10 @@ async function renderEvidencePhoto(photo, target, readR2) {
 
 function choosePhotos(selectedRestaurants, photos) {
   const selected = [];
+  const audits = [];
   for (const restaurant of selectedRestaurants) {
     const rows = photos.filter(
-      (photo) => photo.restaurant_id === restaurant.stableRestaurantId
+      (photo) => photo.entity_id === restaurant.entityId
     );
     const claimKey = restaurant.selectedClaimDishKey;
     const claimedRows = claimKey
@@ -590,32 +781,93 @@ function choosePhotos(selectedRestaurants, photos) {
       : [];
     if (claimedRows.length > MAX_PHOTOS_PER_RESTAURANT) {
       throw new Error(
-        `${restaurant.restaurant_id} selected claim has ${claimedRows.length} photos; refusing to truncate`
+        `${restaurant.entityId} selected claim has ${claimedRows.length} photos; refusing to truncate`
       );
     }
 
-    const required = claimedRows.sort((a, b) => a.photo_id.localeCompare(b.photo_id));
+    const required = claimedRows.sort((a, b) =>
+      photoRank(restaurant.entityId, a.photo_id).localeCompare(
+        photoRank(restaurant.entityId, b.photo_id)
+      )
+    );
     if (claimKey && required.length === 0) {
       throw new Error(
-        `${restaurant.stableRestaurantId} selected claim ${claimKey} had no attached photos`
+        `${restaurant.entityId} selected claim ${claimKey} had no attached photos`
       );
     }
     const requiredIds = new Set(required.map((photo) => photo.photo_id));
-    const fillers = rows
-      .filter(
-        (photo) =>
-          !requiredIds.has(photo.photo_id) &&
-          photo.moderation_status === "approved" &&
-          photo.is_orderable !== false &&
-          !photo.dedupe_reason &&
-          locatorCandidates(photo).length > 0
-      )
-      .sort((a, b) =>
-        sha256(`DL-001-PHOTO-${restaurant.restaurant_id}-${a.photo_id}`).localeCompare(
-          sha256(`DL-001-PHOTO-${restaurant.restaurant_id}-${b.photo_id}`)
-        )
-      );
-    selected.push(...required, ...fillers.slice(0, MAX_PHOTOS_PER_RESTAURANT - required.length));
+    const fullRoster = rows.map((photo) => {
+      const exclusionReasons = [
+        ...(requiredIds.has(photo.photo_id) ? ["required_claim_dish_photo"] : []),
+        ...(photo.moderation_status !== "approved" ? ["moderation_not_approved"] : []),
+        ...(photo.is_orderable === false ? ["not_orderable"] : []),
+        ...(photo.dedupe_reason ? ["dedupe_rejection_present"] : []),
+        ...(locatorCandidates(photo).length === 0 ? ["no_accessible_locator_candidate"] : []),
+      ];
+      const fillerEligible =
+        !requiredIds.has(photo.photo_id) &&
+        photo.moderation_status === "approved" &&
+        photo.is_orderable !== false &&
+        !photo.dedupe_reason &&
+        locatorCandidates(photo).length > 0;
+      return {
+        photo,
+        photoId: photo.photo_id,
+        restaurantId: photo.restaurant_id,
+        dishKeys: photo.dish_keys,
+        rank: photoRank(restaurant.entityId, photo.photo_id),
+        requiredClaimDishPhoto: requiredIds.has(photo.photo_id),
+        fillerEligible,
+        exclusionReasons,
+      };
+    }).sort((a, b) => a.rank.localeCompare(b.rank));
+    const fillers = fullRoster
+      .filter((entry) => entry.fillerEligible)
+      .map((entry) => entry.photo);
+    const selectedForEntity = [
+      ...required,
+      ...fillers.slice(0, MAX_PHOTOS_PER_RESTAURANT - required.length),
+    ];
+    const selectedIds = new Set(selectedForEntity.map((photo) => photo.photo_id));
+    selected.push(...selectedForEntity);
+    const claimDishCandidates = restaurant.recomputedV2DishKeys
+      .map((dishKey) => ({
+        dishKey,
+        rank: claimDishRank(restaurant.entityId, dishKey),
+        selected: dishKey === claimKey,
+      }))
+      .sort((a, b) => a.rank.localeCompare(b.rank));
+    const rosterRows = fullRoster.map((entry) => ({
+      photoId: entry.photoId,
+      restaurantId: entry.restaurantId,
+      dishKeys: entry.dishKeys,
+      rank: entry.rank,
+      requiredClaimDishPhoto: entry.requiredClaimDishPhoto,
+      fillerEligible: entry.fillerEligible,
+      exclusionReasons: entry.exclusionReasons,
+      selected: selectedIds.has(entry.photoId),
+    }));
+    audits.push({
+      entityId: restaurant.entityId,
+      stableRestaurantId: restaurant.stableRestaurantId,
+      claimDishSelection: {
+        formula: CLAIM_DISH_RANK_FORMULA,
+        candidateCount: claimDishCandidates.length,
+        candidates: claimDishCandidates,
+        selectedDishKey: claimKey,
+      },
+      photoSelection: {
+        formula: PHOTO_RANK_FORMULA,
+        fullCandidateCount: rosterRows.length,
+        candidateRosterHash: canonicalRosterHash(rosterRows),
+        selectedCount: selectedForEntity.length,
+        completeClaimedDishPhotoCount: required.length,
+        completeClaimedDishPhotoRoster: rosterRows.filter(
+          (entry) => entry.requiredClaimDishPhoto
+        ),
+        completeCandidateRoster: rosterRows,
+      },
+    });
   }
   if (selected.length === 0) {
     throw new Error("Photo selection was empty; refusing to publish an incomplete bundle");
@@ -623,12 +875,14 @@ function choosePhotos(selectedRestaurants, photos) {
   if (selected.length > MAX_PHOTOS_TOTAL) {
     throw new Error(`Photo selection ${selected.length} exceeds ${MAX_PHOTOS_TOTAL}`);
   }
-  return selected;
+  return { selected, audits };
 }
 
 function sanitizedMenuRow(row) {
   return {
     menuItemId: row.menu_item_id,
+    restaurantId: row.restaurant_id,
+    entityId: row.entity_id,
     canonicalDishId: row.canonical_dish_id,
     itemName: row.item_name,
     canonicalName: row.canonical_name,
@@ -669,32 +923,60 @@ function addAliases(menuRows) {
 function publicCandidate(row) {
   const classification = classifyCandidate(row);
   return {
-    stableRestaurantId: row.restaurant_id,
+    stableRestaurantId: row.stable_restaurant_id,
+    stableRestaurantIdBasis: row.stable_restaurant_id_basis,
     entityId: row.entity_id,
-    publicRestaurantName: row.restaurant_name,
+    publicRestaurantName: row.entity_name,
     coordinates: { lat: row.lat, lng: row.lng },
     inclusionDecision: {
       included: true,
       basis: BOUNDS.meaning,
       bounds: BOUNDS,
     },
-    restaurantStatus: row.restaurant_status,
     entityStatus: row.entity_status,
+    attachedRestaurants: row.attached_restaurants,
+    attachedRestaurantCount: row.attached_restaurants.length,
     currentMenuDishCount: row.current_menu_count,
     benchmarkFreshMenuDishCount: row.benchmark_fresh_menu_count,
+    productionV2PhotoCount: row.v2_photo_count,
+    productionV2MatchedPhotoCount: row.v2_matched_photo_count,
+    productionV2MatchedDishCount: row.v2_matched_dish_count,
     activeUsefulPhotoCandidateCount: row.useful_photo_count,
     recomputedV2ComparisonDishCount: row.sql_claim_count,
     recomputedV2DishKeys: row.sql_claim_keys,
-    storedActiveComparisonReadyPhotoCount: row.stored_active_flag_count,
-    storedAllComparisonReadyPhotoCount: row.stored_all_flag_count,
-    storedComparisonReadyDishKeys: row.stored_flag_keys,
-    claimMechanisms: [
-      ...(row.sql_claim_count > 0 ? ["coverage_v2_recomputation"] : []),
-      ...(row.stored_all_flag_count > 0 ? ["stored_comparison_ready_signal"] : []),
-    ],
+    currentV2ClaimMechanism:
+      row.sql_claim_count > 0 ? "coverage_v2_metrics_entity_recomputation" : null,
+    historicalStoredSignalSummary: {
+      notACurrentV2Claim: true,
+      activeFlaggedPhotoCount: row.stored_active_flag_count,
+      inactiveFlaggedPhotoCount: row.stored_inactive_flag_count,
+      nullDishKeyFlaggedPhotoCount: row.stored_null_dish_key_flag_count,
+      nonNullDishKeys: row.stored_flag_keys,
+    },
+    operatingStatusEvidence: {
+      entityStatus: row.entity_status,
+      attachedRestaurantStatuses: row.attached_restaurants.map((restaurant) => ({
+        restaurantId: restaurant.restaurantId,
+        status: restaurant.status,
+        lastCrawledEvidencePresent: restaurant.lastCrawledEvidencePresent,
+      })),
+      activeProviderIdentityCount: row.active_identity_count,
+      activeProviderIdentitySources: row.active_identity_providers,
+      latestActiveProviderIdentityDate: row.latest_active_identity_date,
+      successfulSourceSnapshotCount: row.successful_snapshot_count,
+      latestSuccessfulSourceSnapshotDate: row.latest_successful_snapshot_date,
+      latestActiveMenuObservationDate: row.latest_active_menu_observation_date,
+      latestActivePhotoObservationDate: row.latest_active_photo_observation_date,
+      affirmativeSignals: [
+        ...(row.entity_status === "active" ? ["entity_status_active"] : []),
+        ...(row.active_identity_count > 0 ? ["active_provider_identity_present"] : []),
+        ...(row.successful_snapshot_count > 0 ? ["successful_source_snapshot_present"] : []),
+        ...(row.benchmark_fresh_menu_count > 0 ? ["benchmark_fresh_active_menu_present"] : []),
+      ],
+    },
     bucket: classification.bucket,
     bucketReason: classification.reason,
-    rank: stableRank(row.restaurant_id),
+    rank: stableRank(row.stable_restaurant_id),
   };
 }
 
@@ -710,7 +992,7 @@ function sanitizePhotoRow(photo, rendered, evidenceId) {
   return {
     evidenceId,
     photoId: photo.photo_id,
-    stableRestaurantId: photo.restaurant_id,
+    restaurantId: photo.restaurant_id,
     entityId: photo.entity_id,
     menuItemId: photo.menu_item_id,
     canonicalDishId: photo.canonical_dish_id,
@@ -772,7 +1054,67 @@ function sanitizePhotoRow(photo, rendered, evidenceId) {
       perceptualResult,
       attachedToMultipleMenuItems: photo.menu_links.length > 1,
     },
+    robustNearDuplicateEvidence: {
+      algorithm:
+        "minimum Hamming distance across 64-bit dHash signatures for full image and 90%, 80%, and 70% center crops; review-only, never automatic deletion",
+      signatures: rendered.robustPerceptualSignatures,
+      comparedAgainstSelectedEntityPhotos: [],
+      nearestDistance: null,
+      result: "pending_pairwise_comparison",
+    },
   };
+}
+
+function addRobustNearDuplicateEvidence(photos) {
+  const byEntity = new Map();
+  for (const photo of photos) {
+    const rows = byEntity.get(photo.entityId) || [];
+    rows.push(photo);
+    byEntity.set(photo.entityId, rows);
+  }
+  for (const rows of byEntity.values()) {
+    for (const photo of rows) {
+      const comparisons = rows
+        .filter((other) => other.evidenceId !== photo.evidenceId)
+        .map((other) => {
+          let best = null;
+          for (const left of photo.robustNearDuplicateEvidence.signatures) {
+            for (const right of other.robustNearDuplicateEvidence.signatures) {
+              const distance = hammingDistanceHex(left.dHash64, right.dHash64);
+              if (!best || distance < best.hammingDistance) {
+                best = {
+                  otherEvidenceId: other.evidenceId,
+                  hammingDistance: distance,
+                  thisTransform: left.transform,
+                  otherTransform: right.transform,
+                  exactFetchedBytes:
+                    photo.hashes.fetchedOriginalSha256 === other.hashes.fetchedOriginalSha256,
+                };
+              }
+            }
+          }
+          return best;
+        })
+        .filter(Boolean)
+        .sort((a, b) =>
+          a.hammingDistance - b.hammingDistance ||
+          a.otherEvidenceId.localeCompare(b.otherEvidenceId)
+        );
+      const nearest = comparisons[0] ?? null;
+      photo.robustNearDuplicateEvidence.comparedAgainstSelectedEntityPhotos = comparisons;
+      photo.robustNearDuplicateEvidence.nearestDistance = nearest?.hammingDistance ?? null;
+      photo.robustNearDuplicateEvidence.result = !nearest
+        ? "no_other_selected_entity_photo"
+        : nearest.exactFetchedBytes
+          ? "exact_duplicate_candidate_requires_guardian_review"
+          : nearest.hammingDistance <= 6
+            ? "strong_crop_or_reencode_candidate_requires_guardian_review"
+            : nearest.hammingDistance <= 12
+              ? "possible_near_duplicate_requires_guardian_review"
+              : "no_close_selected_entity_candidate";
+    }
+  }
+  return photos;
 }
 
 async function createManifest(stagingRoot) {
@@ -786,20 +1128,78 @@ async function createManifest(stagingRoot) {
   await writeFile(path.join(stagingRoot, "SHA256SUMS"), `${lines.join("\n")}\n`, "utf8");
 }
 
-async function secretScan(stagingRoot) {
+function piiFindings(text) {
+  const findings = [];
+  if (/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu.test(text)) findings.push("email_pattern");
+  if (/(^|[^\d])(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}(?!\d)/u.test(text)) {
+    findings.push("phone_pattern");
+  }
+  if (/\beyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\b/u.test(text)) {
+    findings.push("jwt_pattern");
+  }
+  if (
+    /"(?:contributorId|contributorName|customerName|email|phone|visitorId|sessionId|deviceId|paymentId|cardNumber)"\s*:/u.test(
+      text
+    )
+  ) {
+    findings.push("forbidden_personal_data_key");
+  }
+  return findings;
+}
+
+async function scanStagedFiles(stagingRoot) {
   const secretValues = Object.fromEntries(
     SECRET_ENV_NAMES.map((name) => [name, process.env[name]]).filter(([, value]) => value)
   );
   const files = await listFiles(stagingRoot);
-  const leaks = [];
+  const results = [];
+  const failures = [];
   for (const file of files) {
-    if (file.endsWith(".webp")) continue;
-    const text = await readFile(file, "utf8");
-    for (const name of findSecretLeaks(text, secretValues)) {
-      leaks.push(`${path.relative(stagingRoot, file)}:${name}`);
+    const relativePath = path.relative(stagingRoot, file);
+    const bytes = await readFile(file);
+    const text = file.endsWith(".webp") ? bytes.toString("latin1") : bytes.toString("utf8");
+    const secretMatches = findSecretLeaks(text, secretValues);
+    const personalDataMatches = file.endsWith(".webp") ? [] : piiFindings(text);
+    let imageMetadata = null;
+    if (file.endsWith(".webp")) {
+      const metadata = await sharp(bytes).metadata();
+      imageMetadata = {
+        decoded: metadata.format === "webp",
+        exifPresent: Boolean(metadata.exif),
+        xmpPresent: Boolean(metadata.xmp),
+        iccPresent: Boolean(metadata.icc),
+      };
+      if (
+        !imageMetadata.decoded ||
+        imageMetadata.exifPresent ||
+        imageMetadata.xmpPresent ||
+        imageMetadata.iccPresent
+      ) {
+        failures.push(`${relativePath}:image_metadata_or_decode`);
+      }
     }
+    if (secretMatches.length) failures.push(`${relativePath}:secret:${secretMatches.join(",")}`);
+    if (personalDataMatches.length) {
+      failures.push(`${relativePath}:personal_data:${personalDataMatches.join(",")}`);
+    }
+    results.push({
+      path: relativePath,
+      sha256: sha256(bytes),
+      environmentSecretValueScan: {
+        status: "completed",
+        result: secretMatches.length ? "failed" : "passed",
+        matches: secretMatches,
+      },
+      personalDataScan: {
+        status: file.endsWith(".webp") ? "not_applicable_binary" : "completed",
+        result: personalDataMatches.length ? "failed" : "passed",
+        matches: personalDataMatches,
+      },
+      imageMetadataScan: imageMetadata,
+    });
   }
-  if (leaks.length) throw new Error(`Secret scan failed: ${leaks.join(", ")}`);
+  if (failures.length) throw new Error(`Redaction scan failed: ${failures.join(", ")}`);
+  return results;
 }
 
 async function main() {
@@ -811,6 +1211,9 @@ async function main() {
   }
   if (mirror && (await pathExists(mirror))) {
     throw new Error(`Refusing to overwrite existing mirror: ${mirror}`);
+  }
+  if (await pathExists(UNBLINDING_OUTPUT)) {
+    throw new Error(`Refusing to overwrite existing Guardian unblinding record: ${UNBLINDING_OUTPUT}`);
   }
 
   const tempParent = await mkdtemp(path.join(tmpdir(), "seefood-dl001-"));
@@ -830,6 +1233,8 @@ async function main() {
   let menuRaw;
   let photosRaw;
   let schemaProof;
+  let productionMetric;
+  let productionFunctionProof;
   const exportStartedAt = new Date();
 
   try {
@@ -854,6 +1259,9 @@ async function main() {
         BOUNDS.maxLng,
       ])
     ).rows;
+    if (candidatesRaw.some((row) => !row.stable_restaurant_id)) {
+      throw new Error("At least one scoped entity had neither legacy_place_id nor an attached restaurant");
+    }
     const candidates = candidatesRaw.map(publicCandidate);
     const selected = selectBucketCandidates(candidates);
     for (const bucket of ["sql_claimed", "rich_unpaired", "sparse"]) {
@@ -870,21 +1278,34 @@ async function main() {
       selectedClaimDishKey:
         row.bucket === "sql_claimed"
           ? [...row.recomputedV2DishKeys].sort((a, b) =>
-              sha256(`DL-001-CLAIM-${row.stableRestaurantId}-${a}`).localeCompare(
-                sha256(`DL-001-CLAIM-${row.stableRestaurantId}-${b}`)
-              )
+              claimDishRank(row.entityId, a).localeCompare(claimDishRank(row.entityId, b))
             )[0]
           : null,
     }));
-    const selectedIds = selectedRestaurants.map((row) => row.stableRestaurantId);
-    menuRaw = (await client.query(MENU_QUERY, [selectedIds])).rows;
-    photosRaw = (await client.query(PHOTO_QUERY, [selectedIds])).rows;
+    const selectedEntityIds = selectedRestaurants.map((row) => row.entityId);
+    menuRaw = (await client.query(MENU_QUERY, [selectedEntityIds])).rows;
+    photosRaw = (await client.query(PHOTO_QUERY, [selectedEntityIds])).rows;
     schemaProof = (await client.query(SCHEMA_QUERY)).rows[0];
+    productionMetric = (
+      await client.query(PRODUCTION_METRIC_QUERY, [
+        BOUNDS.minLat,
+        BOUNDS.maxLat,
+        BOUNDS.minLng,
+        BOUNDS.maxLng,
+      ])
+    ).rows[0].metrics;
+    productionFunctionProof = (await client.query(PRODUCTION_FUNCTION_QUERY)).rows[0];
+    if (!productionFunctionProof?.function_definition || productionFunctionProof.provolatile !== "s") {
+      throw new Error("Could not prove coverage_v2_metrics is the expected stable SQL function");
+    }
     await client.query("rollback");
     await client.end();
 
     const menuRows = addAliases(menuRaw.map(sanitizedMenuRow));
-    const selectedPhotos = choosePhotos(selectedRestaurants, photosRaw);
+    const {
+      selected: selectedPhotos,
+      audits: photoSelectionAudits,
+    } = choosePhotos(selectedRestaurants, photosRaw);
     const readR2 = createR2Reader();
     const photoEvidence = [];
 
@@ -893,46 +1314,32 @@ async function main() {
       const evidenceId = `P${String(index + 1).padStart(3, "0")}`;
       const imageTarget = path.join(stagingRoot, "photo-evidence/images", `${evidenceId}.webp`);
       const rendered = await renderEvidencePhoto(photo, imageTarget, readR2);
-      await cp(imageTarget, path.join(stagingRoot, "guardian/images", `${evidenceId}.webp`));
       photoEvidence.push(sanitizePhotoRow(photo, rendered, evidenceId));
     }
+    addRobustNearDuplicateEvidence(photoEvidence);
 
     const menuFileRecords = [];
-    const selectionMap = [];
     for (let index = 0; index < selectedRestaurants.length; index += 1) {
       const restaurant = selectedRestaurants[index];
       const selectionId = `R${String(index + 1).padStart(2, "0")}`;
-      const guardianId = `G${String(index + 1).padStart(2, "0")}`;
-      const rows = menuRows.filter(
-        (row) => menuRaw.find((raw) => raw.menu_item_id === row.menuItemId)?.restaurant_id ===
-          restaurant.stableRestaurantId
-      );
+      const rows = menuRows.filter((row) => row.entityId === restaurant.entityId);
       const menuPayload = {
         selectionId,
         stableRestaurantId: restaurant.stableRestaurantId,
         entityId: restaurant.entityId,
         publicRestaurantName: restaurant.publicRestaurantName,
+        attachedRestaurants: restaurant.attachedRestaurants,
+        operatingStatusEvidence: restaurant.operatingStatusEvidence,
         evidenceRows: rows,
       };
       const menuPath = path.join(stagingRoot, "menu-evidence", `${selectionId}.json`);
       await writeJson(menuPath, menuPayload);
-      const guardianMenuPath = path.join(stagingRoot, "guardian/menu", `${guardianId}.json`);
-      await writeJson(guardianMenuPath, {
-        guardianRestaurantId: guardianId,
-        publicRestaurantName: restaurant.publicRestaurantName,
-        evidenceRows: rows,
-      });
       menuFileRecords.push({
         selectionId,
         path: `menu-evidence/${selectionId}.json`,
         sha256: sha256(await readFile(menuPath)),
         rowCount: rows.length,
         benchmarkFreshRowCount: rows.filter((row) => row.benchmarkFresh).length,
-      });
-      selectionMap.push({
-        selectionId,
-        guardianRestaurantId: guardianId,
-        stableRestaurantId: restaurant.stableRestaurantId,
       });
     }
 
@@ -948,27 +1355,30 @@ async function main() {
       ...restaurant,
       menuEvidence: menuFileRecords[index],
       selectedPhotoCount: photoEvidence.filter(
-        (photo) => photo.stableRestaurantId === restaurant.stableRestaurantId
+        (photo) => photo.entityId === restaurant.entityId
       ).length,
       selectedClaimPhotoCount: restaurant.selectedClaimDishKey
         ? photoEvidence.filter(
             (photo) =>
-              photo.stableRestaurantId === restaurant.stableRestaurantId &&
+              photo.entityId === restaurant.entityId &&
               photo.dishKeys.includes(restaurant.selectedClaimDishKey)
           ).length
         : 0,
       allSelectedClaimPhotosIncluded: restaurant.selectedClaimDishKey
         ? photosRaw.filter(
             (photo) =>
-              photo.restaurant_id === restaurant.stableRestaurantId &&
+              photo.entity_id === restaurant.entityId &&
               photo.dish_keys.includes(restaurant.selectedClaimDishKey)
           ).length ===
           photoEvidence.filter(
             (photo) =>
-              photo.stableRestaurantId === restaurant.stableRestaurantId &&
+              photo.entityId === restaurant.entityId &&
               photo.dishKeys.includes(restaurant.selectedClaimDishKey)
           ).length
         : null,
+      selectionAudit: photoSelectionAudits.find(
+        (audit) => audit.entityId === restaurant.entityId
+      ),
     }));
     if (
       selectedPublic.some(
@@ -988,17 +1398,292 @@ async function main() {
         dishKeys: row.recomputedV2DishKeys,
         mechanism: "exact_current_coverage_v2_association_recomputation",
       }));
-    const storedClaims = candidateRows
-      .filter((row) => row.storedAllComparisonReadyPhotoCount > 0)
+    const historicalStoredSignals = candidateRows
+      .filter(
+        (row) =>
+          row.historicalStoredSignalSummary.activeFlaggedPhotoCount +
+            row.historicalStoredSignalSummary.inactiveFlaggedPhotoCount >
+          0
+      )
       .map((row) => ({
         stableRestaurantId: row.stableRestaurantId,
         entityId: row.entityId,
         publicRestaurantName: row.publicRestaurantName,
-        activeFlaggedPhotoCount: row.storedActiveComparisonReadyPhotoCount,
-        allFlaggedPhotoCount: row.storedAllComparisonReadyPhotoCount,
-        dishKeys: row.storedComparisonReadyDishKeys,
-        mechanism: "stored_photo_comparison_ready_flag",
+        ...row.historicalStoredSignalSummary,
+        mechanism: "historical_stored_photo_comparison_ready_flag",
+        interpretation:
+          "Historical diagnostic signal only. It is not a current coverage_v2_metrics claim and is excluded from DL-001 current-claim buckets.",
       }));
+
+    const recomputedCoverageMetric = {
+      identifiedRestaurants: candidateRows.length,
+      menuCoverage: candidateRows.filter((row) => row.currentMenuDishCount >= 1).length,
+      basicPhotoCoverage: candidateRows.filter((row) => row.productionV2PhotoCount >= 7).length,
+      basicMenuPhotoCoverage: candidateRows.filter(
+        (row) => row.productionV2MatchedPhotoCount >= 7
+      ).length,
+      twentyPercentMenuPhotoCoverage: candidateRows.filter(
+        (row) =>
+          row.currentMenuDishCount > 0 &&
+          row.productionV2MatchedPhotoCount >= 7 &&
+          row.productionV2MatchedDishCount >= Math.ceil(row.currentMenuDishCount * 0.2)
+      ).length,
+      fiftyPercentMenuPhotoCoverage: candidateRows.filter(
+        (row) =>
+          row.currentMenuDishCount > 0 &&
+          row.productionV2MatchedPhotoCount >= 7 &&
+          row.productionV2MatchedDishCount >= Math.ceil(row.currentMenuDishCount * 0.5)
+      ).length,
+      comparisonCoverage: candidateRows.filter(
+        (row) => row.recomputedV2ComparisonDishCount >= 1
+      ).length,
+    };
+    const coverageKeys = Object.keys(recomputedCoverageMetric);
+    const productionMetricParity = Object.fromEntries(
+      coverageKeys.map((key) => [
+        key,
+        {
+          productionFunctionValue: Number(productionMetric[key]),
+          exporterRecomputationValue: recomputedCoverageMetric[key],
+          matches: Number(productionMetric[key]) === recomputedCoverageMetric[key],
+        },
+      ])
+    );
+    if (Object.values(productionMetricParity).some((row) => !row.matches)) {
+      throw new Error(
+        `Exporter entity recomputation did not match coverage_v2_metrics: ${JSON.stringify(
+          productionMetricParity
+        )}`
+      );
+    }
+
+    const guardianShuffleSeed = randomBytes(32).toString("hex");
+    const guardianOrder = [...selectedPublic].sort((a, b) =>
+      guardianOrderRank(guardianShuffleSeed, a.entityId).localeCompare(
+        guardianOrderRank(guardianShuffleSeed, b.entityId)
+      )
+    );
+    const guardianMapping = guardianOrder.map((restaurant, index) => ({
+      guardianRestaurantId: `G${String(index + 1).padStart(2, "0")}`,
+      selectionId: restaurant.selectionId,
+      stableRestaurantId: restaurant.stableRestaurantId,
+      entityId: restaurant.entityId,
+      orderRank: guardianOrderRank(guardianShuffleSeed, restaurant.entityId),
+    }));
+    const guardianByEntity = new Map(
+      guardianMapping.map((entry) => [entry.entityId, entry])
+    );
+    const guardianPhotoMap = new Map();
+    let guardianPhotoIndex = 0;
+    for (const restaurant of guardianOrder) {
+      const entityPhotos = photoEvidence
+        .filter((photo) => photo.entityId === restaurant.entityId)
+        .sort((a, b) =>
+          photoRank(restaurant.entityId, a.photoId).localeCompare(
+            photoRank(restaurant.entityId, b.photoId)
+          )
+        );
+      for (const photo of entityPhotos) {
+        guardianPhotoIndex += 1;
+        guardianPhotoMap.set(
+          photo.evidenceId,
+          `GP${String(guardianPhotoIndex).padStart(3, "0")}`
+        );
+      }
+    }
+
+    const guardianRestaurants = [];
+    const guardianOpaqueMaps = [];
+    for (const restaurant of guardianOrder) {
+      const mapping = guardianByEntity.get(restaurant.entityId);
+      const entityMenuRows = menuRows
+        .filter((row) => row.entityId === restaurant.entityId)
+        .sort((a, b) => a.menuItemId.localeCompare(b.menuItemId));
+      const entityPhotos = photoEvidence
+        .filter((photo) => photo.entityId === restaurant.entityId)
+        .sort((a, b) =>
+          guardianPhotoMap.get(a.evidenceId).localeCompare(
+            guardianPhotoMap.get(b.evidenceId)
+          )
+        );
+      const menuIdMap = new Map(
+        entityMenuRows.map((row, index) => [
+          row.menuItemId,
+          `GM${String(index + 1).padStart(4, "0")}`,
+        ])
+      );
+      const dishKeys = [...new Set([
+        ...entityMenuRows.flatMap((row) =>
+          row.canonicalDishId
+            ? [row.canonicalDishId]
+            : [`menu-${row.menuItemId}`]
+        ),
+        ...entityPhotos.flatMap((photo) => photo.dishKeys),
+      ])].sort((a, b) =>
+        sha256(`DL-001-GUARDIAN-DISH|${guardianShuffleSeed}|${restaurant.entityId}|${a}`)
+          .localeCompare(
+            sha256(`DL-001-GUARDIAN-DISH|${guardianShuffleSeed}|${restaurant.entityId}|${b}`)
+          )
+      );
+      const dishKeyMap = new Map(
+        dishKeys.map((dishKey, index) => [
+          dishKey,
+          `GD${String(index + 1).padStart(4, "0")}`,
+        ])
+      );
+      const snapshotIds = [...new Set(
+        entityMenuRows.flatMap((row) => row.sourceSnapshotId ?? [])
+      )].sort();
+      const snapshotIdMap = new Map(
+        snapshotIds.map((snapshotId, index) => [
+          snapshotId,
+          `GS${String(index + 1).padStart(4, "0")}`,
+        ])
+      );
+      const guardianMenuRows = entityMenuRows.map((row) => ({
+        guardianMenuItemId: menuIdMap.get(row.menuItemId),
+        guardianCanonicalDishId: row.canonicalDishId
+          ? dishKeyMap.get(row.canonicalDishId)
+          : null,
+        itemName: row.itemName,
+        canonicalName: row.canonicalName,
+        canonicalNormalizedName: row.canonicalNormalizedName,
+        sourceAliases: row.sourceAliases,
+        source: row.source,
+        confidence: row.confidence,
+        active: row.active,
+        guardianSourceSnapshotId: row.sourceSnapshotId
+          ? snapshotIdMap.get(row.sourceSnapshotId)
+          : null,
+        snapshotSource: row.snapshotSource,
+        snapshotStatus: row.snapshotStatus,
+        sourceKeySha256: row.sourceKeySha256,
+        firstObservedDate: row.firstObservedDate,
+        observedDate: row.observedDate,
+        benchmarkFresh: row.benchmarkFresh,
+        canonicalConfidence: row.canonicalConfidence,
+        locationOrTemplate: row.locationOrTemplate,
+        publicBrandName: row.publicBrandName,
+      }));
+      const guardianMenuPath = path.join(
+        stagingRoot,
+        "guardian/menu",
+        `${mapping.guardianRestaurantId}.json`
+      );
+      await writeJson(guardianMenuPath, {
+        guardianRestaurantId: mapping.guardianRestaurantId,
+        publicRestaurantName: restaurant.publicRestaurantName,
+        operatingStatusEvidence: {
+          ...restaurant.operatingStatusEvidence,
+          attachedRestaurantStatuses:
+            restaurant.operatingStatusEvidence.attachedRestaurantStatuses.map(
+              ({ restaurantId: _restaurantId, ...status }) => status
+            ),
+        },
+        evidenceRows: guardianMenuRows,
+      });
+
+      const guardianPhotos = [];
+      for (const photo of entityPhotos) {
+        const guardianPhotoId = guardianPhotoMap.get(photo.evidenceId);
+        await cp(
+          path.join(stagingRoot, "photo-evidence/images", `${photo.evidenceId}.webp`),
+          path.join(stagingRoot, "guardian/images", `${guardianPhotoId}.webp`)
+        );
+        const {
+          stableRestaurantId: _stableRestaurantId,
+          entityId: _entityId,
+          photoId: _photoId,
+          restaurantId: _restaurantId,
+          evidenceId: _evidenceId,
+          ...blindPhoto
+        } = photo;
+        const {
+          storedComparisonReady: _storedComparisonReady,
+          ...blindState
+        } = blindPhoto.state;
+        guardianPhotos.push({
+          ...blindPhoto,
+          guardianPhotoId,
+          menuItemId: photo.menuItemId ? menuIdMap.get(photo.menuItemId) ?? null : null,
+          canonicalDishId: photo.canonicalDishId
+            ? dishKeyMap.get(photo.canonicalDishId) ?? null
+            : null,
+          dishKeys: photo.dishKeys.map((dishKey) => dishKeyMap.get(dishKey)),
+          menuLinks: photo.menuLinks.map((link) => ({
+            guardianMenuItemId: link.menuItemId
+              ? menuIdMap.get(link.menuItemId) ?? null
+              : null,
+            guardianCanonicalDishId: link.canonicalDishId
+              ? dishKeyMap.get(link.canonicalDishId) ?? null
+              : null,
+            guardianDishKey: link.dishKey
+              ? dishKeyMap.get(link.dishKey) ?? null
+              : null,
+            basis: link.basis,
+          })),
+          state: blindState,
+          hashes: {
+            ...photo.hashes,
+            duplicateOfPhotoId: photo.hashes.duplicateOfPhotoId
+              ? "withheld_production_reference"
+              : null,
+          },
+          robustNearDuplicateEvidence: {
+            ...photo.robustNearDuplicateEvidence,
+            comparedAgainstSelectedEntityPhotos:
+              photo.robustNearDuplicateEvidence.comparedAgainstSelectedEntityPhotos.map(
+                (comparison) => ({
+                  ...comparison,
+                  otherEvidenceId:
+                    guardianPhotoMap.get(comparison.otherEvidenceId) ??
+                    "withheld_unselected_reference",
+                })
+              ),
+          },
+          evidenceFile: `images/${guardianPhotoId}.webp`,
+        });
+      }
+      guardianRestaurants.push({
+        guardianRestaurantId: mapping.guardianRestaurantId,
+        publicRestaurantName: restaurant.publicRestaurantName,
+        coordinates: restaurant.coordinates,
+        operatingStatusEvidence: {
+          ...restaurant.operatingStatusEvidence,
+          attachedRestaurantStatuses:
+            restaurant.operatingStatusEvidence.attachedRestaurantStatuses.map(
+              ({ restaurantId: _restaurantId, ...status }) => status
+            ),
+        },
+        menuEvidence: `menu/${mapping.guardianRestaurantId}.json`,
+        photos: guardianPhotos,
+      });
+      guardianOpaqueMaps.push({
+        guardianRestaurantId: mapping.guardianRestaurantId,
+        menuItemMap: Object.fromEntries(menuIdMap),
+        dishKeyMap: Object.fromEntries(dishKeyMap),
+        snapshotIdMap: Object.fromEntries(snapshotIdMap),
+      });
+    }
+
+    const guardianCommitment = {
+      purpose: "pre_audit_commitment_without_unblinding_material",
+      orderFormula: GUARDIAN_ORDER_FORMULA,
+      withheldSeedSha256: sha256(guardianShuffleSeed),
+      withheldMappingSha256: canonicalRosterHash(guardianMapping),
+      guardianRecordCount: guardianMapping.length,
+      seedAndMappingLocation:
+        "withheld by the main SeeFood thread outside the delivered DataLab bundle until blind judgments are frozen",
+    };
+    const guardianUnblindingRecord = {
+      warning: "Do not provide to DataLab or Guardian until blind judgments are frozen.",
+      shuffleSeed: guardianShuffleSeed,
+      seedSha256: guardianCommitment.withheldSeedSha256,
+      mappingSha256: guardianCommitment.withheldMappingSha256,
+      orderFormula: GUARDIAN_ORDER_FORMULA,
+      restaurantMapping: guardianMapping,
+      opaqueEvidenceMaps: guardianOpaqueMaps,
+    };
 
     await writeJson(path.join(stagingRoot, "candidate-metadata.json"), {
       scope: BOUNDS,
@@ -1006,40 +1691,65 @@ async function main() {
       candidates: candidateRows,
     });
     await writeJson(path.join(stagingRoot, "recomputed-v2-claims.json"), recomputedClaims);
-    await writeJson(path.join(stagingRoot, "stored-flag-claims.json"), storedClaims);
+    await writeJson(
+      path.join(stagingRoot, "historical-stored-comparison-ready-signals.json"),
+      {
+        interpretation:
+          "Historical stored flags are diagnostic only. They are not current V2 claims, do not define buckets, and remain separate from recomputed-v2-claims.json.",
+        entityCount: historicalStoredSignals.length,
+        signals: historicalStoredSignals,
+      }
+    );
     await writeJson(path.join(stagingRoot, "selected-restaurants.json"), selectedPublic);
-    await writeJson(path.join(stagingRoot, "selection-map.json"), selectionMap);
+    await writeJson(
+      path.join(stagingRoot, "photo-selection-audit.json"),
+      {
+        claimDishRankFormula: CLAIM_DISH_RANK_FORMULA,
+        photoRankFormula: PHOTO_RANK_FORMULA,
+        entities: photoSelectionAudits,
+      }
+    );
     await writeJson(path.join(stagingRoot, "photo-evidence/metadata.json"), {
       photoCount: photoEvidence.length,
       maxPerRestaurant: MAX_PHOTOS_PER_RESTAURANT,
       maxTotal: MAX_PHOTOS_TOTAL,
+      nearDuplicateMethod:
+        "Review-only multi-crop dHash evidence is computed across every selected photo within each entity; no near-duplicate candidate is automatically removed.",
       photos: photoEvidence,
     });
-    await writeJson(path.join(stagingRoot, "redaction-log.json"), {
-      result: "passed",
-      removedOrExcluded: [
-        "database and storage credentials",
-        "raw source and storage URLs; only coarse host/path classes and SHA-256 locator hashes remain",
-        "contributor identifiers and contributor names",
-        "phone numbers and email addresses",
-        "free-text customer content and review text",
-        "device, visitor, and session identifiers",
-        "payment and merchant-claim records",
-        "precise personal timestamps; retained observation dates are non-personal and date-only",
-        "menu descriptions and prices",
-        "camera metadata; evidence renders are newly encoded WebP files",
-      ],
-      retained: [
-        "public business names and coordinates",
-        "stable corpus IDs",
-        "menu item names and source aliases",
-        "source, attribution classification, confidence, rights, and duplicate evidence",
-      ],
-      automatedChecks: {
-        knownEnvironmentSecretValueScan: "run_before_completion",
-        boundedPhotoCount: photoEvidence.length <= MAX_PHOTOS_TOTAL,
-        noLiveFetchNeededByDataLab: true,
+    await writeJson(path.join(stagingRoot, "production-metric-parity.json"), {
+      exactProductionCoverageV2MetricsResult: productionMetric,
+      exporterEntityRecomputation: recomputedCoverageMetric,
+      perFieldParity: productionMetricParity,
+      allCoverageFieldsMatch: true,
+      productionFunctionSha256: sha256(productionFunctionProof.function_definition),
+      productionFunctionProperties: {
+        volatility: productionFunctionProof.provolatile,
+        securityDefiner: productionFunctionProof.prosecdef,
       },
+    });
+    await writeFile(
+      path.join(stagingRoot, "coverage-v2-production-function.sql"),
+      productionFunctionProof.function_definition,
+      "utf8"
+    );
+    await writeJson(
+      path.join(stagingRoot, "GUARDIAN_SHUFFLE_COMMITMENT.json"),
+      guardianCommitment
+    );
+    await writeJson(path.join(stagingRoot, "guardian/packet.json"), {
+      purpose: "blind_guardian_item_provenance_accessibility_rights_duplicate_audit",
+      labelsWithheld: [
+        "calibration bucket",
+        "recomputed SQL claim",
+        "historical stored comparison_ready signal",
+        "stable production restaurant/entity/menu/photo/source-snapshot IDs",
+        "selection order",
+        "shuffle seed and Guardian mapping",
+      ],
+      orderAttestation:
+        "Guardian IDs were assigned only after an independent withheld-seed shuffle. See ../GUARDIAN_SHUFFLE_COMMITMENT.json.",
+      restaurants: guardianRestaurants,
     });
     await writeJson(path.join(stagingRoot, "reproducibility.json"), {
       exportTimestamp: exportStartedAt.toISOString(),
@@ -1058,17 +1768,41 @@ async function main() {
           encoding: "utf8",
         }).trim(),
         latestRelevantMigration: "db/migrations/2026-07-23-photo-content-coverage.sql",
+        productionCoverageV2FunctionSha256: sha256(
+          productionFunctionProof.function_definition
+        ),
+      },
+      productionMetricParity: {
+        exactProductionResult: productionMetric,
+        exporterEntityRecomputation: recomputedCoverageMetric,
+        allCoverageFieldsMatch: true,
       },
       selection: {
         seed: "DL-001-CAL-2026-07-23",
         scope: BOUNDS,
+        candidateUnit: "one row per restaurant_entities.id",
+        attachedRestaurantRule:
+          "include every restaurants row attached to each scoped entity",
+        stableRestaurantIdRule:
+          "restaurant_entities.legacy_place_id; when absent, lexicographically smallest attached restaurants.place_id",
         bucketCounts,
-        selectedRestaurantCount: selectedRestaurants.length,
+        selectedEntityCount: selectedRestaurants.length,
         menuRowCount: menuRows.length,
         photoRowCount: photoEvidence.length,
+        claimDishRankFormula: CLAIM_DISH_RANK_FORMULA,
+        photoRankFormula: PHOTO_RANK_FORMULA,
+      },
+      guardianBlindness: {
+        orderFormula: GUARDIAN_ORDER_FORMULA,
+        seedCommitmentSha256: guardianCommitment.withheldSeedSha256,
+        mappingCommitmentSha256: guardianCommitment.withheldMappingSha256,
+        seedAndMappingDeliveredToDataLab: false,
       },
       files: {
         exactQueries: "queries.sql",
+        exactProductionFunction: "coverage-v2-production-function.sql",
+        productionMetricParity: "production-metric-parity.json",
+        photoSelectionAudit: "photo-selection-audit.json",
         menuEvidence: menuFileRecords,
         guardianPacket: "guardian/packet.json",
         manifest: "SHA256SUMS (the manifest excludes itself by definition)",
@@ -1078,7 +1812,7 @@ async function main() {
       path.join(stagingRoot, "queries.sql"),
       [
         "-- Exact read-only DL-001 export queries.",
-        "-- Parameters: $1 minLat/restaurantIds, $2 maxLat, $3 minLng, $4 maxLng as applicable.",
+        "-- Parameters: $1 minLat/selectedEntityIds, $2 maxLat, $3 minLng, $4 maxLng as applicable.",
         "",
         "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;",
         "",
@@ -1101,6 +1835,14 @@ async function main() {
         SCHEMA_QUERY.trim(),
         ";",
         "",
+        "-- Exact production metric result used for parity validation",
+        PRODUCTION_METRIC_QUERY.trim(),
+        ";",
+        "",
+        "-- Exact installed production function text and safety properties",
+        PRODUCTION_FUNCTION_QUERY.trim(),
+        ";",
+        "",
         "ROLLBACK;",
         "",
       ].join("\n"),
@@ -1116,8 +1858,11 @@ transaction opened as \`REPEATABLE READ READ ONLY\`. PostgreSQL returned
 
 The exporter executes only BEGIN, SHOW-equivalent SELECT statements, SELECT
 queries, and ROLLBACK. It does not import the application database client, call
-an API route or RPC, execute a trigger-capable statement, fill an application
-cache, upload to storage, or write any production record.
+an application route or remote RPC, execute a trigger-capable statement, fill
+an application cache, upload to storage, or write any production record. The
+	installed stable \`coverage_v2_metrics\` SQL function is invoked only by a
+direct SELECT inside the forced read-only transaction so its recorded result
+can be compared with the entity-level recomputation.
 
 Image evidence was obtained only through bounded read operations: direct R2
 \`GetObject\`, direct Google Places photo GET, or direct source HTTP GET.
@@ -1133,9 +1878,10 @@ network access.
 
 This ignored local bundle unblocks the stopped DL-001 calibration experiment.
 It contains every mechanically eligible restaurant candidate inside a fixed
-calibration rectangle, the hash-selected 12-restaurant cohort, current menu
-evidence, at most ten photos per restaurant, duplicate/provenance evidence, and
-a blind Guardian packet.
+calibration rectangle, one candidate per restaurant entity, every restaurant
+row attached to those entities, the hash-selected 12-entity cohort, current
+menu evidence, at most ten photos per entity, duplicate/provenance evidence,
+and a blind Guardian packet.
 
 The rectangle is a bounded calibration scope, not a claim that every included
 business is legally or operationally inside the City of Temecula. The Guardian
@@ -1143,9 +1889,11 @@ must audit geographic and operating eligibility. The selection intentionally
 remains mechanical; convenience stores or other borderline candidates were not
 hand-edited out.
 
-The Guardian packet omits bucket and SQL/stored-claim labels. The map back to
-stable corpus IDs is outside that packet in \`selection-map.json\`; evaluators
-must not open it until the blind audit is complete.
+The Guardian packet omits bucket and current/historical claim labels. Its
+restaurant order is independently shuffled before opaque IDs are assigned.
+The shuffle seed and mapping are not present anywhere in the delivered bundle;
+only their SHA-256 commitments are supplied. The main SeeFood thread retains
+the unblinding record outside the mirror until blind judgments freeze.
 
 Verify all files with \`sha256sum -c SHA256SUMS\`. DataLab must not fetch missing
 evidence, use production credentials, or grade the implementation itself.
@@ -1153,46 +1901,6 @@ evidence, use production credentials, or grade the implementation itself.
       "utf8"
     );
 
-    const guardianPhotos = photoEvidence.map((photo) => {
-      const map = selectionMap.find(
-        (entry) => entry.stableRestaurantId === photo.stableRestaurantId
-      );
-      const {
-        stableRestaurantId: _stableRestaurantId,
-        entityId: _entityId,
-        photoId: _photoId,
-        ...blindPhoto
-      } = photo;
-      const {
-        storedComparisonReady: _storedComparisonReady,
-        ...blindState
-      } = blindPhoto.state;
-      return {
-        guardianRestaurantId: map.guardianRestaurantId,
-        ...blindPhoto,
-        state: blindState,
-        evidenceFile: `images/${photo.evidenceId}.webp`,
-      };
-    });
-    await writeJson(path.join(stagingRoot, "guardian/packet.json"), {
-      purpose: "blind_guardian_item_provenance_accessibility_rights_duplicate_audit",
-      labelsWithheld: [
-        "calibration bucket",
-        "recomputed SQL claim",
-        "stored comparison_ready claim",
-        "stable production restaurant/entity/photo IDs",
-      ],
-      restaurants: selectedPublic.map((restaurant, index) => ({
-        guardianRestaurantId: `G${String(index + 1).padStart(2, "0")}`,
-        publicRestaurantName: restaurant.publicRestaurantName,
-        coordinates: restaurant.coordinates,
-        menuEvidence: `menu/${`G${String(index + 1).padStart(2, "0")}`}.json`,
-        photos: guardianPhotos.filter(
-          (photo) =>
-            photo.guardianRestaurantId === `G${String(index + 1).padStart(2, "0")}`
-        ),
-      })),
-    });
     await writeFile(
       path.join(stagingRoot, "guardian/README.md"),
       `# Blind Guardian packet
@@ -1200,14 +1908,55 @@ evidence, use production credentials, or grade the implementation itself.
 Audit these opaque restaurant records for current menu evidence, item matching,
 Management/Customer provenance, accessibility, rights, exact duplicates,
 near-duplicates, multi-item attachment, and legitimate chain/template reuse.
-Do not open files outside this directory until the blind decisions are locked.
+The record order and opaque IDs were assigned only after an independent
+withheld-seed shuffle. Do not open files outside this directory until the blind
+decisions are locked. The seed and mapping are not in the delivered bundle.
 `,
       "utf8"
     );
 
-    await secretScan(stagingRoot);
+    const payloadScanResults = await scanStagedFiles(stagingRoot);
+    await writeJson(path.join(stagingRoot, "redaction-log.json"), {
+      result: "passed",
+      scanStatus: "completed_before_publication",
+      removedOrExcluded: [
+        "database and storage credentials",
+        "raw source and storage URLs; only coarse host/path classes and SHA-256 locator hashes remain",
+        "contributor identifiers and contributor names",
+        "phone numbers and email addresses",
+        "free-text customer content and review text",
+        "device, visitor, and session identifiers",
+        "payment and merchant-claim records",
+        "precise personal timestamps; retained observation dates are non-personal and date-only",
+        "menu descriptions and prices",
+        "camera metadata; evidence renders are newly encoded WebP files",
+        "Guardian shuffle seed and production-to-opaque mapping",
+      ],
+      retained: [
+        "public business names and coordinates",
+        "stable corpus IDs outside the Guardian packet",
+        "menu item names and source aliases",
+        "source, attribution classification, confidence, rights, accessibility, linkage, and duplicate evidence",
+      ],
+      automatedChecks: {
+        knownEnvironmentSecretValueScan: "completed_passed",
+        emailPhoneJwtAndForbiddenPersonalKeyScan: "completed_passed",
+        imageDecodeAndMetadataScan: "completed_passed",
+        boundedPhotoCount: photoEvidence.length <= MAX_PHOTOS_TOTAL,
+        noLiveFetchNeededByDataLab: true,
+        unblindingMaterialDeliveredToDataLab: false,
+      },
+      perFileResults: payloadScanResults,
+      controlFileProcedure: {
+        redactionLog:
+          "serialized after payload scans, then included in the final completed scan and SHA256SUMS",
+        manifest:
+          "created last, includes every other file, excludes itself by definition, then passed the final completed secret/PII scan",
+      },
+    });
+    await scanStagedFiles(stagingRoot);
     await createManifest(stagingRoot);
-    await secretScan(stagingRoot);
+    await scanStagedFiles(stagingRoot);
 
     await mkdir(path.dirname(OUTPUT_ROOT), { recursive: true });
     await rename(stagingRoot, OUTPUT_ROOT);
@@ -1215,6 +1964,8 @@ Do not open files outside this directory until the blind decisions are locked.
       await mkdir(path.dirname(mirror), { recursive: true });
       await cp(OUTPUT_ROOT, mirror, { recursive: true, errorOnExist: true, force: false });
     }
+    await writeJson(UNBLINDING_OUTPUT, guardianUnblindingRecord);
+    await chmod(UNBLINDING_OUTPUT, 0o400);
     await makeReadOnly(OUTPUT_ROOT);
     if (mirror) await makeReadOnly(mirror);
     await rm(tempParent, { recursive: true, force: true });
@@ -1228,9 +1979,11 @@ Do not open files outside this directory until the blind decisions are locked.
           transaction: transactionProof,
           candidateCount: candidateRows.length,
           bucketCounts,
-          selectedRestaurantCount: selectedRestaurants.length,
+          selectedEntityCount: selectedRestaurants.length,
           menuRowCount: menuRows.length,
           photoRowCount: photoEvidence.length,
+          productionMetricParity: "passed",
+          guardianUnblindingRecord: "withheld_outside_mirror",
         },
         null,
         2

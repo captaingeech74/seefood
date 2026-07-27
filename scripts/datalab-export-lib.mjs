@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 
 export const DL001_SEED = "DL-001-CAL-2026-07-23";
+export const CLAIM_DISH_RANK_FORMULA =
+  'SHA-256("DL-001-CLAIM-DISH-v2|" || selection_seed || "|" || entity_id || "|" || dish_key)';
+export const PHOTO_RANK_FORMULA =
+  'SHA-256("DL-001-PHOTO-v2|" || selection_seed || "|" || entity_id || "|" || photo_id)';
+export const GUARDIAN_ORDER_FORMULA =
+  'SHA-256("DL-001-GUARDIAN-ORDER-v2|" || withheld_shuffle_seed || "|" || entity_id)';
 
 export function sha256(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -8,6 +14,37 @@ export function sha256(value) {
 
 export function stableRank(stableRestaurantId) {
   return sha256(`${DL001_SEED}${stableRestaurantId}`);
+}
+
+export function claimDishRank(entityId, dishKey) {
+  return sha256(`DL-001-CLAIM-DISH-v2|${DL001_SEED}|${entityId}|${dishKey}`);
+}
+
+export function photoRank(entityId, photoId) {
+  return sha256(`DL-001-PHOTO-v2|${DL001_SEED}|${entityId}|${photoId}`);
+}
+
+export function guardianOrderRank(withheldSeed, entityId) {
+  return sha256(`DL-001-GUARDIAN-ORDER-v2|${withheldSeed}|${entityId}`);
+}
+
+export function canonicalRosterHash(rows) {
+  return sha256(JSON.stringify([...rows].sort((a, b) =>
+    JSON.stringify(a).localeCompare(JSON.stringify(b))
+  )));
+}
+
+export function hammingDistanceHex(left, right) {
+  if (!left || !right || left.length !== right.length) return null;
+  let distance = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    let value = Number.parseInt(left[index], 16) ^ Number.parseInt(right[index], 16);
+    while (value) {
+      distance += value & 1;
+      value >>>= 1;
+    }
+  }
+  return distance;
 }
 
 export function classifyCandidate(candidate) {

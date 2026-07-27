@@ -1680,6 +1680,17 @@ may mirror the finished bundle into the DataLab worktree's ignored
 `data-lab/raw/baseline/DL-001/` directory, but it does not edit the lab branch,
 experiment records, status, queue, or automation.
 
+DL-001 calibration candidates and claims must reproduce the installed
+`coverage_v2_metrics` semantics exactly: scope `restaurant_entities`, attach
+every restaurant row, aggregate by `entity_id`, and emit one candidate per
+entity. The bundle must prove equality with a direct production-function result.
+Current recomputed V2 claims are distinct from historical stored flags.
+Claimed-dish and photo selection are deterministic and publish all ranks,
+candidate counts, and the complete selected-dish roster. Guardian records are
+independently shuffled; only a hash commitment enters the lab bundle, while the
+seed and mapping stay outside its worktree until judgments freeze. A completed
+per-file secret/PII scan is required before publication.
+
 The first export exposed a residual ingestion failure: a transient fetch error
 could reactivate a row that a prior byte-level audit had already marked invalid
 or duplicate. A quarantined origin may now become active again only after a

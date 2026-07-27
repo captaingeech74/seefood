@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   authorBasis,
+  canonicalRosterHash,
+  claimDishRank,
   classifyCandidate,
   findSecretLeaks,
+  guardianOrderRank,
+  hammingDistanceHex,
+  photoRank,
   redactLocator,
   selectBucketCandidates,
   stableRank,
@@ -13,6 +18,23 @@ describe("DL-001 export helpers", () => {
     expect(stableRank("restaurant-1")).toBe(stableRank("restaurant-1"));
     expect(stableRank("restaurant-1")).not.toBe(stableRank("restaurant-2"));
     expect(stableRank("restaurant-1")).toHaveLength(64);
+  });
+
+  it("records deterministic entity-level claim and photo ranks", () => {
+    expect(claimDishRank("entity-1", "dish-1")).toBe(claimDishRank("entity-1", "dish-1"));
+    expect(claimDishRank("entity-1", "dish-1")).not.toBe(claimDishRank("entity-1", "dish-2"));
+    expect(photoRank("entity-1", "photo-1")).not.toBe(photoRank("entity-2", "photo-1"));
+    expect(guardianOrderRank("withheld", "entity-1")).not.toBe(
+      guardianOrderRank("withheld", "entity-2")
+    );
+  });
+
+  it("hashes complete rosters canonically and measures perceptual distance", () => {
+    expect(canonicalRosterHash([{ id: "b" }, { id: "a" }])).toBe(
+      canonicalRosterHash([{ id: "a" }, { id: "b" }])
+    );
+    expect(hammingDistanceHex("0f", "00")).toBe(4);
+    expect(hammingDistanceHex("ff", "00")).toBe(8);
   });
 
   it("keeps the three bucket definitions mechanical", () => {

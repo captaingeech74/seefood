@@ -31,10 +31,11 @@ MSAs, and finally all 387 MSAs.
   discovery is city-bounded and ambiguity-safe; Grubhub now supplies a
   delivery location, reads its current first-party menu responses, and
   byte-verifies every candidate photo before persistence.
-- DL-001's aggregate-only calibration input was correctly stopped. The main
-  thread now owns a forced-read-only, credential-free evidence exporter at
-  `scripts/export-datalab-dl001.mjs`; its ignored output is the only production
-  evidence the lab may consume for that experiment.
+- DL-001's aggregate-only input and its first restaurant-row-scoped bundle were
+  correctly stopped. The main thread owns a forced-read-only, credential-free
+  entity-scoped evidence exporter at `scripts/export-datalab-dl001.mjs`; its
+  ignored output is the only production evidence the lab may consume for that
+  experiment.
 - Image bytes are stored in R2 and delivered by signed R2 redirects instead of
   streaming through Vercel. A custom R2 domain remains the intended end state.
 - The corpus is persistent. It contains restaurant identity, menu, photo,
@@ -127,10 +128,12 @@ normal `main` checkout and mirror only that ignored bundle into the lab's
 `data-lab/raw/` path. Never copy credentials or grant live production access.
 See `docs/DATALAB_READ_ONLY_EXPORT.md`.
 
-The first completed DL-001 bundle is present locally in both checkouts at
-`data-lab/raw/baseline/DL-001/`. It contains 183 bounded candidates, 12
-hash-selected restaurants, 980 current menu rows, and 82 rendered photo records.
-The DataLab branch and its committed experiment files remain untouched.
+DL-001 bundles live locally in both checkouts at
+`data-lab/raw/baseline/DL-001/`. The accepted contract requires exact
+`coverage_v2_metrics` entity semantics, one candidate per entity, four entities
+from each calibration bucket, deterministic complete photo rosters,
+independently shuffled Guardian records, and completed per-file secret/PII
+scans. The DataLab branch and its committed experiment files remain untouched.
 
 ## Current Data-Quality State
 
