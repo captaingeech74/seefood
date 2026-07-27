@@ -1,18 +1,19 @@
 # Experiment Queue
 
-DL-DR-002 is complete. It supports continuing the bounded DataLab program but
-does not authorize a vendor integration or claim any coverage. DL-001 is the
-next bounded measurement. Only one experiment may be active.
+DL-001 reached its pre-registered stop condition because no safe photo-level
+evidence bundle exists in the worktree. It remains the next bounded measurement
+after the main SeeFood thread supplies the sanitized handoff. No other
+experiment may bypass the baseline.
 
 ## Active Experiment
 
 | ID | Question | Bound | Status |
 |---|---|---|---|
-| None | DL-DR-002 completed on 2026-07-27 | No second experiment begins in the same bounded cycle | DL-001 is next |
+| None | Can the main thread supply the bounded input in `DL001_INPUT_HANDOFF.md`? | One transaction-read-only sanitized export; no credentials or personal data in the lab | DL-001 stopped pending input |
 
 | Rank | ID | Hypothesis | Bounded evidence | Expected value | Status |
 |---|---|---|---|---|---|
-| 0 | DL-001 | Current SQL comparison flags can credit a pair that fails, or lacks evidence for, at least one DataLab gold requirement. | Deterministically selected 12 Temecula candidates: 4 claimed comparison-ready, 4 menu/photo-rich unpaired, 4 sparse; maximum 120 locally supplied photo/evidence records; Guardian blind audit; no source calls | Calibrates failure mechanisms before a full baseline; does not estimate a population error rate | Next |
+| 0 | DL-001 | Current SQL comparison flags can credit a pair that fails, or lacks evidence for, at least one DataLab gold requirement. | Deterministically selected 12 Temecula candidates: 4 claimed comparison-ready, 4 menu/photo-rich unpaired, 4 sparse; maximum 120 locally supplied photo/evidence records; Guardian blind audit; no source calls | Calibrates failure mechanisms before a full baseline; does not estimate a population error rate | Stopped: sanitized photo/menu/provenance evidence absent; resume unchanged when handoff arrives |
 | 1 | DL-002 | A forced-read-only snapshot, an independent local identity/status frame, and frozen cohorts will reveal the real largest gap and separate claimed from verifiable comparisons. | Temecula union capped at 500 candidates; qualify Riverside County DEH only if a stable, city-bounded $0 snapshot is documented; otherwise stop and do not call the search portal a census frame; 120-record Guardian-owned holdout; SELECT-only export | Required before source experiments | Pending DL-001 and DEH frame qualification |
 | 2 | DL-004 | Existing unmatched Customer/Unknown photos contain recoverable strong item matches using preserved menu evidence rather than label containment alone. | Maximum 100 existing photos; no new downloads until URLs and quota are approved; blind Guardian audit | Direct comparison-dish leverage against the bottleneck Gemini did not solve | Pending DL-002 |
 | 3 | DL-007 | Targeted Management and Customer contribution prompts close the final comparison gap more cheaply than another automatic source. | Read-only first-party funnel audit and paper experiment using existing aggregate conversion evidence; no outreach, account creation, or production changes | Tests the Customer-supply frontier before adding more Management-only pipes | Pending DL-002 |
@@ -39,6 +40,7 @@ coverage.
 |---|---|---|
 | DL-DR-001 | Revise | Primary sources supported 8 useful capabilities, corrected or narrowed 8 claims, and left expected comparison coverage entirely unmeasured. |
 | DL-DR-002 | Revise and continue | Tattle became a verified transaction-contextual meal-photo partnership lead, but exact item binding, export rights, yield, and national incremental coverage remain unproved. Gemini's photo-versus-restaurant unit error and 100% precision claim were rejected. |
+| DL-001 | Quarantine / untested | The required 4+4+4 packet could not be formed from aggregate benchmark files. No safe database connection or sanitized photo-level evidence exists locally, so the experiment stopped without selecting records or making a precision claim. |
 
 ## DL-001 Stop Conditions
 

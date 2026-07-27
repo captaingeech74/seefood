@@ -2,12 +2,12 @@
 
 ## Verdict
 
-**Promising but unproven**
+**Stalled**
 
 ## Current Phase
 
-Baseline measurement resumes after completing the second pre-implementation
-potential check.
+Baseline calibration is stopped at its pre-registered safety gate because the
+required sanitized photo-level evidence is not present locally.
 
 ## Current Goal
 
@@ -100,20 +100,42 @@ No third Gemini query is queued. The remaining decisive questions require
 measured SeeFood evidence or a controller-supplied schema/rights packet, not
 another public-web synthesis. No coverage improvement is claimed.
 
+DL-001 then attempted the 12-restaurant calibration:
+
+- the three committed benchmark results contain only aggregate restaurant
+  counts and latency;
+- no local export contains photo IDs, dish keys, author classes, current-menu
+  timestamps, comparison flags, image evidence, or duplicate hashes;
+- `menu_matched_count` is an API label count, not proof of a
+  Management-versus-Customer comparison;
+- no database credential or forced read-only connection exists in this
+  worktree; and
+- the four claimed-comparison, four rich-unpaired, and four sparse buckets
+  therefore cannot be formed without inventing labels or obtaining new data.
+
+The independent Benchmark Guardian confirmed that both explicit DL-001 stop
+conditions are met. The SQL remains worth testing: it can derive authors
+heuristically and credit shared menu/canonical keys without checking every
+DataLab gold requirement. But no precision, error, or coverage conclusion can
+be drawn without the underlying evidence.
+
+`DL001_INPUT_HANDOFF.md` now defines the bounded, sanitized,
+transaction-read-only export the main SeeFood thread can provide without
+exposing credentials or personal data. DL-001 remains untested rather than
+rejected.
+
 ## Confidence
 
-High that Tattle has transaction-contextual item feedback and optional
-Customer meal-photo collection, and that Ovation has order-targeted surveys.
-Medium that Tattle is the best current partnership lead. Low for incremental
-comparison coverage because exact photo-to-item linkage, rights-valid export
-yield, and the SeeFood baseline remain unmeasured.
+High that the local evidence is insufficient and DL-001 had to stop. High that
+the stored SQL omits several DataLab gold checks. Confidence in the actual
+comparison baseline remains Low because no underlying photo evidence was
+available to audit.
 
 ## Cost
 
-$0. Primary-source documentation was read and three independent agents
-challenged the source claims and model. No production reads or writes, provider
-API calls, model calls, account creation, vendor contact, crawl, or paid quota
-were used.
+$0. Local repository/history inspection and independent review only. No
+production read or write, provider call, model call, image download, account,
+vendor contact, crawl, or paid quota was used.
 
 ## Production Impact
 
@@ -122,16 +144,13 @@ merges.
 
 ## Next Action
 
-Run DL-001, the 12-restaurant local calibration of the existing comparison
-flags, using only a guaranteed read-only or already-sanitized evidence bundle.
-This establishes which current claims are trustworthy before the Temecula
-census and locked national holdout are frozen.
-
-Retain Tattle as a high-priority permission-gated deal candidate. A later
-controller packet must prove exact photo-to-order-line binding, exportability,
-SeeFood-compatible rights, and real photo yield before any code or outreach
-campaign is authorized.
+Pause lab experiments. The main SeeFood thread supplies the sanitized bundle
+defined in `DL001_INPUT_HANDOFF.md` under ignored
+`data-lab/raw/baseline/DL-001/`. Then resume DL-001 with the same deterministic
+selection and the Guardian's blind audit. Do not substitute synthetic fixtures,
+live source calls, or `/api/dishes`.
 
 ## Kyle Needs To Do
 
-Nothing.
+Ask the main SeeFood thread to prepare the bounded sanitized DL-001 handoff.
+Kyle should not handle credentials or raw customer data himself.
