@@ -125,10 +125,16 @@ scoped_restaurants as (
 entity_identity as (
   select
     e.entity_id,
-    coalesce(nullif(e.legacy_place_id, ''), min(r.place_id)) as stable_restaurant_id,
+    coalesce(
+      nullif(e.legacy_place_id, ''),
+      min(r.place_id),
+      'entity-' || e.entity_id::text
+    ) as stable_restaurant_id,
     case
       when nullif(e.legacy_place_id, '') is not null then 'restaurant_entities.legacy_place_id'
-      else 'lexicographically_smallest_attached_restaurant.place_id'
+      when min(r.place_id) is not null
+        then 'lexicographically_smallest_attached_restaurant.place_id'
+      else 'entity_id_fallback_for_entity_without_attached_restaurant'
     end as stable_restaurant_id_basis,
     jsonb_agg(
       jsonb_build_object(
