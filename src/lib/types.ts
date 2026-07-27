@@ -42,6 +42,8 @@ export interface MenuItemData {
   name: string;
   description?: string;
   imageUrl?: string;    // photo URL when the source already provides one
+  contentHash?: string; // verified image bytes, populated by acquisition workers
+  perceptualHash?: string;
   price?: number;       // captured for the corpus; NEVER displayed in the UI
   source?: DataSource;  // which platform this item was extracted from
 }

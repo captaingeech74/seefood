@@ -795,6 +795,13 @@ export interface SaturationTarget {
   address: string;
 }
 
+export interface SaturationBounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}
+
 /**
  * Track A (Vercel Cron, website/Google/Gemini saturation — see
  * /api/cron/saturate-temecula). Picks the next batch of restaurants that
@@ -804,28 +811,45 @@ export interface SaturationTarget {
  * exists specifically so the permanent test restaurant is never swept up
  * here (see scripts/seed-test-restaurant.mjs).
  */
-export async function getSaturationBatch(limit: number): Promise<SaturationTarget[]> {
+export async function getSaturationBatch(
+  limit: number,
+  bounds?: SaturationBounds
+): Promise<SaturationTarget[]> {
   const staleCutoff = new Date(Date.now() - SATURATION_STALE_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: queued } = await supabase
+  let queuedQuery = supabase
     .from("restaurants")
     .select("place_id,name,lat,lng,address")
     .eq("status", "queued")
-    .order("created_at", { ascending: true })
-    .limit(limit);
+    .order("created_at", { ascending: true });
+  if (bounds) {
+    queuedQuery = queuedQuery
+      .gte("lat", bounds.minLat)
+      .lte("lat", bounds.maxLat)
+      .gte("lng", bounds.minLng)
+      .lte("lng", bounds.maxLng);
+  }
+  const { data: queued } = await queuedQuery.limit(limit);
 
   const targets: SaturationTarget[] = (queued ?? []).map((r) => ({
     placeId: r.place_id, name: r.name, lat: r.lat, lng: r.lng, address: r.address ?? "",
   }));
   if (targets.length >= limit) return targets;
 
-  const { data: stale } = await supabase
+  let staleQuery = supabase
     .from("restaurants")
     .select("place_id,name,lat,lng,address")
     .eq("status", "active")
     .lt("updated_at", staleCutoff)
-    .order("updated_at", { ascending: true })
-    .limit(limit - targets.length);
+    .order("updated_at", { ascending: true });
+  if (bounds) {
+    staleQuery = staleQuery
+      .gte("lat", bounds.minLat)
+      .lte("lat", bounds.maxLat)
+      .gte("lng", bounds.minLng)
+      .lte("lng", bounds.maxLng);
+  }
+  const { data: stale } = await staleQuery.limit(limit - targets.length);
 
   for (const r of stale ?? []) {
     targets.push({ placeId: r.place_id, name: r.name, lat: r.lat, lng: r.lng, address: r.address ?? "" });
@@ -1652,7 +1676,7 @@ export async function savePhotos(
     (existingHashRows ?? []).map((row) => [row.content_hash as string, row])
   );
 
-  const rows = eligible.map((p) => {
+  const observedRows = eligible.map((p) => {
     const source = p.source as DishPhoto["source"];
     const authorType = normalizePhotoAuthor(source, p.attribution as DishPhoto["attribution"]);
     const existingOrigin = existingByOrigin.get(p.originUrl);
@@ -1703,6 +1727,16 @@ export async function savePhotos(
       deduped_at: nextActive ? null : existingOrigin?.deduped_at ?? now,
     };
   });
+  // A provider can legitimately reuse one photo across several menu items.
+  // Persist one canonical photo row while retaining every item link below.
+  const rows = [...new Map(observedRows.map((row) => [
+    row.id
+      ? `id:${row.id}`
+      : row.content_hash
+        ? `hash:${row.content_hash}`
+        : `origin:${row.origin_url}`,
+    row,
+  ])).values()];
   const hashedRows = rows.filter((row) => row.content_hash);
   const unhashedRows = rows.filter((row) => !row.content_hash);
   const savedRows: Array<{ id: number; content_hash: string | null; origin_url: string | null }> = [];
@@ -1714,12 +1748,29 @@ export async function savePhotos(
     const existingRows = hashedRows.filter((row) => row.id);
     const newRows = hashedRows.filter((row) => !row.id).map(({ id: _id, ...row }) => row);
     if (existingRows.length) {
-      const { data, error } = await supabase
+      // `photos.id` is GENERATED ALWAYS, so PostgREST cannot upsert rows that
+      // carry an explicit id. These hashes already exist; refresh their shared
+      // observation state in one update and retain their canonical metadata.
+      const existingIds = existingRows.map((row) => row.id!);
+      const { error } = await supabase
         .from("photos")
-        .upsert(existingRows, { onConflict: "id" })
-        .select("id,content_hash,origin_url");
+        .update({
+          source_snapshot_id: options.snapshotId ?? null,
+          active: true,
+          last_seen_at: now,
+          missing_streak: 0,
+          dedupe_reason: null,
+          duplicate_of_photo_id: null,
+          dedupe_run_id: null,
+          deduped_at: null,
+        })
+        .in("id", existingIds);
       if (error) console.error("[corpus] savePhotos canonical hash update failed:", error.message);
-      else savedRows.push(...(data ?? []));
+      else savedRows.push(...existingRows.map((row) => ({
+        id: row.id!,
+        content_hash: row.content_hash,
+        origin_url: row.origin_url,
+      })));
     }
     if (newRows.length) {
       const { data, error } = await supabase
@@ -1768,7 +1819,7 @@ export async function savePhotos(
 
   const idByHash = new Map(savedRows.flatMap((row) => row.content_hash ? [[row.content_hash, row.id] as const] : []));
   const idByOrigin = new Map(savedRows.flatMap((row) => row.origin_url ? [[row.origin_url, row.id] as const] : []));
-  const provenanceRows = photos.flatMap((photo) => {
+  const provenanceObservations = photos.flatMap((photo) => {
     const photoId = (photo.contentHash ? idByHash.get(photo.contentHash) : undefined) ?? idByOrigin.get(photo.originUrl);
     if (!photoId) return [];
     const source = photo.source as DishPhoto["source"];
@@ -1786,6 +1837,10 @@ export async function savePhotos(
       last_seen_at: now,
     }];
   });
+  const provenanceRows = [...new Map(provenanceObservations.map((row) => [
+    `${row.restaurant_id}\u0000${row.source}\u0000${row.origin_url}`,
+    row,
+  ])).values()];
   if (provenanceRows.length) {
     const { error } = await supabase
       .from("photo_origins")
@@ -2071,6 +2126,8 @@ export async function persistSourceMenuItems(
     primaryVotes: 0,
     photoAuthorType: "management",
     trustLabel: "management_photo",
+    contentHash: item.contentHash,
+    perceptualHash: item.perceptualHash,
   }));
   await reconcileSourceBatch(placeId, source, items, photos);
 }

@@ -44,18 +44,37 @@ interface GooglePlace {
 
 // ── Shared __NEXT_DATA__ slug/URL helpers ─────────────────────────────────────
 
-/** Score URLs by how many words from the restaurant name appear in the URL. */
-function scoreByNameMatch(candidates: string[], restaurantName: string): string | null {
-  if (!candidates.length) return null;
-  const parts = restaurantName
+function normalizedNameTokens(value: string): string[] {
+  return value
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
-    .replace(/[^a-z0-9 ]/g, "")
-    .split(" ")
-    .filter((w) => w.length > 2);
-  return candidates.sort((a, b) => {
-    const score = (s: string) => parts.filter((p) => s.toLowerCase().includes(p)).length;
-    return score(b) - score(a);
-  })[0];
+    .replace(/['’]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 1 && !["and", "the", "restaurant", "restaurants"].includes(word));
+}
+
+/**
+ * Match by brand words, not loose URL substrings. Grubhub search includes
+ * cuisine alternatives when the requested restaurant is unavailable.
+ */
+function scoreByNameMatch(candidates: string[], restaurantName: string): string | null {
+  const wanted = normalizedNameTokens(restaurantName);
+  if (!candidates.length || !wanted.length) return null;
+
+  const scored = candidates.map((url) => {
+    const match = new URL(url).pathname.match(/^\/restaurant\/([^/]+)\//);
+    const candidate = new Set(normalizedNameTokens(match?.[1] ?? ""));
+    const overlap = wanted.filter((word) => candidate.has(word)).length;
+    const requiredOverlap = Math.min(2, wanted.length);
+    const coverage = overlap / wanted.length;
+    const safe = candidate.has(wanted[0]) && overlap >= requiredOverlap && coverage >= 0.6;
+    return { url, score: safe ? overlap + coverage : -1 };
+  }).filter((entry) => entry.score >= 0).sort((a, b) => b.score - a.score);
+
+  if (!scored.length) return null;
+  if (scored.length > 1 && scored[0].score === scored[1].score) return null;
+  return scored[0].url;
 }
 
 /** Deduplicate MenuItemData[] by lowercase name. */
@@ -214,33 +233,71 @@ export function extractDoorDashItems(obj: unknown, out: MenuItemData[]): void {
   }
 }
 
+function grubhubMediaUrl(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const media = value as Record<string, unknown>;
+  const baseUrl = typeof media.base_url === "string" ? media.base_url : "";
+  const publicId = typeof media.public_id === "string" ? media.public_id : "";
+  if (!baseUrl.startsWith("http") || !publicId) return null;
+  return `${baseUrl}w_800,q_auto:good,fl_lossy,f_auto/${publicId}`;
+}
+
 /**
- * Recursively walks Grubhub __NEXT_DATA__ for menu item objects.
- * Grubhub items typically have: name, description, photo (URL), price.
+ * Recursively walks both Grubhub's retired embedded page data and its current
+ * restaurant_gateway JSON responses. Current menu entities use item_name,
+ * item_description, item_price, and media_image instead of the old fields.
  */
 export function extractGrubhubItems(obj: unknown, out: MenuItemData[]): void {
   if (!obj || typeof obj !== "object") return;
   if (Array.isArray(obj)) { obj.forEach((v) => extractGrubhubItems(v, out)); return; }
 
   const o = obj as Record<string, unknown>;
+  const rawName = o.item_name ?? o.name;
+  const rawDescription = o.item_description ?? o.description;
+  const rawPrice = o.item_price ?? o.price;
+  const directImage = o.photo ?? o.photoUrl ?? o.imageUrl;
+  const mediaImage =
+    grubhubMediaUrl(o.media_image) ??
+    (Array.isArray(o.media_images) ? grubhubMediaUrl(o.media_images[0]) : null);
+  const hasItemIdentity =
+    typeof o.item_name === "string" ||
+    typeof o.item_id === "string" ||
+    typeof o.menu_category_id === "string" ||
+    (typeof o.id === "string" && !("restaurant_id" in o && !("menu_category_id" in o)));
 
-  // Grubhub items: name + at least one of description / photo / price
+  // Requiring item identity prevents restaurant metadata, service fees, and
+  // choice-option labels from becoming fake dishes during the recursive walk.
   if (
-    typeof o.name === "string" &&
-    o.name.trim().length > 1 &&
+    hasItemIdentity &&
+    typeof rawName === "string" &&
+    rawName.trim().length > 1 &&
     (
-      typeof o.description === "string" ||
-      typeof o.photo === "string" ||
-      typeof o.photoUrl === "string" ||
-      typeof o.imageUrl === "string" ||
-      typeof o.price === "number"
+      typeof rawDescription === "string" ||
+      typeof directImage === "string" ||
+      Boolean(mediaImage) ||
+      typeof rawPrice === "number" ||
+      (rawPrice !== null && typeof rawPrice === "object")
     )
   ) {
-    const item: MenuItemData = { name: o.name.trim() };
-    const desc = (o.description as string | undefined)?.trim();
+    const item: MenuItemData = { name: rawName.trim() };
+    const desc = typeof rawDescription === "string" ? rawDescription.trim() : "";
     if (desc) item.description = desc.substring(0, 300);
-    const img = o.photo ?? o.photoUrl ?? o.imageUrl;
-    if (typeof img === "string" && img.startsWith("http")) item.imageUrl = img;
+    const img = typeof directImage === "string" && directImage.startsWith("http")
+      ? directImage
+      : mediaImage;
+    if (img) item.imageUrl = img;
+    if (typeof rawPrice === "number") {
+      item.price = rawPrice;
+    } else if (rawPrice && typeof rawPrice === "object") {
+      const price = rawPrice as Record<string, unknown>;
+      const cents =
+        typeof price.amount === "number"
+          ? price.amount
+          : typeof (price.delivery as Record<string, unknown> | undefined)?.value === "number"
+            ? (price.delivery as Record<string, number>).value
+            : null;
+      if (cents !== null) item.price = cents / 100;
+    }
     out.push(item);
   }
 

@@ -12,6 +12,12 @@ export const maxDuration = 300;
 
 const BATCH_SIZE = 10;
 const TIME_BUDGET_MS = 270_000; // leave headroom under the 300s function ceiling
+const TEMECULA_BOUNDS = {
+  minLat: 33.43,
+  maxLat: 33.62,
+  minLng: -117.30,
+  maxLng: -117.05,
+};
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization");
@@ -20,7 +26,7 @@ export async function GET(req: NextRequest) {
   }
 
   const start = Date.now();
-  const batch = await getSaturationBatch(BATCH_SIZE);
+  const batch = await getSaturationBatch(BATCH_SIZE, TEMECULA_BOUNDS);
   const results: Array<{ placeId: string; name: string; ok: boolean; photos?: number; error?: string }> = [];
 
   for (const target of batch) {

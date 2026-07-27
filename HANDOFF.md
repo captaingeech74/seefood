@@ -25,8 +25,12 @@ MSAs, and finally all 387 MSAs.
 - Baseline handoff commit for the current lead: `857242f`.
 - Stack: Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Supabase
   Postgres, Cloudflare R2, Google Maps, Sharp, and Vitest.
-- Verification baseline: 53 tests passing after the DL-001 handoff and
-  reactivation-guard work.
+- Verification baseline: 60 tests passing after the delivery-source
+  restoration.
+- DoorDash and Grubhub are enabled automatic acquisition sources. DoorDash
+  discovery is city-bounded and ambiguity-safe; Grubhub now supplies a
+  delivery location, reads its current first-party menu responses, and
+  byte-verifies every candidate photo before persistence.
 - DL-001's aggregate-only calibration input was correctly stopped. The main
   thread now owns a forced-read-only, credential-free evidence exporter at
   `scripts/export-datalab-dl001.mjs`; its ignored output is the only production
@@ -168,6 +172,30 @@ treated as identity across the three-snapshot retirement window. A separate
 website extractor bug also treated arbitrary metadata such as viewport values
 and theme colors as image URLs. Both responsible layers are fixed; the UI did
 not receive a cosmetic duplicate-hiding rule.
+
+The July 27 delivery-source restoration has rollback tag
+`pre-delivery-source-restoration-2026-07-27`. DoorDash had continued to yield
+data, but its Temecula batch ignored geographic bounds and its matcher missed
+safe provider-shortened names. Grubhub's 270 historical attempts were all empty
+because its current SPA requires a delivery location and exposes menu data in
+first-party JSON responses rather than the old embedded page shape.
+
+Bounded production pilots added or restored 639 active delivery menu items and
+297 new byte-unique photos across Annie's Cafe, Ebullition, Mantra, and BJ's.
+DoorDash now has 7,422 active items across 69 restaurants and 4,719
+source-provenanced unique active photos across 66; Grubhub has 325 active items
+and 149 unique active photos across two restaurants. Temecula's restaurants
+with at least seven matched menu photos increased from 72 to 74, and the
+20%-of-menu plus seven-photo rung increased from 62 to 64. Basic photo coverage
+remained 156 restaurants; comparison strength remained 21 dishes across six
+restaurants. No legitimate coverage was removed.
+
+The pilot deliberately caught and reversed one unsafe Grubhub match: when Olive
+Garden was unavailable, search returned Campini's as an Italian alternative.
+Exactly 172 menu rows and 46 canonical photo rows introduced by that rejected
+run were deactivated, not deleted, and source run 1014 was marked failed.
+Brand-word matching now rejects cuisine substitutes and ambiguous same-brand
+locations; an empty or failed provider result cannot retire good prior data.
 
 ## Handoff Maintenance
 

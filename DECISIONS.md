@@ -1689,3 +1689,54 @@ rows across 41 bounded Temecula restaurants. This removed raw-count inflation
 without reducing the 11,037 useful-photo rows, 7,609 verified unique hashes, 21
 comparison dishes, or any measured menu-photo coverage rung. The rollback point
 is `pre-reactivated-photo-quarantine-2026-07-27`.
+
+## Restore DoorDash and Grubhub as safe automatic sources (July 27, 2026)
+
+DoorDash and Grubhub remain crawler-side acquisition sources; neither is moved
+into the Vercel request path. Both are enabled in `source_registry` with
+automatic mode and priority 40. Rollback tag
+`pre-delivery-source-restoration-2026-07-27` records the pre-change application
+state.
+
+DoorDash was not offline: 353 of 737 historical attempts had already produced
+37,080 items and 26,345 photo candidates. Its systemic failures were targeting
+and identity. `--zone temecula` selected the statewide backlog without applying
+Temecula bounds, then asked DoorDash for those out-of-market restaurants using
+the city name Temecula. The sitemap matcher also missed punctuation, accents,
+and provider-shortened brands. Both the CLI and cron batch are now bounded to
+the Temecula rectangle. Discovery accepts a shortened provider name only when
+the leading brand evidence is unique in the city, and rejects generic-word,
+false-brand, and ambiguous same-city matches.
+
+Grubhub's 270 prior attempts produced zero items because the browser opened a
+search SPA without first establishing a delivery location, and the parser
+expected an obsolete embedded JSON shape. The crawler now enters the bounded
+market location, selects only a safe brand-word match, listens to Grubhub's
+current first-party restaurant menu responses, scrolls the virtualized menu,
+and extracts current item, price, description, and media fields. Every provider
+photo is fetched, decoded as an image, and exact-byte fingerprinted before it
+may become active.
+
+Provider fetches are not authoritative deletion signals. A zero-result or
+failed browser attempt is logged but is not persisted as an empty snapshot and
+cannot retire prior good rows. Repeated provider images become one canonical
+photo with preserved origin and menu-item associations; repeated runs update
+the same records without count inflation.
+
+Production pilots proved both positive and negative behavior. Annie's and
+Ebullition yielded 314 active DoorDash items and 148 new byte-unique photos.
+Mantra and BJ's yielded 325 active Grubhub items and 149 new byte-unique photos.
+Olive Garden correctly yields no Grubhub match. An earlier permissive pilot had
+temporarily attached Campini's Italian menu to Olive Garden; the pilot caught
+it, deactivated exactly 172 menu rows and 46 canonical photo rows, and marked
+source run 1014 failed before release. The rows remain recoverable evidence;
+they do not count as active coverage.
+
+Across the accepted pilots, active delivery data increased by 639 menu items
+and 297 genuinely unique photos across four restaurants. Restaurants meeting
+the seven-matched-menu-photo rung increased from 72 to 74, and those also
+covering at least 20% of their menu increased from 62 to 64. Basic photo
+coverage stayed at 156 restaurants and Management-versus-Customer comparison
+coverage stayed at 21 dishes across six restaurants. This therefore increased
+real menu-photo strength and made the source metrics more honest without
+claiming unavailable restaurants or deleting legitimate coverage.

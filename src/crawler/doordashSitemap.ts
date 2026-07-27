@@ -106,10 +106,33 @@ export async function loadStoreSitemap(state: string): Promise<string[]> {
 function normalizeWords(s: string): string[] {
   return s
     .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/&amp;/g, "&")
+    .replace(/[’']/g, "")
     .replace(/[^a-z0-9 ]/g, " ")
     .split(/\s+/)
     .filter((w) => w.length > 2);
+}
+
+const GENERIC_RESTAURANT_WORDS = new Set([
+  "bakery", "bar", "bbq", "brew", "cafe", "chinese", "coffee", "company",
+  "diner", "food", "greek", "grill", "house", "indian", "italian", "kitchen",
+  "mexican", "old", "pizza", "pub", "restaurant", "shop", "sushi", "taco",
+  "thai", "town", "works",
+]);
+
+function restaurantNameWords(name: string, city?: string): {
+  all: string[];
+  distinctive: string[];
+} {
+  const withoutLocationQualifier = name.replace(/\s*\([^)]*\)\s*$/g, "");
+  const all = normalizeWords(withoutLocationQualifier);
+  const cityWords = new Set(normalizeWords(city ?? ""));
+  const distinctive = all.filter(
+    (word) => !GENERIC_RESTAURANT_WORDS.has(word) && !cityWords.has(word)
+  );
+  return { all, distinctive };
 }
 
 /**
@@ -123,19 +146,27 @@ export function findDoorDashStoreUrlInSitemap(
   restaurantName: string,
   city?: string
 ): string | null {
-  const nameWords = normalizeWords(restaurantName);
+  const { all: nameWords, distinctive } = restaurantNameWords(restaurantName, city);
   if (nameWords.length === 0) return null;
+  // Generic cuisine/location words are not enough identity to safely select
+  // one business from a city-wide sitemap.
+  if (distinctive.length === 0 && urls.length !== 1) return null;
+  // A previously verified one-URL cache entry can be revalidated by an exact
+  // generic name, but generic words may not discover a new city-wide match.
+  const matchWords = distinctive.length > 0 ? distinctive : nameWords;
 
   const cityLower = city?.toLowerCase().replace(/[^a-z0-9]/g, "");
   const candidates = cityLower ? urls.filter((u) => u.toLowerCase().includes(cityLower)) : urls;
   if (candidates.length === 0) return null;
 
-  let best: { url: string; score: number; extraWords: number } | null = null;
+  let best: { url: string; score: number; fullScore: number; extraWords: number } | null = null;
+  let ambiguousBest = false;
   for (const url of candidates) {
     const slug = decodeURIComponent(url.split("/store/")[1] ?? "");
     const slugWords = normalizeWords(slug);
-    const overlap = nameWords.filter((w) => slugWords.includes(w)).length;
+    const overlap = matchWords.filter((w) => slugWords.includes(w)).length;
     if (overlap === 0) continue;
+    const fullScore = nameWords.filter((w) => slugWords.includes(w)).length;
     // Same-named restaurant often has extra listings (catering, ghost
     // kitchens, multiple locations sharing a name) with unrelated bonus
     // words in the slug — e.g. "bj's-restaurant-&-brewhouse-CATERING-
@@ -143,8 +174,22 @@ export function findDoorDashStoreUrlInSitemap(
     // restaurant's own name didn't ask for.
     const extraWords = slugWords.filter((w) => !nameWords.includes(w) && w !== city?.toLowerCase()).length;
     const better =
-      !best || overlap > best.score || (overlap === best.score && extraWords < best.extraWords);
-    if (better) best = { url, score: overlap, extraWords };
+      !best ||
+      overlap > best.score ||
+      (overlap === best.score && fullScore > best.fullScore) ||
+      (overlap === best.score && fullScore === best.fullScore && extraWords < best.extraWords);
+    if (better) {
+      best = { url, score: overlap, fullScore, extraWords };
+      ambiguousBest = false;
+    } else if (
+      best &&
+      overlap === best.score &&
+      fullScore === best.fullScore &&
+      extraWords === best.extraWords &&
+      url !== best.url
+    ) {
+      ambiguousBest = true;
+    }
   }
 
   // Require at least half the restaurant name's significant words to match —
@@ -153,8 +198,28 @@ export function findDoorDashStoreUrlInSitemap(
   // Multi-word names must also share their leading brand word. Without this,
   // "Villa Italian Kitchen" can incorrectly match "Francesca's Italian
   // Kitchen": two generic cuisine words satisfy the old half-overlap rule.
-  const sharesLeadingBrandWord = nameWords.length === 1 || (best && normalizeWords(decodeURIComponent(best.url.split("/store/")[1] ?? "")).includes(nameWords[0]));
-  if (best && sharesLeadingBrandWord && best.score >= Math.max(1, Math.ceil(nameWords.length * 0.7))) {
+  const leadingBrandWord = matchWords[0];
+  const sharesLeadingBrandWord =
+    best &&
+    normalizeWords(decodeURIComponent(best.url.split("/store/")[1] ?? "")).includes(leadingBrandWord);
+  const leadingBrandMatches = new Set(candidates.filter((url) =>
+    normalizeWords(decodeURIComponent(url.split("/store/")[1] ?? "")).includes(leadingBrandWord)
+  )).size;
+  // Providers sometimes replace a restaurant's descriptor entirely
+  // ("Ebullition Brew Works and Gastronomy" → "Ebullition Pub and Grill").
+  // A long, distinctive leading brand word is safe when it occurs in exactly
+  // one city candidate, even though the generic descriptors do not overlap.
+  const uniquelyIdentifiedByLeadingBrand =
+    leadingBrandWord.length >= 7 && leadingBrandMatches === 1;
+  if (
+    best &&
+    !ambiguousBest &&
+    sharesLeadingBrandWord &&
+    (
+      best.score >= Math.max(1, Math.ceil(matchWords.length * 0.8)) ||
+      uniquelyIdentifiedByLeadingBrand
+    )
+  ) {
     return best.url;
   }
   return null;

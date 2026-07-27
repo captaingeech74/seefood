@@ -35,6 +35,7 @@ export interface PythonFetchResult {
   html?: string;
   error?: string;
   finalUrl?: string | null;
+  payloads?: unknown[];
 }
 
 function getPythonVersion(exe: string): [number, number] | null {
@@ -146,16 +147,33 @@ export function ensurePythonEnv(): { ready: boolean; reason?: string } {
  */
 export function pythonFetch(
   url: string,
-  opts: { render?: boolean; referer?: string; timeoutSec?: number } = {}
+  opts: {
+    render?: boolean;
+    referer?: string;
+    timeoutSec?: number;
+    waitSelector?: string;
+    waitMs?: number;
+    captureGrubhubMenu?: boolean;
+    grubhubSearchLocation?: string;
+  } = {}
 ): PythonFetchResult {
   const args = [join(CRAWLER_DIR, "fetch.py"), url];
   if (opts.render) args.push("--render");
   if (opts.referer) args.push("--referer", opts.referer);
   if (opts.timeoutSec) args.push("--timeout", String(opts.timeoutSec));
+  if (opts.waitSelector) args.push("--wait-selector", opts.waitSelector);
+  if (opts.waitMs) args.push("--wait-ms", String(opts.waitMs));
+  if (opts.captureGrubhubMenu) args.push("--capture-grubhub-menu");
+  if (opts.grubhubSearchLocation) {
+    args.push("--grubhub-search-location", opts.grubhubSearchLocation);
+  }
 
   const result = spawnSync(VENV_PYTHON, args, {
     encoding: "utf-8",
-    timeout: (opts.timeoutSec ?? 20) * 1000 + 15000,
+    // Browser shutdown can take materially longer than the page timeout after
+    // a network-heavy SPA. Leave cleanup headroom so Node does not kill a
+    // successful Python fetch while Camoufox is closing.
+    timeout: (opts.timeoutSec ?? 20) * 1000 + 60_000,
     maxBuffer: 50 * 1024 * 1024,
   });
 

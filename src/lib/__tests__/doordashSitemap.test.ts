@@ -16,6 +16,10 @@ const SAMPLE_URLS = [
   "https://www.doordash.com/store/bj's-restaurant-&-brewhouse-temecula-262570/",
   "https://www.doordash.com/store/swing-inn-cafe-temecula-262137/",
   "https://www.doordash.com/store/starbucks-temecula-33969323/",
+  "https://www.doordash.com/store/olive-garden-temecula-990001/",
+  "https://www.doordash.com/store/annies-cafe-temecula-990002/",
+  "https://www.doordash.com/store/subway-temecula-990003/",
+  "https://www.doordash.com/store/ebullition-pub-and-grill-temecula-32380025/",
   "https://www.doordash.com/store/francescas-italian-kitchen-temecula-32578269/",
   "https://www.doordash.com/store/the-old-town-deli-temecula-temecula-40461423/",
 ];
@@ -46,18 +50,28 @@ describe("findDoorDashStoreUrlInSitemap", () => {
     expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Villa Italian Kitchen", "Temecula")).toBeNull();
   });
 
+  it("matches provider-shortened brand names without weakening brand identity", () => {
+    expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Starbucks Coffee Company", "Temecula"))
+      .toBe("https://www.doordash.com/store/starbucks-temecula-33969323/");
+    expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Olive Garden Italian Restaurant", "Temecula"))
+      .toBe("https://www.doordash.com/store/olive-garden-temecula-990001/");
+    expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Ebullition Brew Works Pub and Grill", "Temecula"))
+      .toBe("https://www.doordash.com/store/ebullition-pub-and-grill-temecula-32380025/");
+    expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Ebullition Brew Works And Gastronomy", "Temecula"))
+      .toBe("https://www.doordash.com/store/ebullition-pub-and-grill-temecula-32380025/");
+  });
+
+  it("ignores parenthetical location qualifiers in Google names", () => {
+    expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Subway (Nicolas Rd)", "Temecula"))
+      .toBe("https://www.doordash.com/store/subway-temecula-990003/");
+  });
+
   it("does not match a different business sharing only location-style words", () => {
     expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Old Town Pub & Grub", "Temecula")).toBeNull();
   });
 
   it("does not match on a single generic word alone", () => {
-    // "Temecula Cafe" sharing only "cafe" with "swing-inn-cafe" shouldn't match —
-    // one word of overlap out of two significant words fails the >=50% bar... but
-    // with only "cafe" as the sole significant word after normalization, it would
-    // pass the bar; assert this deliberately to document the known false-positive
-    // risk of single-word restaurant names rather than let it happen silently.
-    const url = findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Cafe", "Temecula");
-    expect(url).toBe("https://www.doordash.com/store/swing-inn-cafe-temecula-262137/");
+    expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Cafe", "Temecula")).toBeNull();
   });
 
   it("returns null when the city has no matches at all", () => {
