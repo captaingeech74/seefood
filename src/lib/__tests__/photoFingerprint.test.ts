@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import {
+  canReactivateQuarantinedPhoto,
   fingerprintPhoto,
   isImageContentType,
   isTransientPhotoFetchStatus,
@@ -39,5 +40,12 @@ describe("photo fingerprints", () => {
     expect(isTransientPhotoFetchStatus(429)).toBe(true);
     expect(isTransientPhotoFetchStatus(503)).toBe(true);
     expect(isTransientPhotoFetchStatus(404)).toBe(false);
+  });
+
+  it("does not reactivate a quarantined photo on an unverified observation", () => {
+    expect(canReactivateQuarantinedPhoto("non_image_text/html", null)).toBe(false);
+    expect(canReactivateQuarantinedPhoto("exact_content_duplicate", undefined)).toBe(false);
+    expect(canReactivateQuarantinedPhoto("non_image_text/html", "abc123")).toBe(true);
+    expect(canReactivateQuarantinedPhoto(null, null)).toBe(true);
   });
 });

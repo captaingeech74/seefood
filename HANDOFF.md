@@ -1,6 +1,6 @@
 # SeeFood Senior Lead Handoff
 
-Updated July 23, 2026. This is the current operational snapshot for the active
+Updated July 27, 2026. This is the current operational snapshot for the active
 general-development lead. It is intentionally concise; durable product and
 architecture decisions belong in `DECISIONS.md` and the focused documents under
 `docs/`.
@@ -25,7 +25,12 @@ MSAs, and finally all 387 MSAs.
 - Baseline handoff commit for the current lead: `857242f`.
 - Stack: Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Supabase
   Postgres, Cloudflare R2, Google Maps, Sharp, and Vitest.
-- Verification baseline: 47 tests passing after the photo-identity work.
+- Verification baseline: 53 tests passing after the DL-001 handoff and
+  reactivation-guard work.
+- DL-001's aggregate-only calibration input was correctly stopped. The main
+  thread now owns a forced-read-only, credential-free evidence exporter at
+  `scripts/export-datalab-dl001.mjs`; its ignored output is the only production
+  evidence the lab may consume for that experiment.
 - Image bytes are stored in R2 and delivered by signed R2 redirects instead of
   streaming through Vercel. A custom R2 domain remains the intended end state.
 - The corpus is persistent. It contains restaurant identity, menu, photo,
@@ -113,6 +118,16 @@ reviews and deliberately integrates them. See `docs/SEEFOOD_DATALAB.md`.
 Do not perform the general-development assignment in the DataLab worktree, and
 do not redirect the main build around an unfinished DataLab experiment.
 
+For production-backed experiments, generate a bounded sanitized bundle from the
+normal `main` checkout and mirror only that ignored bundle into the lab's
+`data-lab/raw/` path. Never copy credentials or grant live production access.
+See `docs/DATALAB_READ_ONLY_EXPORT.md`.
+
+The first completed DL-001 bundle is present locally in both checkouts at
+`data-lab/raw/baseline/DL-001/`. It contains 183 bounded candidates, 12
+hash-selected restaurants, 980 current menu rows, and 82 rendered photo records.
+The DataLab branch and its committed experiment files remain untouched.
+
 ## Current Data-Quality State
 
 The July 23 systemic photo audit and cleanup is complete in production. The
@@ -134,6 +149,18 @@ pre-cleanup 4,405/4,361 is recovered association credit, not invented images.
 Near-duplicate candidates,
 cross-location chain/template reuse, provenance, and multi-item links were not
 deleted.
+
+On July 27 the DL-001 export caught a follow-on fail-open bug: a later crawl
+could make an already quarantined row active again when its image fetch failed
+transiently and therefore supplied no new content hash. Run
+`5f2425c7-6293-4d36-ac09-cf34ecd28222` re-quarantined exactly 1,163 rows already
+carrying durable invalid/duplicate evidence across 41 restaurants. The stricter
+useful-photo total remained 11,037, verified unique hashes remained 7,609, all
+21 comparison dishes remained, and all measured menu-photo coverage rungs were
+unchanged. Raw active rows fell from 12,200 to the honest useful total of
+11,037. A second apply was a no-op. Rollback tag
+`pre-reactivated-photo-quarantine-2026-07-27` and the per-row action log make the
+repair reversible.
 
 Olive Garden on Overland has 11 active, byte-unique photos instead of 25
 inflated rows. The root cause was changing Google photo-reference tokens being

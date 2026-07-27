@@ -15,6 +15,18 @@ export function isTransientPhotoFetchStatus(status: number): boolean {
 }
 
 /**
+ * A transient fetch failure must not resurrect a row that a byte-level audit
+ * already quarantined. A later observation may rehabilitate it only after the
+ * bytes successfully decode and produce a new exact content hash.
+ */
+export function canReactivateQuarantinedPhoto(
+  priorDedupeReason: string | null | undefined,
+  incomingContentHash: string | null | undefined
+): boolean {
+  return !priorDedupeReason || Boolean(incomingContentHash);
+}
+
+/**
  * Exact bytes are the safe automatic identity. The 64-bit dHash is diagnostic:
  * it spots resized/re-encoded and near-identical candidates, but is never used
  * by itself to delete a photo.

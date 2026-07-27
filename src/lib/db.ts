@@ -9,6 +9,7 @@ import { dedupeToPrimary } from "./dishGrouping";
 import type { AnalyticsEventName } from "./analytics";
 import type { WebsiteExtractResult } from "./menuSources";
 import { normalizePhotoAuthor, trustLabel, withPhotoSignals } from "./photoSignals";
+import { canReactivateQuarantinedPhoto } from "./photoFingerprint";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -1583,16 +1584,63 @@ export async function savePhotos(
     return true;
   });
 
+  const existingPhotoFields = "id,content_hash,perceptual_hash,origin_url,storage_url,source,attribution,source_platform,photo_author_type,trust_label,is_orderable,tier,width,height,gemini_label,menu_item_id,canonical_dish_id,photo_quality_score,dish_popularity_score,is_hero_candidate,is_storefront,is_menu_photo,dedupe_reason,active";
+  const existingOriginRows: Array<Record<string, unknown>> = [];
+  for (let from = 0; ; from += 1000) {
+    // Fetch by restaurant rather than putting long provider URLs in an `in`
+    // query string. Some Google references are large enough for a candidate
+    // batch to exceed proxy URL limits.
+    const { data, error } = await supabase
+      .from("photos")
+      .select(existingPhotoFields)
+      .eq("restaurant_id", placeId)
+      .range(from, from + 999);
+    if (error) throw error; // fail closed: do not persist until quarantine state is known
+    existingOriginRows.push(...((data ?? []) as Array<Record<string, unknown>>));
+    if (!data || data.length < 1000) break;
+  }
+  const existingByOrigin = new Map(
+    existingOriginRows.map((row) => [row.origin_url as string, row])
+  );
+  const blockedRows = deduped.filter((photo) => {
+    const existing = existingByOrigin.get(photo.originUrl);
+    return !canReactivateQuarantinedPhoto(
+      existing?.dedupe_reason as string | null | undefined,
+      photo.contentHash
+    );
+  });
+  const blockedIds = blockedRows.flatMap((photo) => {
+    const id = existingByOrigin.get(photo.originUrl)?.id;
+    return id == null ? [] : [id as number];
+  });
+  if (blockedIds.length) {
+    // This also repairs any previously quarantined row that an older
+    // fail-open crawl accidentally reactivated.
+    const { error } = await supabase
+      .from("photos")
+      .update({ active: false, missing_streak: 0 })
+      .in("id", blockedIds);
+    if (error) console.error("[corpus] photo quarantine refresh failed:", error.message);
+  }
+  const eligible = deduped.filter((photo) => {
+    const existing = existingByOrigin.get(photo.originUrl);
+    return canReactivateQuarantinedPhoto(
+      existing?.dedupe_reason as string | null | undefined,
+      photo.contentHash
+    );
+  });
+  if (eligible.length === 0) return;
+
   const canonical = await ensureCanonicalDishes(
     placeId,
-    deduped.filter((p) => p.geminiLabel).map((p) => ({ name: p.geminiLabel! }))
+    eligible.filter((p) => p.geminiLabel).map((p) => ({ name: p.geminiLabel! }))
   );
   const now = new Date().toISOString();
-  const hashes = deduped.flatMap((photo) => photo.contentHash ?? []);
+  const hashes = eligible.flatMap((photo) => photo.contentHash ?? []);
   const { data: existingHashRows } = hashes.length
     ? await supabase
       .from("photos")
-      .select("id,content_hash,perceptual_hash,origin_url,storage_url,source,attribution,source_platform,photo_author_type,trust_label,is_orderable,tier,width,height,gemini_label,menu_item_id,canonical_dish_id,photo_quality_score,dish_popularity_score,is_hero_candidate,is_storefront,is_menu_photo")
+      .select(existingPhotoFields)
       .eq("restaurant_id", placeId)
       .in("content_hash", hashes)
       .is("duplicate_of_photo_id", null)
@@ -1601,10 +1649,12 @@ export async function savePhotos(
     (existingHashRows ?? []).map((row) => [row.content_hash as string, row])
   );
 
-  const rows = deduped.map((p) => {
+  const rows = eligible.map((p) => {
     const source = p.source as DishPhoto["source"];
     const authorType = normalizePhotoAuthor(source, p.attribution as DishPhoto["attribution"]);
-    const existing = p.contentHash ? existingByHash.get(p.contentHash) : undefined;
+    const existing = p.contentHash
+      ? existingByHash.get(p.contentHash) ?? existingByOrigin.get(p.originUrl)
+      : undefined;
     const existingTier = Number(existing?.tier ?? 3);
     const nextTier = Math.min(existingTier, p.tier);
     const existingLabel = existing?.gemini_label as string | null | undefined;

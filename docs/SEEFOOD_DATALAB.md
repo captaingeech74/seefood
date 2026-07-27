@@ -118,6 +118,15 @@ Raw samples and generated artifacts belong under ignored `data-lab/raw/`,
 `data-lab/artifacts/`, or `data-lab/tmp/`. Small reproducible fixtures may be
 committed only after secrets and personal data are removed.
 
+When a lab experiment needs production evidence, the main SeeFood thread—not
+the lab—must create a bounded, sanitized, forced-read-only export. Production
+credentials never move into the DataLab worktree. The lab receives local
+evidence files under its ignored `data-lab/raw/` path and performs no live
+fetches. Each export must preserve provenance, include exact queries and hashes,
+remove customer personal data and secrets, and keep the implementer separate
+from the final evaluator. The current procedure is documented in
+`docs/DATALAB_READ_ONLY_EXPORT.md`.
+
 ## Cadence And Reporting
 
 Run one bounded experiment on Monday, Wednesday, and Friday nights. Produce one

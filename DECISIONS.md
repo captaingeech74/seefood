@@ -1656,3 +1656,36 @@ canonical dish IDs from the cleanup log after the idempotency audit caught that
 the best label and canonical ID could live on different duplicate rows. The
 cleanup did not invent new unique food content; it made current strength
 measurable and improved the reliability of future acquisition.
+
+## DataLab receives evidence bundles, never production authority (July 27, 2026)
+
+DataLab experiments that require production evidence are supplied by the main
+SeeFood thread through bounded, sanitized, local exports. The lab never receives
+database, storage, provider, or application credentials and never calls live
+application routes to fill missing evidence.
+
+Each export must use one database transaction explicitly opened at
+repeatable-read isolation in read-only mode, verify that mode from PostgreSQL,
+and use only direct SELECTs plus bounded storage/source reads. It must preserve
+the menu, photo, attribution, association, and duplicate evidence needed for an
+independent audit while excluding raw URLs, secrets, contributor/customer
+identifiers and free text, device/session data, payment data, and precise
+personal timestamps. Outputs remain ignored, are SHA-256 manifested and
+filesystem read-only, and include an opaque packet for a blind Guardian review.
+
+The first implementation is `scripts/export-datalab-dl001.mjs`, documented in
+`docs/DATALAB_READ_ONLY_EXPORT.md`. Its geographic rectangle is only a
+calibration scope; it is not the later Temecula census definition. The exporter
+may mirror the finished bundle into the DataLab worktree's ignored
+`data-lab/raw/baseline/DL-001/` directory, but it does not edit the lab branch,
+experiment records, status, queue, or automation.
+
+The first export exposed a residual ingestion failure: a transient fetch error
+could reactivate a row that a prior byte-level audit had already marked invalid
+or duplicate. A quarantined origin may now become active again only after a
+later observation successfully decodes and supplies an exact content hash.
+Production run `5f2425c7-6293-4d36-ac09-cf34ecd28222` re-quarantined 1,163 such
+rows across 41 bounded Temecula restaurants. This removed raw-count inflation
+without reducing the 11,037 useful-photo rows, 7,609 verified unique hashes, 21
+comparison dishes, or any measured menu-photo coverage rung. The rollback point
+is `pre-reactivated-photo-quarantine-2026-07-27`.
