@@ -229,6 +229,19 @@ automation, and ineligible-entity exclusions; this does not claim proof of a
 human. Failed attempts are terminal and the client uses a new attempt ID for a
 retry. The treatment remains disabled.
 
+DL-007 Cycle 6 corrects the independently discovered Stage 5 runtime mismatch:
+the database returns `behavioral`, while the prior runtime read `behavior`.
+Runtime and the read-only exporter now use the exact same pure adapter, and
+parity compares direct database decisions with live-adapter outputs rather than
+two aliases of one SQL value. Every failed or malformed upload response retires
+the cached attempt; only a successful authoritative receipt preserves
+idempotent replay. The isolated database matrix now exercises every named
+behavioral/gold gate, simultaneous terminal reviews, contradictory receipts,
+both terminal replays, duplicate Customer/Management content, existing
+verified Customer coverage, and absence of false comparison flags/receipts.
+The contribution treatment remains disabled pending DataLab's independent
+Cycle 6 verdict.
+
 ## Current Data-Quality State
 
 The July 23 systemic photo audit and cleanup is complete in production. The

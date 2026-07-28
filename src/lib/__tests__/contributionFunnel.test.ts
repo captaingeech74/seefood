@@ -68,6 +68,18 @@ describe("contribution funnel safety", () => {
         restaurantId: "restaurant-b",
       })
     ).toBe(false);
+    const mutations = [
+      { visitorId: "visitor-b" },
+      { sessionId: "session-b" },
+      { experimentKey: "experiment-b" },
+      { variantKey: "variant-b" },
+      { surface: "surface-b" },
+      { targetClass: "target-b" },
+    ];
+    for (const mutation of mutations) {
+      expect(contributionAttemptMatches(original, { ...original, ...mutation }))
+        .toBe(false);
+    }
   });
 
   it("calls server-screened public traffic external without claiming human proof", () => {

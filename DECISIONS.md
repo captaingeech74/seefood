@@ -1889,3 +1889,17 @@ attempt ID. `eligible_external` means only that server-side fixture, staff,
 automation, and ineligible-entity exclusions passed; it does not claim verified
 human identity. The behavioral treatment remains disabled pending independent
 DataLab parity review.
+
+## Prove runtime interpretation, not SQL self-equality (July 28, 2026)
+
+The contribution database returns its behavioral decision under the
+`behavioral` key. Runtime and sanitized evidence generation share the pure
+fail-closed adapter in `src/lib/contributionContract.mjs`; the exporter compares
+the adapter's output with the direct database decision for every bounded row.
+Repeating or aliasing one SQL value is not contract-parity evidence.
+
+Only an OK upload response containing an authoritative receipt preserves an
+attempt for idempotent replay. Local preparation failures, malformed responses,
+and every non-OK upload response retire the cached attempt so a user retry gets
+a new UUID. Treatment remains disabled until DataLab independently reproduces
+the complete Cycle 6 parity and adversarial evidence.

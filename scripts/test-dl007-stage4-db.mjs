@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 import pg from "pg";
 
 const { Client } = pg;
@@ -139,9 +140,36 @@ try {
     if (result.rows[0].contract.eligible) {
       throw new Error(`gold gate ${gate} failed open`);
     }
+    if (
+      gate === "activeRestaurant" &&
+      result.rows[0].contract.gates.behavioralEligible !== false
+    ) {
+      throw new Error("behavioralEligible gold gate failed open");
+    }
     gateAssertions[gate] = "passed";
+    if (gate === "activeRestaurant") {
+      gateAssertions.behavioralEligible = "passed";
+    }
     await client.query(restoreSql);
   }
+  await client.query(
+    `update photos set photo_author_type='unknown' where id=$1`,
+    [managementId]
+  );
+  const unattached = await client.query(
+    `select contribution_gold_contract('fixture-restaurant',1,null) contract`
+  );
+  if (
+    unattached.rows[0].contract.eligible ||
+    unattached.rows[0].contract.gates.attachedManagementPhoto !== false
+  ) {
+    throw new Error("attachedManagementPhoto gate failed open");
+  }
+  gateAssertions.attachedManagementPhoto = "passed";
+  await client.query(
+    `update photos set photo_author_type='management' where id=$1`,
+    [managementId]
+  );
   await client.query(`insert into photos(
     restaurant_id,active,photo_author_type,moderation_status,rights_status,
     rights_scope,menu_item_id,content_hash,perceptual_hash,duplicate_review_status
@@ -168,7 +196,7 @@ try {
         'behavioral_prompt_candidate','pending_review')`,
       [attempt]
     );
-    await client.query(`
+    const inserted = await client.query(`
       insert into photos(
         restaurant_id,active,photo_author_type,moderation_status,rights_status,
         rights_version,rights_scope,source,source_platform,storage_url,is_orderable,
@@ -179,9 +207,11 @@ try {
         'fixture-restaurant',false,'customer','pending','user_granted',
         'customer-photo-rights-v1','display_with_dish','user_upload','user_upload',
         'https://fixture.invalid/c.webp',true,false,false,1,$2,$2,
-        'customer-phash','pending',$1,'pending','verified','food_or_drink')`,
+        'customer-phash','pending',$1,'pending','verified','food_or_drink')
+      returning id`,
       [attempt, customerHash]
     );
+    return Number(inserted.rows[0].id);
   }
 
   const approved = "00000000-0000-4000-8000-000000000010";
@@ -205,7 +235,25 @@ try {
   if (!replayRejected) throw new Error("terminal review replay was accepted");
 
   const duplicate = "00000000-0000-4000-8000-000000000011";
-  await pendingAttempt(duplicate, "management-hash");
+  const duplicatePhotoId = await pendingAttempt(duplicate, "management-hash");
+  const distinctContract = await client.query(
+    `select contribution_gold_contract('fixture-restaurant',1,$1) contract`,
+    [duplicatePhotoId]
+  );
+  if (distinctContract.rows[0].contract.gates.distinctFromCustomer !== false) {
+    throw new Error("distinctFromCustomer gate failed open");
+  }
+  gateAssertions.distinctFromCustomer = "passed";
+  const existingCustomerContract = await client.query(
+    `select contribution_gold_contract('fixture-restaurant',1,null) contract`
+  );
+  if (
+    existingCustomerContract.rows[0].contract.gates
+      .lacksVerifiedCustomerSameDish !== false
+  ) {
+    throw new Error("lacksVerifiedCustomerSameDish gate failed open");
+  }
+  gateAssertions.lacksVerifiedCustomerSameDish = "passed";
   await client.query(
     `select review_contribution_photo($1,'approved','exact','unique','display_with_dish')`,
     [duplicate]
@@ -242,6 +290,14 @@ try {
     `select comparison_ready from photos where contribution_attempt_id=$1`, [missingGold]
   );
   if (noGold.rows[0].comparison_ready) throw new Error("failed gold gate created comparison");
+  const failedGoldEvents = await client.query(
+    `select count(*)::int count from contribution_funnel_events
+     where attempt_id=$1 and event_name='verified_comparison_created'`,
+    [missingGold]
+  );
+  if (failedGoldEvents.rows[0].count !== 0) {
+    throw new Error("failed gold gate emitted verified comparison receipt");
+  }
 
   const receiptAttempt = "00000000-0000-4000-8000-000000000013";
   await client.query(`insert into contribution_attempts(
@@ -280,6 +336,31 @@ try {
   } catch { rejectionReplayRejected = true; }
   if (!rejectionReplayRejected) throw new Error("rejected review replay was accepted");
 
+  await client.query(`update photos set provenance_review_status='verified'
+    where photo_author_type='management'`);
+  const concurrentReviewAttempt = "00000000-0000-4000-8000-000000000018";
+  await pendingAttempt(concurrentReviewAttempt, "concurrent-review-hash");
+  const reviewFirst = new Client({ connectionString: url });
+  const reviewSecond = new Client({ connectionString: url });
+  await Promise.all([reviewFirst.connect(), reviewSecond.connect()]);
+  const concurrentReview = await Promise.allSettled([
+    reviewFirst.query(
+      `select review_contribution_photo($1,'approved','exact','unique','display_with_dish')`,
+      [concurrentReviewAttempt]
+    ),
+    reviewSecond.query(
+      `select review_contribution_photo($1,'rejected','unmatched','duplicate','display_with_dish')`,
+      [concurrentReviewAttempt]
+    ),
+  ]);
+  await Promise.all([reviewFirst.end(), reviewSecond.end()]);
+  if (
+    concurrentReview.filter((result) => result.status === "fulfilled").length !==
+    1
+  ) {
+    throw new Error("concurrent terminal review accepted other than one decision");
+  }
+
   const terminalAttempt = "00000000-0000-4000-8000-000000000016";
   await client.query(`insert into contribution_attempts(
     id,visitor_id,session_id,restaurant_id,menu_item_id,experiment_key,variant_key,
@@ -300,20 +381,38 @@ try {
     throw new Error("failed attempt retry did not preserve a new ID");
   }
 
-  console.log(JSON.stringify({
+  const results = {
+    passed: true,
     isolatedDatabase: parsed.pathname.slice(1),
-    tests: {
-      oneShotApprovalAndReplay: "passed",
-      storedConsentEnforcement: "passed",
-      customerManagementDuplicateRejection: "passed",
-      canonicalGoldPredicateParity: "passed",
-      noComparisonWhenGoldGateFails: "passed",
-      firstReceiptConcurrency: "passed",
-      everyCanonicalGoldGateFailsClosed: gateAssertions,
-      rejectedReviewReplay: "passed",
-      failedAttemptRetryUsesNewId: "passed",
-    },
-  }, null, 2));
+    productionWrites: 0,
+    runner: "scripts/test-dl007-stage4-db.mjs",
+    assertions: [
+      { name: "one-shot approval and approval replay rejection", status: "passed" },
+      { name: "one-shot rejection and rejection replay rejection", status: "passed" },
+      { name: "concurrent approval/rejection preserves exactly one decision", status: "passed" },
+      { name: "stored display consent cannot be backfilled", status: "passed" },
+      { name: "Customer/Management duplicate cannot create comparison", status: "passed" },
+      { name: "canonical gold predicate controls terminal review", status: "passed" },
+      { name: "failed gold gate leaves comparison_ready false", status: "passed" },
+      { name: "failed gold gate emits no verified_comparison_created event", status: "passed" },
+      { name: "contradictory receipt race preserves exactly one outcome", status: "passed" },
+      { name: "terminal failure retry uses a new attempt ID", status: "passed" },
+      ...Object.keys(gateAssertions).sort().map((gate) => ({
+        name: `named gold gate ${gate} fails closed`,
+        status: "passed",
+      })),
+    ],
+  };
+  if (process.env.DL007_TEST_RESULTS_PATH) {
+    await mkdir(path.dirname(process.env.DL007_TEST_RESULTS_PATH), {
+      recursive: true,
+    });
+    await writeFile(
+      process.env.DL007_TEST_RESULTS_PATH,
+      `${JSON.stringify(results, null, 2)}\n`
+    );
+  }
+  console.log(JSON.stringify(results, null, 2));
 } finally {
   await client.end();
 }

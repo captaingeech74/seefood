@@ -10,6 +10,7 @@ import { withPhotoSignals } from "@/lib/photoSignals";
 import PhotoSourceSheet from "./PhotoSourceSheet";
 import { optimizeImageFile } from "@/lib/clientImageOptimization";
 import { CONTRIBUTION_RIGHTS_VERSION } from "@/lib/contributionFunnel";
+import { shouldRetireContributionAttempt } from "@/lib/contributionContract.mjs";
 
 interface RevealProps {
   /** Deduped, one-per-dish list — drives vertical prev/next so a dish never repeats while scrolling. */
@@ -587,7 +588,16 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
       form.append("tier", String(activePhoto.tier));
       const res = await fetch("/api/upload-photo", { method: "POST", body: form });
       const data = await res.json();
-      if (res.ok && data.receipt) {
+      const hasReceipt = Boolean(data.receipt);
+      if (
+        shouldRetireContributionAttempt({
+          responseOk: res.ok,
+          hasReceipt,
+        })
+      ) {
+        contributionAttempts.current.delete(menuItemId);
+      }
+      if (res.ok && hasReceipt) {
         alert("Thanks — your photo is safely submitted and pending review.");
       } else {
         alert(data.error || "Upload failed — please try again.");

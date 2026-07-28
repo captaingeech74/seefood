@@ -7,11 +7,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { opaqueId, scanText, sha256 } from "./datalab-dl007-lib.mjs";
+import { interpretContributionGoldContract } from "../src/lib/contributionContract.mjs";
 
 const { Client } = pg;
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUTPUT = path.join(ROOT, "data-lab/raw/baseline/DL-007/main-thread-stage5");
-const SEED_OUTPUT = path.join(ROOT, "data-lab/raw/main-thread-private/DL-007-stage5-opaque-seed.json");
+const OUTPUT = path.join(ROOT, "data-lab/raw/baseline/DL-007/main-thread-cycle6");
+const SEED_OUTPUT = path.join(ROOT, "data-lab/raw/main-thread-private/DL-007-cycle6-opaque-seed.json");
+const DB_RESULTS = path.join(ROOT, "data-lab/tmp/DL-007/cycle6-db-tests.json");
+const UNIT_RESULTS = path.join(ROOT, "data-lab/tmp/DL-007/cycle6-unit-tests.json");
 const TARGET_SQL = `
 with dishes as (
   select distinct e.id entity_id,r.place_id restaurant_id,m.id menu_item_id
@@ -34,9 +37,7 @@ with dishes as (
       p.photo_quality_score desc nulls last,p.id limit 1
   ) old_photo on true
 )
-select *,contract direct_contract,
-  case when old_photo_id is null
-    or old_photo_id=(contract->>'selectedPhotoId')::bigint then null else
+select *, case when old_photo_id is null then null else
   contribution_management_photo_contract(
     restaurant_id,menu_item_id,old_photo_id,null) end old_contract
 from evaluated
@@ -102,6 +103,37 @@ function contract(seed, value) {
     gates: value?.gates ?? null,
   };
 }
+function runtimeDecision(seed, value) {
+  const interpreted = interpretContributionGoldContract(value);
+  return {
+    ...interpreted,
+    selectedManagementPhotoId:
+      interpreted.selectedManagementPhotoId == null ? null :
+        opaqueId(seed, "photo", interpreted.selectedManagementPhotoId),
+  };
+}
+function databaseDecision(seed, value) {
+  const behavioral = value?.behavioral ?? {};
+  const gates = behavioral?.gates ?? {};
+  return {
+    behavioralPromptCandidate: behavioral?.eligible === true,
+    goldComparisonCandidate:
+      behavioral?.eligible === true && value?.eligible === true,
+    selectedManagementPhotoId:
+      value?.selectedPhotoId == null ? null :
+        opaqueId(seed, "photo", value.selectedPhotoId),
+    targetEvidence: {
+      activeRestaurant: gates.activeRestaurant === true,
+      activeEntity: gates.activeEntity === true,
+      operatingStatusNotClosed: gates.operatingStatusNotClosed === true,
+      activeMenuItem: gates.activeMenuItem === true,
+      zeroMissingStreak: gates.zeroMissingStreak === true,
+      observedWithin30Days: gates.observedWithin30Days === true,
+      latestSuccessfulSourceSnapshot:
+        gates.latestSuccessfulSourceSnapshot === true,
+    },
+  };
+}
 async function main() {
   const { mirror } = args();
   process.loadEnvFile(path.join(ROOT, ".env.local"));
@@ -131,15 +163,22 @@ async function main() {
     if (open) await client.query("rollback").catch(() => {});
     await client.end().catch(() => {});
   }
-  const roster = targetRows.map((row, index) => ({
-    deterministicRank: index + 1,
-    opaqueEntityId: opaqueId(seed, "entity", row.entity_id),
-    opaqueRestaurantId: opaqueId(seed, "restaurant", row.restaurant_id),
-    opaqueMenuItemId: opaqueId(seed, "menu_item", row.menu_item_id),
-    canonicalContract: contract(seed, row.contract),
-    directDatabaseContract: contract(seed, row.direct_contract),
-    exactContractMatch: JSON.stringify(row.contract) === JSON.stringify(row.direct_contract),
-  }));
+  const roster = targetRows.map((row, index) => {
+    const directDatabaseDecision = databaseDecision(seed, row.contract);
+    const liveRuntimeAdapterOutput = runtimeDecision(seed, row.contract);
+    return {
+      deterministicRank: index + 1,
+      opaqueEntityId: opaqueId(seed, "entity", row.entity_id),
+      opaqueRestaurantId: opaqueId(seed, "restaurant", row.restaurant_id),
+      opaqueMenuItemId: opaqueId(seed, "menu_item", row.menu_item_id),
+      directDatabaseContract: contract(seed, row.contract),
+      directDatabaseDecision,
+      liveRuntimeAdapterOutput,
+      exactContractMatch:
+        JSON.stringify(directDatabaseDecision) ===
+          JSON.stringify(liveRuntimeAdapterOutput),
+    };
+  });
   const reconciliation = targetRows.filter((row) =>
     String(row.old_photo_id) !== String(row.contract?.selectedPhotoId)).map((row) => ({
       stableOpaqueDishJoin: opaqueId(seed, "dish", `${row.entity_id}:${row.menu_item_id}`),
@@ -167,33 +206,61 @@ async function main() {
     outcome: row.outcome, occurredAt: row.occurred_at,
   }));
   const mismatches = roster.filter((row) => !row.exactContractMatch);
+  const selectorSummary = {
+    comparedRows: targetRows.length,
+    oldSelectorEligibleRows: targetRows.filter(
+      (row) => row.old_contract?.eligible === true
+    ).length,
+    canonicalSelectorEligibleRows: targetRows.filter(
+      (row) => row.contract?.eligible === true
+    ).length,
+    eligibilityDelta:
+      targetRows.filter((row) => row.contract?.eligible === true).length -
+      targetRows.filter((row) => row.old_contract?.eligible === true).length,
+    changedPhotoRows: reconciliation.length,
+  };
   await jsonl(path.join(staging, "canonical-target-roster.jsonl"), roster);
   await jsonl(path.join(staging, "selector-reconciliation.jsonl"), reconciliation);
   await jsonl(path.join(staging, "contribution-attempts.jsonl"), attempts);
   await jsonl(path.join(staging, "contribution-receipts.jsonl"), receipts);
   await json(path.join(staging, "contract-parity.json"), {
     comparedRows: roster.length, mismatchRows: mismatches.length,
-    exporterSerializedDirectDatabaseContract: true,
+    exactLiveRuntimeAdapterUsed:
+      "src/lib/contributionContract.mjs#interpretContributionGoldContract",
   });
+  await json(path.join(staging, "selector-population-summary.json"), selectorSummary);
   await json(path.join(staging, "cross-snapshot-drift.json"), {
     stage3BehavioralPriorRightsIntersection: 3912,
     stage4BehavioralPriorRightsIntersection: 3881, delta: -31,
-    explanation: "Different snapshot times changed current restaurant, menu, and source-freshness states. No stable cross-snapshot row bridge exists, so this is aggregate timing drift, not a claimed loss of photos or coverage.",
+    cause: "unknown",
+    explanation: "The snapshots have no stable row bridge or comparable aggregate gate ledger. Timing is plausible but unproved, so Cycle 6 makes no causal claim.",
     rowLevelClaimMade: false,
     currentCanonicalBehavioralCandidates:
-      roster.filter((row) => row.canonicalContract.behavioral?.eligible === true).length,
+      roster.filter((row) =>
+        row.liveRuntimeAdapterOutput.behavioralPromptCandidate
+      ).length,
   });
-  await json(path.join(staging, "isolated-adversarial-tests.json"), {
-    database: "seefood_dl007_test", productionWrites: 0,
-    runner: "scripts/test-dl007-stage4-db.mjs",
-    assertions: {
-      positiveAndEveryNamedGoldGate: "passed", approvalAndRejectionReplay: "passed",
-      storedConsent: "passed", customerManagementDuplicate: "passed",
-      noComparisonOnGoldFailure: "passed", contradictoryReceiptRace: "passed",
-      failedAttemptRetryUsesNewId: "passed",
-      fullBindingCrossTargetReplay: "passed in contributionAttemptMatches unit tests",
-    },
-  });
+  if (!await exists(DB_RESULTS) || !await exists(UNIT_RESULTS)) {
+    throw new Error("Cycle 6 assertion-level test artifacts are required");
+  }
+  const dbResults = JSON.parse(await readFile(DB_RESULTS, "utf8"));
+  const unitResults = JSON.parse(await readFile(UNIT_RESULTS, "utf8"));
+  if (dbResults.passed !== true || unitResults.success !== true) {
+    throw new Error("Cycle 6 assertion-level tests did not all pass");
+  }
+  const unitEvidence = {
+    success: true,
+    totalTests: unitResults.numTotalTests,
+    passedTests: unitResults.numPassedTests,
+    assertions: unitResults.testResults.flatMap((file) =>
+      file.assertionResults.map((assertion) => ({
+        name: assertion.fullName ?? assertion.title,
+        status: assertion.status,
+      }))
+    ),
+  };
+  await json(path.join(staging, "isolated-adversarial-tests.json"), dbResults);
+  await json(path.join(staging, "route-and-unit-tests.json"), unitEvidence);
   await json(path.join(staging, "candidate-geography.json"), {
     privacy: "Aggregate only; no names, coordinates, or hidden identities.",
     censusDivisions: { Pacific: roster.length },
@@ -205,14 +272,14 @@ async function main() {
   }
   const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
   await json(path.join(staging, "snapshot-manifest.json"), {
-    bundle: "DL-007 main-thread Stage 5", snapshotTime: before.snapshot_time,
+    bundle: "DL-007 main-thread Cycle 6", snapshotTime: before.snapshot_time,
     exporterCommit: commit, transaction: { before, after, terminalStatement: "ROLLBACK" },
     rowCounts: { roster: roster.length, reconciliation: reconciliation.length,
       attempts: attempts.length, receipts: receipts.length, parityMismatches: mismatches.length },
     treatmentEnabled: false, conversionOrCoverageClaimAuthorized: false,
   });
   await mkdir(path.dirname(SEED_OUTPUT), { recursive: true });
-  await json(SEED_OUTPUT, { purpose: "DL-007 Stage 5 bundle-only opaque joins", seed });
+  await json(SEED_OUTPUT, { purpose: "DL-007 Cycle 6 bundle-only opaque joins", seed });
   await chmod(SEED_OUTPUT, 0o600);
   const secrets = SECRET_NAMES.map((name) => process.env[name])
     .filter((value) => typeof value === "string" && value.length >= 8);

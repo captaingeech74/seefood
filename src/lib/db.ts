@@ -17,6 +17,7 @@ import {
   pendingKnownDishPhotoState,
   terminalContributionReview,
 } from "./contributionFunnel";
+import { interpretContributionGoldContract } from "./contributionContract.mjs";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -349,18 +350,7 @@ export async function getCurrentContributionTarget(
     }
   );
   if (contractError) throw contractError;
-  const behavioral = contract?.behavior ?? {};
-  const gates = behavioral.gates ?? {};
-  const targetEvidence = {
-    activeRestaurant: gates.activeRestaurant === true,
-    activeEntity: gates.activeEntity === true,
-    operatingStatusNotClosed: gates.operatingStatusNotClosed === true,
-    activeMenuItem: gates.activeMenuItem === true,
-    zeroMissingStreak: gates.zeroMissingStreak === true,
-    observedWithin30Days: gates.observedWithin30Days === true,
-    latestSuccessfulSourceSnapshot:
-      gates.latestSuccessfulSourceSnapshot === true,
-  };
+  const interpreted = interpretContributionGoldContract(contract);
   return {
     menuItemId: Number(menuItem.id),
     canonicalDishId: menuItem.canonical_dish_id ?? null,
@@ -368,9 +358,9 @@ export async function getCurrentContributionTarget(
     entityStatus,
     restaurantStatus: restaurant.status ?? null,
     operatingStatus,
-    behavioralPromptCandidate: behavioral.eligible === true,
-    goldComparisonCandidate: contract?.eligible === true,
-    targetEvidence,
+    behavioralPromptCandidate: interpreted.behavioralPromptCandidate,
+    goldComparisonCandidate: interpreted.goldComparisonCandidate,
+    targetEvidence: interpreted.targetEvidence,
   };
 }
 
