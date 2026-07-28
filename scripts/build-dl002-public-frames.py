@@ -32,7 +32,11 @@ CBSA_POPULATION_URL = (
     "https://www2.census.gov/programs-surveys/popest/datasets/"
     "2020-2024/metro/totals/cbsa-est2024-alldata.csv"
 )
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_URLS = (
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.nchc.org.tw/api/interpreter",
+)
 USER_AGENT = "SeeFood-DL002-Stage1/1.0 bounded-read-only-export"
 
 DIVISIONS = {
@@ -271,18 +275,31 @@ def overpass_rows(polygons, bounds, observed_at):
 out center tags;
 """.strip()
     body = urllib.parse.urlencode({"data": query}).encode()
-    request = urllib.request.Request(
-        OVERPASS_URL,
-        data=body,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-    )
-    with urllib.request.urlopen(request, timeout=150) as response:
-        payload = response.read(10_000_001)
-        if len(payload) > 10_000_000:
-            raise RuntimeError("Bounded OSM response exceeded 10 MB")
+    failures = []
+    payload = None
+    endpoint = None
+    for candidate_endpoint in OVERPASS_URLS:
+        request = urllib.request.Request(
+            candidate_endpoint,
+            data=body,
+            headers={
+                "User-Agent": USER_AGENT,
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=150) as response:
+                payload = response.read(10_000_001)
+            endpoint = candidate_endpoint
+            break
+        except Exception as error:
+            failures.append(f"{candidate_endpoint}: {type(error).__name__}")
+    if payload is None:
+        raise RuntimeError(
+            "All bounded OSM endpoints failed: " + ", ".join(failures)
+        )
+    if len(payload) > 10_000_000:
+        raise RuntimeError("Bounded OSM response exceeded 10 MB")
     document = json.loads(payload)
     rows = []
     for element in document.get("elements", []):
@@ -331,6 +348,7 @@ out center tags;
         "requestSha256": sha256_bytes(query.encode()),
         "responseSha256": sha256_bytes(payload),
         "responseBytes": len(payload),
+        "endpointHost": urllib.parse.urlparse(endpoint).hostname,
         "sourceObservedAt": document.get("osm3s", {}).get("timestamp_osm_base"),
     }
 
