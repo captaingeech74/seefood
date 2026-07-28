@@ -6,7 +6,33 @@
 
 ## Current Phase
 
-DL-013 completed the first post-baseline technical qualification. It found that
+DL-007 Stage 1 completed the first-party contribution-funnel audit. The
+sanitized read-only bundle passed all integrity and redaction checks, but it
+found zero creditable real Customer-photo contributions and zero restaurants
+improved. Its four stored Customer-classified photos were all test fixtures
+with unreviewed rights.
+
+The supplied 89 target entities exactly reproduce the mechanical formula
+`current menu + Management-classified photo + no verified first-party Customer
+photo`. They are not yet 89 restaurants one photo away from a verified
+comparison: the bundle lacks dish-level exact/strong attachment, accessible
+useful image evidence, reviewed Management provenance and rights, duplicate
+clearance, menu freshness/orderability, and restaurant operating eligibility.
+
+The traffic aggregate cannot be interpreted as user conversion. One known
+fixture entity produced 29 of 38 app opens and 40 of 106 total events. Removing
+only that fixture leaves at most nine app-open rows, three visitor tokens, and
+eleven sessions; other ineligible traffic cannot be excluded from the supplied
+event rows. Prompt impressions, opens, starts, failures, cancellations, and
+authoritative upload results are not instrumented. Zero observed uploads is
+therefore not a measured 0% conversion rate.
+
+DL-007 remains the active experiment with a `Revise` Stage 1 decision. Stage 2
+must produce a qualified dish-level target roster, fixture-free event
+denominators, and complete privacy-safe funnel instrumentation before a bounded
+real prompt test begins. No coverage improved.
+
+DL-013 previously completed the first post-baseline technical qualification. It found that
 DoorDash's standard APIs are not a current national acquisition connector while
 preserving both a bespoke-data opportunity and a separate scraping hypothesis.
 DoorDash has the right data shape and credible national geography, but its
