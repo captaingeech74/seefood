@@ -175,6 +175,18 @@ results; DataLab owns the blind evaluation. The first mechanically valid but
 image-empty packet is retained under the ignored
 `main-thread-stage2-invalid-no-rendered-images-2026-07-27` name.
 
+DL-007's sanitized Stage 1 contribution-funnel bundle is complete locally under
+`data-lab/raw/baseline/DL-007/main-thread-stage1/` in both checkouts. The fixed
+snapshot contains 106 whitelisted event rows, four first-party contribution
+photo rows, and 170 relevant non-test entity eligibility rows. All four photo
+rows belong to a `test_fixture` entity and are explicitly excluded from real
+funnel results. The real baseline is therefore 38 recorded visits from five
+visitors, zero successful non-test contributions, and 89 entities with a
+current menu plus a Management photo but no rights-verified first-party Customer
+photo. Prompt impressions, prompt opens, upload starts, cancellations, and
+failures were never instrumented and cannot be inferred. Production was not
+changed or deployed.
+
 ## Current Data-Quality State
 
 The July 23 systemic photo audit and cleanup is complete in production. The

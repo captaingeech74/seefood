@@ -1794,3 +1794,21 @@ coverage stayed at 156 restaurants and Management-versus-Customer comparison
 coverage stayed at 21 dishes across six restaurants. This therefore increased
 real menu-photo strength and made the source metrics more honest without
 claiming unavailable restaurants or deleting legitimate coverage.
+
+## Measure the contribution funnel without inventing missing stages (July 27, 2026)
+
+DL-007 receives a sanitized production evidence bundle from
+`scripts/export-datalab-dl007.mjs`. The exporter uses one repeatable-read,
+forced-read-only transaction ending in `ROLLBACK`, replaces every join ID with
+a bundle-only opaque identifier, excludes names, contacts, URLs, free text,
+metadata, image bytes, credentials, and hidden holdout identities, and records
+per-file redaction results and hashes.
+
+Completed first-party photo records are the authoritative evidence of successful
+contributions. `photo_add` is a best-effort client event emitted only after
+success and may be missing. Records attached to entities marked `test_fixture`
+remain visible as excluded evidence and never count as real conversion or
+coverage. The baseline must explicitly report prompt impressions, prompt opens,
+upload starts, cancellations, optimization failures, API failures, and event
+delivery failures as unmeasurable until the main product deliberately
+instruments them. A missing event is never interpreted as a user rejection.

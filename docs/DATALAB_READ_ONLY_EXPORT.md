@@ -67,3 +67,25 @@ row rather than production entity. It is retained as invalid evidence under
 and 78 photo records. It passes exact parity for every exported production
 coverage field and records complete inclusion of every photo on each selected
 comparison dish.
+
+## DL-007 contribution-funnel baseline
+
+Run from the normal `main` checkout:
+
+```sh
+npm run export:datalab:dl007 -- --mirror "/absolute/path/to/the/datalab/worktree/data-lab/raw/baseline/DL-007/main-thread-stage1"
+```
+
+The exporter uses one repeatable-read, forced-read-only production transaction
+ending in `ROLLBACK`. It exports only whitelisted event fields, first-party
+contribution-photo evidence, relevant per-entity eligibility flags, fixed-window
+aggregates, exact queries, schema and transaction proofs, and a completed
+redaction/hash manifest. Every production identifier is replaced with a
+type-separated bundle-only hash derived from a random seed whose commitment is
+delivered while the seed remains in the main thread's ignored private path.
+
+The accepted baseline excludes `test_fixture` entities from funnel results but
+retains their contribution rows as explicitly marked evidence. It does not
+invent the missing pre-upload funnel: prompt impressions, prompt opens, upload
+starts, cancellations, client failures, API failures, and event-delivery
+failures are all recorded as unmeasurable.
