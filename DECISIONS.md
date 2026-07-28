@@ -1833,3 +1833,25 @@ approved moderation, reviewed rights, exact or explicit item linkage, robust
 duplicate evidence, and no verified Customer photo on that dish. Entity-level
 counts such as the earlier 89 mechanical candidates are not qualified-dish
 counts.
+
+## Separate behavioral targets from gold comparison targets (July 27, 2026)
+
+A dish may be technically suitable for measuring whether diners will open the
+existing contribution surface without being eligible for comparison-coverage
+credit. `behavioral_prompt_candidate` therefore requires reconciled active
+restaurant/entity status, a stable menu-item ID, a recent `last_seen_at`
+observation, and zero missing streak. `gold_comparison_candidate` additionally
+requires the full independently auditable Management provenance, rights,
+usefulness, item-link, moderation, and duplicate gates. Behavioral eligibility
+is never reported as data coverage.
+
+Contribution attempt identity is immutable across restaurant, menu item,
+experiment, variant, and surface. First receipts are not overwritten. The
+approved v1 Customer grant is recorded only as `display_with_dish`; it does not
+claim model-training, derivative, sublicensing, or broader rights.
+
+Terminal review is one atomic database transition. A pending Customer photo is
+published only after its consent, moderation, exact/strong match, and duplicate
+review pass. `verified_comparison_created` additionally requires a qualifying
+Management photo on the same dish. No public review endpoint is exposed, and
+the treatment prompt remains disabled.

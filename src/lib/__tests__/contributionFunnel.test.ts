@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   clientOutcomeAllowed,
   classifyContributionTraffic,
+  contributionAttemptMatches,
+  contributionTargetClasses,
   isUuid,
   pendingKnownDishPhotoState,
+  terminalContributionReview,
 } from "../contributionFunnel";
 
 describe("contribution funnel safety", () => {
@@ -37,8 +40,78 @@ describe("contribution funnel safety", () => {
       moderation_status: "pending",
       rights_status: "user_granted",
       rights_version: "customer-photo-rights-v1",
+      rights_scope: "display_with_dish",
       item_match_status: "pending",
       duplicate_review_status: "pending",
     });
+  });
+
+  it("binds an attempt immutably to its original restaurant and dish", () => {
+    const original = {
+      restaurantId: "restaurant-a",
+      menuItemId: 10,
+      experimentKey: "dl007_known_dish_v1",
+      variantKey: "passive_existing_surface",
+      surface: "known_dish",
+    };
+    expect(contributionAttemptMatches(original, original)).toBe(true);
+    expect(
+      contributionAttemptMatches(original, { ...original, menuItemId: 11 })
+    ).toBe(false);
+    expect(
+      contributionAttemptMatches(original, {
+        ...original,
+        restaurantId: "restaurant-b",
+      })
+    ).toBe(false);
+  });
+
+  it("separates behavioral eligibility from gold comparison eligibility", () => {
+    const base = {
+      restaurantStatus: "active",
+      entityStatus: "active",
+      operatingStatus: "open",
+      menuActive: true,
+      menuMissingStreak: 0,
+      menuLastSeenAt: "2026-07-20T00:00:00.000Z",
+      now: new Date("2026-07-27T00:00:00.000Z"),
+    };
+    expect(contributionTargetClasses(base)).toMatchObject({
+      behavioralPromptCandidate: true,
+      goldComparisonCandidate: false,
+    });
+    expect(
+      contributionTargetClasses({ ...base, goldGatesPass: true })
+    ).toMatchObject({
+      behavioralPromptCandidate: true,
+      goldComparisonCandidate: true,
+    });
+    expect(
+      contributionTargetClasses({
+        ...base,
+        menuLastSeenAt: "2026-01-01T00:00:00.000Z",
+        goldGatesPass: true,
+      }).behavioralPromptCandidate
+    ).toBe(false);
+  });
+
+  it("publishes only after every terminal review gate passes", () => {
+    const passing = {
+      moderation: "approved" as const,
+      itemMatch: "exact" as const,
+      duplicateReview: "unique" as const,
+      rightsStatus: "user_granted",
+      rightsVersion: "customer-photo-rights-v1",
+      rightsScope: "display_with_dish",
+    };
+    expect(terminalContributionReview(passing).publicationEligible).toBe(true);
+    expect(
+      terminalContributionReview({ ...passing, itemMatch: "unmatched" })
+        .publicationEligible
+    ).toBe(false);
+    expect(
+      terminalContributionReview({ ...passing, rightsScope: "model_training" })
+        .publicationEligible
+    ).toBe(false);
   });
 });

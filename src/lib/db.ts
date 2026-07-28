@@ -13,7 +13,11 @@ import {
   canReactivateQuarantinedPhoto,
   shouldActivatePhotoObservation,
 } from "./photoFingerprint";
-import { pendingKnownDishPhotoState } from "./contributionFunnel";
+import {
+  contributionTargetClasses,
+  pendingKnownDishPhotoState,
+  terminalContributionReview,
+} from "./contributionFunnel";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -288,6 +292,16 @@ export interface ContributionTarget {
   canonicalDishId: string | null;
   restaurantId: string;
   entityStatus: string | null;
+  restaurantStatus: string | null;
+  operatingStatus: string | null;
+  behavioralPromptCandidate: boolean;
+  goldComparisonCandidate: boolean;
+  targetEvidence: {
+    activeRestaurant: boolean;
+    currentObservation: boolean;
+    orderabilityEvidence: boolean;
+    freshnessDays: number;
+  };
 }
 
 export async function getCurrentContributionTarget(
@@ -296,7 +310,7 @@ export async function getCurrentContributionTarget(
 ): Promise<ContributionTarget | null> {
   const { data: menuItem, error: menuError } = await supabase
     .from("menu_items")
-    .select("id,restaurant_id,canonical_dish_id,active")
+    .select("id,restaurant_id,canonical_dish_id,active,last_seen_at,missing_streak")
     .eq("id", menuItemId)
     .eq("restaurant_id", restaurantId)
     .eq("active", true)
@@ -313,6 +327,7 @@ export async function getCurrentContributionTarget(
   if (!restaurant) return null;
 
   let entityStatus = restaurant.status ?? null;
+  let operatingStatus: string | null = null;
   if (restaurant.entity_id) {
     const { data: entity, error: entityError } = await supabase
       .from("restaurant_entities")
@@ -321,13 +336,59 @@ export async function getCurrentContributionTarget(
       .maybeSingle();
     if (entityError) throw entityError;
     entityStatus = entity?.status ?? entity?.operating_status ?? entityStatus;
+    operatingStatus = entity?.operating_status ?? null;
   }
+  const classes = contributionTargetClasses({
+    restaurantStatus: restaurant.status ?? null,
+    entityStatus,
+    operatingStatus,
+    menuActive: Boolean(menuItem.active),
+    menuMissingStreak: Number(menuItem.missing_streak ?? 0),
+    menuLastSeenAt: menuItem.last_seen_at ?? null,
+  });
   return {
     menuItemId: Number(menuItem.id),
     canonicalDishId: menuItem.canonical_dish_id ?? null,
     restaurantId: menuItem.restaurant_id,
     entityStatus,
+    restaurantStatus: restaurant.status ?? null,
+    operatingStatus,
+    behavioralPromptCandidate: classes.behavioralPromptCandidate,
+    goldComparisonCandidate: classes.goldComparisonCandidate,
+    targetEvidence: classes.evidence,
   };
+}
+
+export interface StoredContributionAttempt {
+  id: string;
+  restaurantId: string;
+  menuItemId: number;
+  experimentKey: string;
+  variantKey: string;
+  surface: string;
+  trafficClass: string;
+}
+
+export async function getContributionAttempt(
+  attemptId: string
+): Promise<StoredContributionAttempt | null> {
+  const { data, error } = await supabase
+    .from("contribution_attempts")
+    .select("id,restaurant_id,menu_item_id,experiment_key,variant_key,surface,traffic_class")
+    .eq("id", attemptId)
+    .maybeSingle();
+  if (error) throw error;
+  return data
+    ? {
+        id: data.id,
+        restaurantId: data.restaurant_id,
+        menuItemId: Number(data.menu_item_id),
+        experimentKey: data.experiment_key,
+        variantKey: data.variant_key,
+        surface: data.surface,
+        trafficClass: data.traffic_class,
+      }
+    : null;
 }
 
 export async function createContributionAttempt(input: {
@@ -340,6 +401,7 @@ export async function createContributionAttempt(input: {
   entityStatus: string | null;
   experimentKey: string;
   variantKey: string;
+  targetClass: "behavioral_prompt_candidate";
 }): Promise<void> {
   const { data: existing, error: readError } = await supabase
     .from("contribution_attempts")
@@ -369,6 +431,7 @@ export async function createContributionAttempt(input: {
     surface: "known_dish",
     traffic_class: input.trafficClass,
     entity_status: input.entityStatus,
+    target_class: input.targetClass,
   });
   if (error) throw error;
 }
@@ -387,9 +450,48 @@ export async function recordContributionFunnelEvent(input: {
       outcome: input.outcome,
       occurred_at: new Date().toISOString(),
     },
-    { onConflict: "attempt_id,event_name" }
+    {
+      onConflict: "attempt_id,event_name,event_source,outcome",
+      ignoreDuplicates: true,
+    }
   );
   if (error) throw error;
+}
+
+export async function reviewPendingContribution(input: {
+  attemptId: string;
+  moderation: "approved" | "rejected";
+  itemMatch: "exact" | "strong" | "unmatched";
+  duplicateReview: "unique" | "duplicate";
+  rightsScope: "display_with_dish";
+}): Promise<{ publicationEligible: boolean }> {
+  const { data: photo, error: readError } = await supabase
+    .from("photos")
+    .select("rights_status,rights_version,rights_scope,active,published_at")
+    .eq("contribution_attempt_id", input.attemptId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!photo || photo.active || photo.published_at) {
+    throw new Error("Contribution is not pending terminal review");
+  }
+  const decision = terminalContributionReview({
+    ...input,
+    rightsStatus: photo.rights_status,
+    rightsVersion: photo.rights_version,
+    rightsScope: photo.rights_scope,
+  });
+  const { data, error } = await supabase.rpc("review_contribution_photo", {
+    p_attempt_id: input.attemptId,
+    p_moderation: input.moderation,
+    p_item_match: input.itemMatch,
+    p_duplicate_review: input.duplicateReview,
+    p_rights_scope: input.rightsScope,
+  });
+  if (error) throw error;
+  if (Boolean(data) !== decision.publicationEligible) {
+    throw new Error("Terminal review decision mismatch");
+  }
+  return { publicationEligible: decision.publicationEligible };
 }
 
 export async function updateContributionAttempt(input: {

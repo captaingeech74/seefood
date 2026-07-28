@@ -45,6 +45,12 @@ export async function POST(req: NextRequest) {
     if (!target) {
       return NextResponse.json({ error: "That menu item is no longer current" }, { status: 409 });
     }
+    if (!target.behavioralPromptCandidate) {
+      return NextResponse.json(
+        { error: "This dish is not eligible for contribution measurement" },
+        { status: 409 }
+      );
+    }
     const trafficClass = classifyContributionTraffic({
       entityStatus: target.entityStatus,
       requestedClass: req.headers.get("x-seefood-traffic-class"),
@@ -60,6 +66,7 @@ export async function POST(req: NextRequest) {
       entityStatus: target.entityStatus,
       experimentKey: CONTRIBUTION_EXPERIMENT,
       variantKey: CONTRIBUTION_VARIANT,
+      targetClass: "behavioral_prompt_candidate",
     });
     await recordContributionFunnelEvent({
       attemptId,

@@ -196,6 +196,17 @@ pending. The behavioral treatment prompt remains disabled. Historical
 `app_events` are still upper-bound browser activity, not known people or
 verified eligible traffic.
 
+DL-007 Stage 3 hardens that passive path before any treatment. An attempt is
+immutably bound to its original restaurant, current menu item, experiment,
+variant, and surface. Receipt rows preserve first occurrences. Native picker
+cancellation and server optimization, storage, post-storage target, record,
+and publication outcomes are named stages. The atomic terminal review function
+can publish a Customer photo only after display-scoped consent, moderation,
+exact/strong item match, and duplicate review pass; it records a verified
+comparison only when a separately qualified Management photo exists on the
+same dish. Behavioral prompt candidates and gold comparison candidates are
+separate classes, and the first class never counts as coverage.
+
 ## Current Data-Quality State
 
 The July 23 systemic photo audit and cleanup is complete in production. The

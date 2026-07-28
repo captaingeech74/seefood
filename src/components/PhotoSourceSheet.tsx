@@ -43,6 +43,17 @@ export default function PhotoSourceSheet({
   useEffect(() => {
     if (open) setRightsAccepted(false);
   }, [open]);
+  useEffect(() => {
+    if (!mounted) return;
+    const cancelled = () => {
+      onCancel?.();
+      onClose();
+    };
+    const inputs = [cameraInputRef.current, libraryInputRef.current];
+    inputs.forEach((input) => input?.addEventListener("cancel", cancelled));
+    return () =>
+      inputs.forEach((input) => input?.removeEventListener("cancel", cancelled));
+  }, [mounted, onCancel, onClose]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -55,8 +66,21 @@ export default function PhotoSourceSheet({
 
   return createPortal(
     <>
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleChange} />
-      <input ref={libraryInputRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleChange}
+      />
+      <input
+        ref={libraryInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleChange}
+      />
 
       {open && (
         <div

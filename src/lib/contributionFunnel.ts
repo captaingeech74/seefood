@@ -1,6 +1,8 @@
 export const CONTRIBUTION_EXPERIMENT = "dl007_known_dish_v1";
 export const CONTRIBUTION_VARIANT = "passive_existing_surface";
 export const CONTRIBUTION_RIGHTS_VERSION = "customer-photo-rights-v1";
+export const CONTRIBUTION_RIGHTS_SCOPE = "display_with_dish";
+export const MENU_FRESHNESS_DAYS = 30;
 
 export const CLIENT_CONTRIBUTION_EVENTS = new Set([
   "eligible_prompt_impression",
@@ -25,6 +27,87 @@ export type ContributionTrafficClass =
   | "automation"
   | "fixture"
   | "ineligible_entity";
+
+export interface ContributionAttemptBinding {
+  restaurantId: string;
+  menuItemId: number;
+  experimentKey: string;
+  variantKey: string;
+  surface: string;
+}
+
+export function contributionAttemptMatches(
+  actual: ContributionAttemptBinding,
+  expected: ContributionAttemptBinding
+): boolean {
+  return (
+    actual.restaurantId === expected.restaurantId &&
+    actual.menuItemId === expected.menuItemId &&
+    actual.experimentKey === expected.experimentKey &&
+    actual.variantKey === expected.variantKey &&
+    actual.surface === expected.surface
+  );
+}
+
+export function contributionTargetClasses(input: {
+  restaurantStatus?: string | null;
+  entityStatus?: string | null;
+  operatingStatus?: string | null;
+  menuActive: boolean;
+  menuMissingStreak: number;
+  menuLastSeenAt?: string | null;
+  now?: Date;
+  goldGatesPass?: boolean;
+}) {
+  const observedAt = input.menuLastSeenAt
+    ? new Date(input.menuLastSeenAt).getTime()
+    : NaN;
+  const freshnessCutoff =
+    (input.now ?? new Date()).getTime() - MENU_FRESHNESS_DAYS * 86_400_000;
+  const currentObservation =
+    Number.isFinite(observedAt) && observedAt >= freshnessCutoff;
+  const orderabilityEvidence =
+    input.menuActive && input.menuMissingStreak === 0;
+  const activeRestaurant =
+    input.restaurantStatus === "active" &&
+    input.entityStatus === "active" &&
+    !["closed", "permanently_closed"].includes(input.operatingStatus ?? "");
+  const behavioralPromptCandidate =
+    activeRestaurant && currentObservation && orderabilityEvidence;
+  return {
+    behavioralPromptCandidate,
+    goldComparisonCandidate:
+      behavioralPromptCandidate && input.goldGatesPass === true,
+    evidence: {
+      activeRestaurant,
+      currentObservation,
+      orderabilityEvidence,
+      freshnessDays: MENU_FRESHNESS_DAYS,
+    },
+  };
+}
+
+export function terminalContributionReview(input: {
+  moderation: "approved" | "rejected";
+  itemMatch: "exact" | "strong" | "unmatched";
+  duplicateReview: "unique" | "duplicate";
+  rightsStatus: string;
+  rightsVersion?: string | null;
+  rightsScope?: string | null;
+}) {
+  const publicationEligible =
+    input.moderation === "approved" &&
+    ["exact", "strong"].includes(input.itemMatch) &&
+    input.duplicateReview === "unique" &&
+    input.rightsStatus === "user_granted" &&
+    input.rightsVersion === CONTRIBUTION_RIGHTS_VERSION &&
+    input.rightsScope === CONTRIBUTION_RIGHTS_SCOPE;
+  return {
+    publicationEligible,
+    attemptStatus: publicationEligible ? "verified" : "rejected",
+    photoActive: publicationEligible,
+  } as const;
+}
 
 export function isUuid(value: unknown): value is string {
   return (
@@ -77,6 +160,7 @@ export function pendingKnownDishPhotoState(input: {
     contribution_attempt_id: input.attemptId,
     rights_status: "user_granted",
     rights_version: input.rightsVersion,
+    rights_scope: CONTRIBUTION_RIGHTS_SCOPE,
     moderation_status: "pending",
     item_match_status: "pending",
     duplicate_review_status: "pending",

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getContributionPhotoByAttempt,
+  getContributionAttempt,
   getCurrentContributionTarget,
   hasDuplicatePhoto,
   recordContributionFunnelEvent,
@@ -11,7 +12,10 @@ import { uploadPhotoBuffer } from "@/lib/storage";
 import { createHash } from "crypto";
 import { optimizeImage } from "@/lib/imageOptimization";
 import {
+  CONTRIBUTION_EXPERIMENT,
   CONTRIBUTION_RIGHTS_VERSION,
+  CONTRIBUTION_VARIANT,
+  contributionAttemptMatches,
   isUuid,
 } from "@/lib/contributionFunnel";
 
@@ -64,6 +68,22 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const attempt = await getContributionAttempt(attemptId);
+    if (
+      !attempt ||
+      !contributionAttemptMatches(attempt, {
+        restaurantId: placeId,
+        menuItemId,
+        experimentKey: CONTRIBUTION_EXPERIMENT,
+        variantKey: CONTRIBUTION_VARIANT,
+        surface: "known_dish",
+      })
+    ) {
+      return NextResponse.json(
+        { error: "This upload does not match its original dish" },
+        { status: 409 }
+      );
+    }
     const existing = await getContributionPhotoByAttempt(attemptId);
     if (existing) {
       return NextResponse.json({
@@ -77,6 +97,12 @@ export async function POST(req: NextRequest) {
     const target = await getCurrentContributionTarget(placeId, menuItemId);
     if (!target) {
       return NextResponse.json({ error: "That menu item is no longer current" }, { status: 409 });
+    }
+    if (!target.behavioralPromptCandidate) {
+      return NextResponse.json(
+        { error: "This dish is no longer eligible for contributions" },
+        { status: 409 }
+      );
     }
     await updateContributionAttempt({
       attemptId,
@@ -133,7 +159,31 @@ export async function POST(req: NextRequest) {
     );
   }
   const optimized = await optimizeImage(original).catch(() => null);
-  if (!optimized) return NextResponse.json({ error: "We could not process that image." }, { status: 422 });
+  if (!optimized) {
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "server_optimization_result",
+      eventSource: "server",
+      outcome: "failure",
+    }).catch((error) =>
+      console.error("[contribution-funnel] optimization failure receipt failed", error)
+    );
+    await updateContributionAttempt({ attemptId, status: "client_failed" }).catch(() => {});
+    return NextResponse.json({ error: "We could not process that image." }, { status: 422 });
+  }
+  try {
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "server_optimization_result",
+      eventSource: "server",
+      outcome: "success",
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Upload audit is temporarily unavailable; please retry" },
+      { status: 503 }
+    );
+  }
   const key = `user-uploads/${placeId}/${attemptId}.webp`;
 
   const url = await uploadPhotoBuffer(optimized.buffer, optimized.contentType, key);
@@ -143,7 +193,9 @@ export async function POST(req: NextRequest) {
       eventName: "storage_result",
       eventSource: "server",
       outcome: "failure",
-    }).catch(() => {});
+    }).catch((error) =>
+      console.error("[contribution-funnel] storage failure receipt failed", error)
+    );
     await updateContributionAttempt({ attemptId, status: "storage_failed" }).catch(() => {});
     return NextResponse.json({ error: "Upload failed — please try again" }, { status: 502 });
   }
@@ -163,9 +215,30 @@ export async function POST(req: NextRequest) {
 
   const tier = (tierRaw === "1" || tierRaw === "2" || tierRaw === "3" ? parseInt(String(tierRaw), 10) : 2) as 1 | 2 | 3;
   const target = await getCurrentContributionTarget(placeId, menuItemId);
-  if (!target) {
+  if (!target || !target.behavioralPromptCandidate) {
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "post_storage_target_result",
+      eventSource: "server",
+      outcome: "failure",
+    }).catch((error) =>
+      console.error("[contribution-funnel] target invalidation receipt failed", error)
+    );
     await updateContributionAttempt({ attemptId, status: "record_failed" }).catch(() => {});
     return NextResponse.json({ error: "That menu item is no longer current" }, { status: 409 });
+  }
+  try {
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "post_storage_target_result",
+      eventSource: "server",
+      outcome: "success",
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Saved securely, but audit recording failed; please retry" },
+      { status: 503 }
+    );
   }
 
   const photo = await savePendingKnownDishPhoto({
@@ -191,7 +264,9 @@ export async function POST(req: NextRequest) {
       eventName: "photo_record_result",
       eventSource: "server",
       outcome: "failure",
-    }).catch(() => {});
+    }).catch((error) =>
+      console.error("[contribution-funnel] photo-record failure receipt failed", error)
+    );
     await updateContributionAttempt({ attemptId, status: "record_failed" }).catch(() => {});
     return NextResponse.json({ error: "Saved the image but failed to record it — please retry" }, { status: 500 });
   }
