@@ -91,6 +91,7 @@ export function maximumUniqueEntityAssignment(preferences) {
 }
 
 export function metricFlags(metric = {}) {
+  metric ||= {};
   const menuCount = Number(metric.menu_count || 0);
   const photoCount = Number(metric.photo_count || 0);
   const matchedPhotoCount = Number(metric.matched_photo_count || 0);
