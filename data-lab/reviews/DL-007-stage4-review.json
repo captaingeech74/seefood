@@ -1,0 +1,74 @@
+{
+  "experiment_id": "DL-007",
+  "stage": 4,
+  "reviewer_roles": [
+    "Lead blind image reviewer",
+    "Benchmark Guardian",
+    "Adversarial Verifier"
+  ],
+  "decision": "Revise",
+  "verdict": "Promising but unproven",
+  "integrity": {
+    "sha256sums_hash": "7256b48109d765573a9997d6e74f49d927da9e800ef53858c6a5c54fbb809833",
+    "all_listed_hashes_passed": true,
+    "exporter_commit": "1a21d5520efc8494080fb35f40528b9840c2841a",
+    "read_only_repeatable_read_and_rollback_evidence": true,
+    "all_evidence_images_decoded_and_metadata_stripped": true,
+    "hidden_holdout_accessed": false
+  },
+  "blind_review": {
+    "judgments_frozen_before_labels": true,
+    "frozen_judgment_sha256": "e15b56aea11aa07d35fb1a3f686c8d7d5ae9687a4cce687fb46395f6b91039d5",
+    "blind_pass": 92,
+    "blind_uncertain": 7,
+    "blind_reject": 1,
+    "post_unblind_exact_or_strong_item_matches": 100,
+    "post_unblind_rejects": 0,
+    "wilson_95_percent_interval": {
+      "lower": 0.9630,
+      "upper": 1.0
+    },
+    "scope_warning": "The deterministic sample is 100 selected rows from 43 restaurants in one Pacific development market; it is not a national yield estimate."
+  },
+  "reproduced": {
+    "dish_rows": 5048,
+    "restaurants": 69,
+    "behavioral_candidates": 4004,
+    "behavioral_candidate_restaurants": 57,
+    "gold_candidates": 0,
+    "prior_contract_rights_only_population": 4882,
+    "behavioral_and_prior_rights_only_intersection": 3881,
+    "selection_reconciliation_rows": 54,
+    "blind_sample_rows": 100,
+    "blind_sample_restaurants": 43,
+    "contribution_attempts": 0,
+    "contribution_receipts": 0
+  },
+  "accepted_implementation_fixes": [
+    "Terminal review now locks the attempt and photo and rejects a second review.",
+    "Terminal review requires exact stored display-only Customer consent.",
+    "First server receipt wins for one attempt/event/source.",
+    "Upload replay compares restaurant, menu item, visitor, session, experiment, variant, surface, and target class.",
+    "The supplied isolated fixture demonstrated a positive approval, stored-consent rejection, exact Customer/Management duplicate rejection, a failed-gold case, and one receipt-concurrency case."
+  ],
+  "blocking_findings": [
+    "Exporter, runtime prompt eligibility, and the SQL gold predicate are not one canonical contract.",
+    "Exporter provenance is hard-coded false and can evaluate a different selected photo than the SQL function.",
+    "Rights have no independent review/audit gate, and source-snapshot lineage is not tightly bound to entity and source.",
+    "Runtime behavioral eligibility does not verify the latest successful source snapshot even though the exported gate says it does.",
+    "The 54-row selected-photo ledger does not reproduce the 4876-to-4882 population correction or explain the 3912-to-3881 snapshot drift.",
+    "All-photo selection omits several provenance and duplicate gates, so a lower fully passing photo can remain hidden.",
+    "Fixture claims exceed the tests: real exporter-to-SQL parity, rejected-review replay, full database cross-target replay, each gold-gate failure, and route-level receipt concurrency are not demonstrated.",
+    "A failed upload can retry under the same attempt while immutable failure receipts suppress a later success.",
+    "Public traffic has no positive eligible_external path, so a live treatment would have no claimable external denominator."
+  ],
+  "independent_checks": {
+    "tests": "80 passed in a disposable checkout",
+    "typecheck": "passed with the commit's locked dependencies",
+    "production_build": "passed with inert placeholder environment values",
+    "isolated_database_test": "bundle result inspected; DataLab did not receive a database fixture to rerun"
+  },
+  "coverage_improvement": 0,
+  "money_cost_usd": 0,
+  "production_impact_by_datalab": "none"
+}

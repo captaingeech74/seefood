@@ -6,6 +6,40 @@
 
 ## Current Phase
 
+DL-007 Stage 4 independently verified a clean read-only bundle of 5,048 dish
+rows, 4,004 claimed behavioral candidates across 57 restaurants, zero gold
+candidates, and zero real attempts or receipts. The treatment remains disabled.
+The candidate decline from Stage 3's 4,036/58 is snapshot drift, not a measured
+loss of production coverage.
+
+The 100-image packet was reviewed without labels and the judgments were frozen
+before unblinding. After names and descriptions were revealed, all 100 images
+were exact or strong matches to the item being sold. The 95% Wilson interval is
+96.30%–100%. This is strong selected-packet evidence for Management
+item-to-image alignment, but it comes from 43 restaurants in one Pacific
+development market and is not national yield evidence.
+
+Stage 4 materially fixed one-shot terminal review, exact stored Customer
+consent, full upload-attempt binding, and first-outcome receipt immutability.
+It did not establish one canonical measurement contract. The exporter,
+runtime prompt route, and database gold function still use different gates and
+can select or grade different photos. Runtime does not prove the latest
+successful source snapshot. Independent Management rights review and strict
+entity/source lineage are also missing.
+
+The 54-row same-snapshot ledger proves selector choices changed, but it does
+not reproduce the historical 4,876-to-4,882 population correction because it
+omits old/new pass states. The behavioral/prior-rights intersection also
+drifted from 3,912 to 3,881 without a stable row bridge. Fixture-test labels
+overstate the actual assertions, and failed-attempt retries conflict with
+immutable first receipts.
+
+DL-007 remains `Revise`. Push 5 is the fifth and final push in the authorized
+loop. It must create one server-owned behavioral/gold contract consumed
+unchanged by exporter, runtime, and terminal review, prove it with an
+adversarial isolated test matrix, and preserve treatment-off status. No
+conversion or verified coverage improved.
+
 DL-007 Stage 3 independently verified 5,048 dish rows and 4,036 behavioral
 prompt candidates across 58 restaurants, but zero gold comparison candidates,
 attempts, receipts, or coverage improvement. The bundle and all 100 evidence
