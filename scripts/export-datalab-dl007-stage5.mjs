@@ -21,10 +21,9 @@ with dishes as (
     and p.photo_author_type='management' and (p.menu_item_id=m.id or exists(
       select 1 from photo_menu_item_links l
       where l.photo_id=p.id and l.menu_item_id=m.id)))
-), evaluated as (
+), evaluated as materialized (
   select d.*,
     contribution_gold_contract(d.restaurant_id,d.menu_item_id,null) contract,
-    contribution_gold_contract(d.restaurant_id,d.menu_item_id,null) direct_contract,
     old_photo.id old_photo_id
   from dishes d left join lateral (
     select p.id from photos p where p.restaurant_id=d.restaurant_id
@@ -35,7 +34,9 @@ with dishes as (
       p.photo_quality_score desc nulls last,p.id limit 1
   ) old_photo on true
 )
-select *,case when old_photo_id is null then null else
+select *,contract direct_contract,
+  case when old_photo_id is null
+    or old_photo_id=(contract->>'selectedPhotoId')::bigint then null else
   contribution_management_photo_contract(
     restaurant_id,menu_item_id,old_photo_id,null) end old_contract
 from evaluated
