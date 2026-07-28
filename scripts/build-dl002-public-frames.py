@@ -722,6 +722,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True)
     parser.add_argument("--boundary", required=True)
+    parser.add_argument("--osm-snapshot")
     args = parser.parse_args()
     output = Path(args.output).resolve()
     boundary_path = Path(args.boundary).resolve()
@@ -764,11 +765,47 @@ def main():
     connection.execute("SET s3_region='us-west-2'")
     register_cbsa(connection, shapefile, population_csv)
 
-    osm, osm_source = overpass_rows(polygons, bounds, observed_at)
-    osm_count, osm_hash = json_lines(
-        output / "temecula-osm.jsonl",
-        sorted(osm, key=lambda row: row["stableExternalId"]),
-    )
+    if args.osm_snapshot:
+        osm_snapshot = Path(args.osm_snapshot).resolve()
+        osm_summary_path = osm_snapshot.parent / "public-frame-summary.json"
+        osm_bytes = osm_snapshot.read_bytes()
+        osm_rows = [
+            json.loads(line)
+            for line in osm_bytes.decode().splitlines()
+            if line.strip()
+        ]
+        if any(
+            row.get("sourceFamily") != "openstreetmap"
+            or not contains(
+                (row.get("longitude"), row.get("latitude")), polygons
+            )
+            for row in osm_rows
+        ):
+            raise RuntimeError(
+                "Frozen OSM snapshot contains an invalid or out-of-bound row"
+            )
+        prior_summary_bytes = osm_summary_path.read_bytes()
+        prior_summary = json.loads(prior_summary_bytes)
+        prior_osm = prior_summary["temecula"]["openstreetmap"]
+        osm_hash = sha256_bytes(osm_bytes)
+        if (
+            prior_osm["rowCount"] != len(osm_rows)
+            or prior_osm["sha256"] != osm_hash
+        ):
+            raise RuntimeError("Frozen OSM snapshot does not match its summary")
+        (output / "temecula-osm.jsonl").write_bytes(osm_bytes)
+        osm_count = len(osm_rows)
+        osm_source = {
+            **prior_summary["sources"]["openstreetmap"],
+            "reusedFrozenSnapshot": True,
+            "priorSummarySha256": sha256_bytes(prior_summary_bytes),
+        }
+    else:
+        osm, osm_source = overpass_rows(polygons, bounds, observed_at)
+        osm_count, osm_hash = json_lines(
+            output / "temecula-osm.jsonl",
+            sorted(osm, key=lambda row: row["stableExternalId"]),
+        )
     temecula_overture = build_overture(
         connection,
         output / "temecula-overture.jsonl",

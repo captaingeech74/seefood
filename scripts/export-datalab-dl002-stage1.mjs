@@ -38,6 +38,7 @@ function argument(name, fallback = null) {
 const mirror = argument("--mirror");
 const boundaryPath = argument("--boundary");
 const duckdbPython = argument("--duckdb-python", "python3");
+const osmSnapshot = argument("--osm-snapshot");
 const SECRET_ENV_NAMES = [
   "GOOGLE_MAPS_API_KEY",
   "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
@@ -371,15 +372,19 @@ async function main() {
       path.isAbsolute(duckdbPython) || duckdbPython.includes(path.sep)
         ? path.resolve(duckdbPython)
         : duckdbPython;
-    const publicRun = await execFileAsync(
-      pythonCommand,
-      [
+    const publicArguments = [
         publicBuilder,
         "--output",
         staging,
         "--boundary",
         resolvedBoundary,
-      ],
+      ];
+    if (osmSnapshot) {
+      publicArguments.push("--osm-snapshot", path.resolve(osmSnapshot));
+    }
+    const publicRun = await execFileAsync(
+      pythonCommand,
+      publicArguments,
       {
         cwd: ROOT,
         timeout: 12 * 60 * 1000,
