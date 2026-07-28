@@ -6,10 +6,10 @@
 
 ## Current Phase
 
-DL-001 has completed a valid calibration of four sampled production V2
-comparison claims and four rich-unpaired controls. The sparse-control stratum
-is quarantined because three records were ranked with an unregistered internal
-entity-ID fallback. DL-002 is next.
+DL-001 completed a valid calibration. DL-002 is active. Its official Temecula
+boundary and independent Riverside County permit candidate/status frame are
+frozen. The provider union, restaurant eligibility review, and hidden national
+holdout still require a sanitized read-only handoff.
 
 ## Current Goal
 
@@ -216,19 +216,30 @@ DL-001 closes as **Revise / mechanism confirmed**. It proves the SQL signal
 omits decisive provenance, rights, usefulness, and duplicate gates. It does not
 establish a complete Temecula baseline or improve coverage.
 
+DL-002 preparation then froze the January 1, 2025 Census incorporated-place
+boundary and a bounded Riverside County permit candidate/status frame. The
+county snapshot contains 822 active permit rows / 808 unique establishment IDs
+inside the polygon. Seventy-five home-based rows are withheld; 747 rows / 733
+establishment IDs remain for internal reconciliation. These are not restaurant
+or coverage counts. The layer includes multiple permits per establishment and
+many non-restaurant facility types.
+
 ## Confidence
 
 High that the corrected export reproduces production V2 semantics. High that
 all four sampled current claims lack at least one gold requirement. High that
-the Customer-provenance evidence supplied is insufficient. Low confidence in
-the total number of verified comparisons because only four of six claims were
-sampled and the full Temecula census is not yet frozen.
+the Customer-provenance evidence supplied is insufficient. High that the
+county layer is a reproducible independent candidate/status frame; medium on
+its completeness and freshness because no service-level promise is published.
+Low confidence in the total number of verified comparisons because only four
+of six claims were sampled and the full Temecula census is not yet frozen.
 
 ## Cost
 
-$0. Local bundle validation and independent blind review only. The DataLab made
-no production read or write, provider call, model call, image download,
-account, vendor contact, crawl, or paid-quota use.
+$0. Local bundle validation, independent blind review, and bounded official
+Census/county public-data snapshots only. The DataLab made no production read
+or write, paid provider call, model call, account, vendor contact, crawl, or
+paid-quota use.
 
 ## Production Impact
 
@@ -237,12 +248,13 @@ merges.
 
 ## Next Action
 
-Begin DL-002 on the next cycle. Freeze the actual Temecula candidate frame and
-national holdout before testing sources. Require public/provider-derived stable
-rank IDs and exclude internal entity UUIDs from cohort selection. Report
-production comparison counts as claimed until provenance, rights, usefulness,
-and duplicate evidence pass Guardian review.
+Resume DL-002 from `DL002_INPUT_HANDOFF.md`. Reconcile SeeFood/Google, OSM, and
+Overture against the 822 inside-polygon county permit rows, withholding
+home-based records and reviewing non-restaurant permit classes. Have the
+Guardian privately prove the 120-record national quotas plus 24 alternates from
+a versioned national frame. Do not start a source experiment until both cohorts
+and the baseline hash are frozen.
 
 ## Kyle Needs To Do
 
-Nothing.
+Share `DL002_INPUT_HANDOFF.md` with the main SeeFood developer.

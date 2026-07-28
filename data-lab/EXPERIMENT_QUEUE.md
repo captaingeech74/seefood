@@ -4,18 +4,20 @@ DL-001 completed the core mechanism calibration. All four sampled production
 V2 claim dishes failed at least one gold requirement, while no comparison was
 missed in four rich-unpaired controls. The sparse stratum is quarantined
 because three records used an unregistered internal entity-ID rank fallback.
-DL-002 is next; no source experiment may bypass the baseline.
+DL-002 is active. Its Temecula boundary and independent county permit frame are
+frozen; no source experiment may bypass the remaining provider reconciliation,
+national holdout, and baseline.
 
 ## Active Experiment
 
 | ID | Question | Bound | Status |
 |---|---|---|---|
-| DL-002 | What is the real claimed-versus-verified baseline on frozen Temecula and national cohorts? | Temecula frame capped at 500 selectable restaurant candidates; 120-record Guardian-owned national holdout; read-only sanitized evidence | Next cycle; stable public/provider identity required for every selectable record |
+| DL-002 | What is the real claimed-versus-verified baseline on frozen Temecula and national cohorts? | Temecula frame capped at 500 selectable restaurant candidates; 120-record Guardian-owned national holdout; read-only sanitized evidence | Active; official polygon and independent county candidate frame frozen, awaiting provider/national handoff |
 
 | Rank | ID | Hypothesis | Bounded evidence | Expected value | Status |
 |---|---|---|---|---|---|
 | Complete | DL-001 | Current production V2 comparison claims can credit a pair that fails, or lacks evidence for, at least one DataLab gold requirement. | Deterministically selected entity-level claims and rich-unpaired controls; 78 local photos; fresh Guardian blind audit | Calibrates failure mechanisms before a full baseline; does not estimate a population error rate | Revise / mechanism confirmed: 0/4 sampled claims passed; sparse controls quarantined |
-| 0 | DL-002 | A forced-read-only snapshot, an independent local identity/status frame, and frozen cohorts will reveal the real largest gap and separate claimed from verifiable comparisons. | Temecula union capped at 500 selectable restaurant candidates; qualify Riverside County DEH only if a stable, city-bounded $0 snapshot is documented; otherwise stop and do not call the search portal a census frame; 120-record Guardian-owned holdout; SELECT-only export | Required before source experiments | Next; prohibit internal entity UUIDs as rank IDs |
+| 0 | DL-002 | A forced-read-only snapshot, an independent local identity/status frame, and frozen cohorts will reveal the real largest gap and separate claimed from verifiable comparisons. | Temecula union capped at 500 selectable restaurant candidates; Riverside County frame frozen at 822 inside-polygon permit rows before classification; 120-record Guardian-owned holdout; SELECT-only export | Required before source experiments | Active; provider union and national frame handoff required; prohibit internal entity UUIDs as rank IDs |
 | 1 | DL-004 | Existing unmatched Customer/Unknown photos contain recoverable strong item matches using preserved menu evidence rather than label containment alone. | Maximum 100 existing photos; no new downloads until URLs and quota are approved; blind Guardian audit | Direct comparison-dish leverage against the bottleneck Gemini did not solve | Pending DL-002 |
 | 2 | DL-007 | Targeted Management and Customer contribution prompts close the final comparison gap more cheaply than another automatic source. | Read-only first-party funnel audit and paper experiment using existing aggregate conversion evidence; no outreach, account creation, or production changes | Tests the Customer-supply frontier before adding more Management-only pipes | Pending DL-002 |
 | 3 | DL-012 | A transaction-triggered Tattle partnership can export rights-valid Customer meal photos bound to exact order lines at nationally material unique-location yield. | Documentary gate first: controller-authorized redacted schema/rights packet; only if it passes, at least 1,000 aggregate already-delivered prompts plus 35 blinded historical photo records across at least 10 locations, including multi-item orders; no DataLab outreach or SMS | Highest-potential Customer channel found; Tattle claims 15,000+ locations and already has meal-photo upload, item context, and APIs, but exact binding, rights, and yield are unknown | Pending baseline and explicit main-thread authorization to approach controller |

@@ -182,10 +182,14 @@ must stop with a corpus-derived candidate baseline and must not call it a
 census. A superior permission-gated frame should still be recorded as an
 opportunity, but it cannot enter the benchmark before permission.
 
-DL-DR-001 identified Riverside County DEH inspection records as the preferred
-local-frame candidate, but did not find a documented stable bulk export of all
-active Temecula food facilities. Searchable inspection reports and 60-day
-closure lists do not by themselves satisfy the candidate-frame requirement.
+DL-DR-001 initially identified Riverside County DEH inspection records but did
+not locate a bulk export. DL-002 subsequently found and froze the official
+public Riverside County DES Food Facility Permits ArcGIS layer. It satisfies
+the independent candidate/status-frame requirement after polygon filtering,
+but not the restaurant-census claim by itself: permits must be deduplicated and
+non-restaurant, home-based, mobile-base, temporary, and ambiguous facility
+types must be reviewed. Searchable inspection reports and 60-day closure lists
+still do not satisfy the candidate-frame requirement.
 
 ### Manifest
 
