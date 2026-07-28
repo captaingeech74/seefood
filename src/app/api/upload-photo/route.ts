@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
   const tierRaw = form.get("tier");
   const menuItemIdRaw = form.get("menuItemId");
   const contributorId = form.get("contributorId");
+  const sessionId = form.get("sessionId");
   const attemptId = form.get("attemptId");
   const rightsVersion = form.get("rightsVersion");
 
@@ -74,9 +75,12 @@ export async function POST(req: NextRequest) {
       !contributionAttemptMatches(attempt, {
         restaurantId: placeId,
         menuItemId,
+        visitorId: typeof contributorId === "string" ? contributorId : "",
+        sessionId: typeof sessionId === "string" ? sessionId : "",
         experimentKey: CONTRIBUTION_EXPERIMENT,
         variantKey: CONTRIBUTION_VARIANT,
         surface: "known_dish",
+        targetClass: "behavioral_prompt_candidate",
       })
     ) {
       return NextResponse.json(

@@ -299,7 +299,7 @@ export interface ContributionTarget {
   targetEvidence: {
     activeRestaurant: boolean;
     currentObservation: boolean;
-    orderabilityEvidence: boolean;
+    activeRecentlyObservedZeroMissingStreak: boolean;
     freshnessDays: number;
   };
 }
@@ -367,6 +367,9 @@ export interface StoredContributionAttempt {
   variantKey: string;
   surface: string;
   trafficClass: string;
+  visitorId: string;
+  sessionId: string;
+  targetClass: string;
 }
 
 export async function getContributionAttempt(
@@ -374,7 +377,7 @@ export async function getContributionAttempt(
 ): Promise<StoredContributionAttempt | null> {
   const { data, error } = await supabase
     .from("contribution_attempts")
-    .select("id,restaurant_id,menu_item_id,experiment_key,variant_key,surface,traffic_class")
+    .select("id,restaurant_id,menu_item_id,experiment_key,variant_key,surface,traffic_class,visitor_id,session_id,target_class")
     .eq("id", attemptId)
     .maybeSingle();
   if (error) throw error;
@@ -387,6 +390,9 @@ export async function getContributionAttempt(
         variantKey: data.variant_key,
         surface: data.surface,
         trafficClass: data.traffic_class,
+        visitorId: data.visitor_id,
+        sessionId: data.session_id,
+        targetClass: data.target_class,
       }
     : null;
 }
@@ -402,10 +408,11 @@ export async function createContributionAttempt(input: {
   experimentKey: string;
   variantKey: string;
   targetClass: "behavioral_prompt_candidate";
+  analysisEligibility: string;
 }): Promise<void> {
   const { data: existing, error: readError } = await supabase
     .from("contribution_attempts")
-    .select("restaurant_id,menu_item_id,visitor_id,session_id")
+    .select("restaurant_id,menu_item_id,visitor_id,session_id,experiment_key,variant_key,surface,target_class")
     .eq("id", input.attemptId)
     .maybeSingle();
   if (readError) throw readError;
@@ -414,7 +421,11 @@ export async function createContributionAttempt(input: {
       existing.restaurant_id !== input.restaurantId ||
       Number(existing.menu_item_id) !== input.menuItemId ||
       existing.visitor_id !== input.visitorId ||
-      existing.session_id !== input.sessionId
+      existing.session_id !== input.sessionId ||
+      existing.experiment_key !== input.experimentKey ||
+      existing.variant_key !== input.variantKey ||
+      existing.surface !== "known_dish" ||
+      existing.target_class !== input.targetClass
     ) {
       throw new Error("Contribution attempt identity mismatch");
     }
@@ -432,6 +443,7 @@ export async function createContributionAttempt(input: {
     traffic_class: input.trafficClass,
     entity_status: input.entityStatus,
     target_class: input.targetClass,
+    analysis_eligibility: input.analysisEligibility,
   });
   if (error) throw error;
 }
@@ -451,7 +463,7 @@ export async function recordContributionFunnelEvent(input: {
       occurred_at: new Date().toISOString(),
     },
     {
-      onConflict: "attempt_id,event_name,event_source,outcome",
+      onConflict: "attempt_id,event_name,event_source",
       ignoreDuplicates: true,
     }
   );

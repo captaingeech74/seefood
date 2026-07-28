@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import {
   createContributionAttempt,
   getCurrentContributionTarget,
@@ -10,6 +11,7 @@ import {
   CONTRIBUTION_VARIANT,
   classifyContributionTraffic,
   clientOutcomeAllowed,
+  contributionAnalysisEligibility,
   isUuid,
   type ClientContributionEvent,
 } from "@/lib/contributionFunnel";
@@ -53,9 +55,17 @@ export async function POST(req: NextRequest) {
     }
     const trafficClass = classifyContributionTraffic({
       entityStatus: target.entityStatus,
-      requestedClass: req.headers.get("x-seefood-traffic-class"),
+      requestedClass: new Set(
+        (process.env.SEEFOOD_INTERNAL_VISITOR_HASHES ?? "")
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean)
+      ).has(createHash("sha256").update(visitorId).digest("hex"))
+        ? "staff"
+        : null,
       userAgent: req.headers.get("user-agent"),
     });
+    const analysisEligibility = contributionAnalysisEligibility(trafficClass);
     await createContributionAttempt({
       attemptId,
       visitorId,
@@ -67,6 +77,18 @@ export async function POST(req: NextRequest) {
       experimentKey: CONTRIBUTION_EXPERIMENT,
       variantKey: CONTRIBUTION_VARIANT,
       targetClass: "behavioral_prompt_candidate",
+      analysisEligibility,
+    });
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "analysis_eligibility_decision",
+      eventSource: "server",
+      outcome:
+        analysisEligibility === "eligible_external"
+          ? "eligible"
+          : analysisEligibility === "unverified"
+            ? "unverified"
+            : "ineligible",
     });
     await recordContributionFunnelEvent({
       attemptId,

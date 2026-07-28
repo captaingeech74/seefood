@@ -1855,3 +1855,20 @@ published only after its consent, moderation, exact/strong match, and duplicate
 review pass. `verified_comparison_created` additionally requires a qualifying
 Management photo on the same dish. No public review endpoint is exposed, and
 the treatment prompt remains disabled.
+
+## Use one canonical, one-shot rule for verified comparisons (July 27, 2026)
+
+The database function `gold_management_counterpart` is the canonical rule used
+both by terminal review and by measurement exports. It requires current
+restaurant and menu evidence, a successful source snapshot, independently
+reviewed Management provenance and usefulness, reviewed display rights, exact
+item linkage, exact-hash uniqueness, measured perceptual evidence, and an
+independent duplicate decision. A Customer submission that is byte-identical
+or perceptually identical to that Management image is not a comparison.
+
+Terminal approval is one-shot. It locks the attempt and photo, accepts only
+their pending states, uses the rights grant stored at upload time, preserves the
+first server outcome, and cannot emit both success and failure for the same
+stage. Only the service role may execute it. Public traffic is explicitly
+unverified and is never promoted to eligible traffic by a client-supplied
+claim. These rules are enforced and tested before any treatment is enabled.

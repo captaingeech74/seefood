@@ -3,6 +3,7 @@ import {
   clientOutcomeAllowed,
   classifyContributionTraffic,
   contributionAttemptMatches,
+  contributionAnalysisEligibility,
   contributionTargetClasses,
   isUuid,
   pendingKnownDishPhotoState,
@@ -50,9 +51,12 @@ describe("contribution funnel safety", () => {
     const original = {
       restaurantId: "restaurant-a",
       menuItemId: 10,
+      visitorId: "visitor-a",
+      sessionId: "session-a",
       experimentKey: "dl007_known_dish_v1",
       variantKey: "passive_existing_surface",
       surface: "known_dish",
+      targetClass: "behavioral_prompt_candidate",
     };
     expect(contributionAttemptMatches(original, original)).toBe(true);
     expect(
@@ -64,6 +68,13 @@ describe("contribution funnel safety", () => {
         restaurantId: "restaurant-b",
       })
     ).toBe(false);
+  });
+
+  it("does not call unverified public traffic analysis-eligible", () => {
+    expect(contributionAnalysisEligibility("public_unverified")).toBe("unverified");
+    expect(contributionAnalysisEligibility("fixture")).toBe("excluded_fixture");
+    expect(contributionAnalysisEligibility("staff")).toBe("excluded_staff");
+    expect(contributionAnalysisEligibility("automation")).toBe("excluded_automation");
   });
 
   it("separates behavioral eligibility from gold comparison eligibility", () => {

@@ -578,6 +578,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
       form.append("attemptId", attemptId);
       form.append("rightsVersion", CONTRIBUTION_RIGHTS_VERSION);
       form.append("contributorId", getVisitorId());
+      form.append("sessionId", getSessionId());
       form.append("placeId", restaurant.placeId || restaurant.id);
       form.append("menuItemId", String(menuItemId));
       if (activePhoto.dishName) form.append("dishName", activePhoto.dishName);

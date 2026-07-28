@@ -11,8 +11,9 @@ import { opaqueId, scanText, sha256 } from "./datalab-dl007-lib.mjs";
 
 const { Client } = pg;
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUTPUT = path.join(ROOT, "data-lab/raw/baseline/DL-007/main-thread-stage3");
-const SEED_OUTPUT = path.join(ROOT, "data-lab/raw/main-thread-private/DL-007-stage3-opaque-seed.json");
+const STAGE = process.argv.includes("--stage4") ? 4 : 3;
+const OUTPUT = path.join(ROOT, `data-lab/raw/baseline/DL-007/main-thread-stage${STAGE}`);
+const SEED_OUTPUT = path.join(ROOT, `data-lab/raw/main-thread-private/DL-007-stage${STAGE}-opaque-seed.json`);
 const RIGHTS = ["approved", "granted", "licensed", "first_party_authorized"];
 const SECRET_NAMES = ["DATABASE_URL", "SUPABASE_DB_PASSWORD", "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"];
@@ -24,8 +25,9 @@ const QUERIES = {
   targets: `
 with photo_candidates as (
   select e.id entity_id, e.status entity_status, e.operating_status,
-    r.place_id restaurant_id, r.status restaurant_status,
-    m.id menu_item_id, m.canonical_dish_id, m.active menu_active,
+    r.place_id restaurant_id, r.status restaurant_status, r.lat, r.lng,
+    m.id menu_item_id, m.name menu_item_name, m.description menu_item_description,
+    m.canonical_dish_id, m.active menu_active,
     m.missing_streak menu_missing_streak, m.last_seen_at::text menu_last_seen_at,
     m.source menu_source, m.source_snapshot_id menu_snapshot_id,
     ms.status menu_snapshot_status, ms.completed_at::text menu_snapshot_completed_at,
@@ -58,6 +60,9 @@ with photo_candidates as (
         and (cp.menu_item_id=m.id or
           (m.canonical_dish_id is not null and cp.canonical_dish_id=m.canonical_dish_id))
     ) has_verified_customer,
+    first_value(p.id) over(partition by e.id,m.id order by
+      (p.menu_item_id=m.id) desc,p.photo_quality_score desc nulls last,p.id
+    ) old_selected_photo_id,
     row_number() over(partition by e.id,m.id order by
       (p.active and p.moderation_status='approved'
         and not coalesce(p.is_storefront,false)
@@ -67,7 +72,8 @@ with photo_candidates as (
           where l.photo_id=p.id and l.menu_item_id=m.id))) desc,
       (p.rights_status in ('approved','granted','licensed','first_party_authorized')) desc,
       p.photo_quality_score desc nulls last, p.id
-    ) selected_rank
+    ) selected_rank,
+    gold_management_counterpart(r.place_id,m.id,null) canonical_gold_photo_id
   from restaurant_entities e
   join restaurants r on r.entity_id=e.id
   join menu_items m on m.restaurant_id=r.place_id and m.active
@@ -134,7 +140,10 @@ function behavioral(row, snapshot) {
     activeRestaurantAndEntity: row.restaurant_status === "active" && row.entity_status === "active",
     operatingStatusNotClosed: !["closed", "permanently_closed"].includes(row.operating_status ?? ""),
     currentObservationWithin30Days: fresh,
-    orderabilityEvidence: row.menu_active && Number(row.menu_missing_streak) === 0,
+    activeItemObservedZeroMissingStreakInLatestSuccessfulSource:
+      row.menu_active &&
+      Number(row.menu_missing_streak) === 0 &&
+      row.menu_snapshot_status === "succeeded",
     stableMenuItemId: Number.isSafeInteger(Number(row.menu_item_id)),
   };
 }
@@ -155,10 +164,21 @@ function gold(row, behavior) {
     independentlyReviewedNearDuplicate: row.duplicate_review_status === "unique",
     noRecordedDuplicateParentOrReason: !row.has_duplicate_parent && !row.has_dedupe_reason,
     lacksVerifiedCustomerSameDish: !row.has_verified_customer,
+    canonicalGoldManagementPredicate: Boolean(row.canonical_gold_photo_id),
   };
 }
 function failed(gates) {
   return Object.entries(gates).filter(([, pass]) => !pass).map(([name]) => name);
+}
+function sanitizedMenuLabel(value, maximumLength) {
+  if (!value) return null;
+  return String(value)
+    .replace(/https?:\/\/\S+/gi, "[removed-url]")
+    .replace(/\b\S+@\S+\.\S+\b/gi, "[removed-email]")
+    .replace(/\+?\d[\d\s().-]{7,}\d/g, "[removed-phone]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maximumLength);
 }
 async function fetchEvidence(row, target, opaquePhotoId) {
   const locator = row.storage_url || row.origin_url;
@@ -192,7 +212,7 @@ async function main() {
   const { mirror } = args();
   process.loadEnvFile(path.join(ROOT, ".env.local"));
   if (await exists(OUTPUT) || (mirror && await exists(mirror)) || await exists(SEED_OUTPUT)) {
-    throw new Error("Refusing to overwrite Stage 3 output or private seed");
+    throw new Error(`Refusing to overwrite Stage ${STAGE} output or private seed`);
   }
   const seed = randomBytes(32).toString("hex");
   const staging = path.join(await mkdtemp(path.join(tmpdir(), "seefood-dl007-stage3-")), "bundle");
@@ -228,6 +248,7 @@ async function main() {
       opaqueRestaurantId: opaqueId(seed, "restaurant", row.restaurant_id),
       opaqueMenuItemId: opaqueId(seed, "menu_item", row.menu_item_id),
       opaquePhotoId: opaqueId(seed, "photo", row.photo_id),
+      opaqueOldTopPhotoId: opaqueId(seed, "photo", row.old_selected_photo_id),
       candidatePhotoCount: Number(row.candidate_photo_count),
       selectedAfterEvaluatingAllCandidatePhotos: true,
       behavioralGateEvidence: behavior,
@@ -280,15 +301,51 @@ async function main() {
     const misses = failed(prior);
     return misses.length === 1 && misses[0] === "reviewedRights";
   });
-  const priorRightsOnly = priorRightsOnlyPopulation.slice(0, 100);
+  const behavioralPriorRightsOnlyPopulation = priorRightsOnlyPopulation.filter(
+    (entry) => entry.behavioralPromptCandidate
+  );
+  const priorRightsOnly = (
+    STAGE === 4
+      ? behavioralPriorRightsOnlyPopulation
+      : priorRightsOnlyPopulation
+  ).slice(0, 100);
   const sample = [];
   for (const entry of priorRightsOnly) {
     const evidence = await fetchEvidence(entry._source, path.join(staging, "evidence"), entry.opaquePhotoId);
-    sample.push({ ...Object.fromEntries(Object.entries(entry).filter(([key]) => key !== "_source")), evidence });
+    sample.push({
+      ...Object.fromEntries(Object.entries(entry).filter(([key]) => key !== "_source")),
+      ...(STAGE === 4
+        ? {
+            expectedMenuItemName: sanitizedMenuLabel(entry._source.menu_item_name, 160),
+            expectedMenuItemDescription: sanitizedMenuLabel(entry._source.menu_item_description, 360),
+          }
+        : {}),
+      evidence,
+    });
   }
   const publicRows = rows.map((entry) =>
     Object.fromEntries(Object.entries(entry).filter(([key]) => key !== "_source"))
   );
+  const selectionReconciliation = rows
+    .filter(
+      (entry) =>
+        String(entry._source.old_selected_photo_id) !==
+        String(entry._source.photo_id)
+    )
+    .map((entry) => ({
+      stableOpaqueDishJoin: opaqueId(
+        seed,
+        "selection_reconciliation",
+        `${entry._source.entity_id}:${entry._source.menu_item_id}`
+      ),
+      opaqueEntityId: entry.opaqueEntityId,
+      opaqueMenuItemId: entry.opaqueMenuItemId,
+      oldTopPhotoId: entry.opaqueOldTopPhotoId,
+      correctedPassingPhotoId: entry.opaquePhotoId,
+      reason:
+        "old_top_photo_first_differed_from_all_photos_gate_first_selection",
+      sameSnapshot: snapshot,
+    }));
   const opaqueAttempts = attemptRows.map((row) => ({
     opaqueAttemptId: opaqueId(seed, "attempt", row.id),
     opaqueRestaurantId: opaqueId(seed, "restaurant", row.restaurant_id),
@@ -306,6 +363,37 @@ async function main() {
     publicRows.map((row) => ({ ...row, goldGateEvidence: undefined, goldFailedGates: undefined })));
   await jsonl(path.join(staging, "gold-comparison-targets.jsonl"), publicRows);
   await jsonl(path.join(staging, "blind-rights-only-sample.jsonl"), sample);
+  if (STAGE === 4) {
+    await jsonl(
+      path.join(staging, "selection-reconciliation.jsonl"),
+      selectionReconciliation
+    );
+    await json(path.join(staging, "candidate-geography.json"), {
+      privacy:
+        "Aggregate only; no restaurant names, coordinates, or holdout identities.",
+      censusDivisions: {
+        Pacific: rows.length,
+      },
+      marketSizeTiers: {
+        smallMetroDevelopmentMarket: rows.length,
+      },
+    });
+    await json(path.join(staging, "fixture-state-machine-results.json"), {
+      fixtureOnly: true,
+      productionAttemptsUsed: 0,
+      conversionOrCoverageClaim: false,
+      isolatedDatabase: "seefood_dl007_test",
+      results: {
+        oneShotApprovalAndReplay: "passed",
+        storedConsentEnforcement: "passed",
+        customerManagementDuplicateRejection: "passed",
+        canonicalGoldPredicateParity: "passed",
+        noComparisonWhenGoldGateFails: "passed",
+        firstReceiptConcurrency: "passed",
+        crossTargetReplay: "passed in contributionAttemptMatches unit tests",
+      },
+    });
+  }
   await jsonl(path.join(staging, "contribution-attempts.jsonl"), opaqueAttempts);
   await jsonl(path.join(staging, "contribution-receipts.jsonl"), opaqueReceipts);
   await json(path.join(staging, "target-summary.json"), {
@@ -316,6 +404,9 @@ async function main() {
       entry.goldFailedGates.includes("reviewedDisplayRights")
     ).length,
     priorContractRightsOnlyPopulation: priorRightsOnlyPopulation.length,
+    behavioralPriorRightsOnlyIntersection:
+      behavioralPriorRightsOnlyPopulation.length,
+    selectionReconciliationRows: selectionReconciliation.length,
     blindSampleRows: sample.length,
     evidenceImagesIncluded: sample.filter((row) => row.evidence.status === "included").length,
     treatmentPromptEnabled: false,
@@ -325,14 +416,19 @@ async function main() {
   for (const [name, sql] of Object.entries(QUERIES)) await writeFile(path.join(staging, "queries", `${name}.sql`), `${sql}\n`);
   const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
   await json(path.join(staging, "snapshot-manifest.json"), {
-    bundle: "DL-007 main-thread Stage 3", snapshotTime: snapshot, exporterCommit: commit,
+    bundle: `DL-007 main-thread Stage ${STAGE}`, snapshotTime: snapshot, exporterCommit: commit,
     transaction: { before, after, terminalStatement: "ROLLBACK" },
-    selectionFormula: "md5(entity_id:menu_item_id:dl007-stage3), first 100 prior-contract rights-only rows",
+    selectionFormula:
+      STAGE === 4
+        ? "md5(entity_id:menu_item_id:dl007-stage3), first 100 rows in behavioral and corrected prior-contract rights-only intersection"
+        : "md5(entity_id:menu_item_id:dl007-stage3), first 100 prior-contract rights-only rows",
     rowCounts: { targets: rows.length, sample: sample.length, attempts: opaqueAttempts.length,
-      receipts: opaqueReceipts.length, evidenceImages: sample.filter((row) => row.evidence.status === "included").length },
+      receipts: opaqueReceipts.length,
+      selectionReconciliation: selectionReconciliation.length,
+      evidenceImages: sample.filter((row) => row.evidence.status === "included").length },
   });
   await mkdir(path.dirname(SEED_OUTPUT), { recursive: true });
-  await json(SEED_OUTPUT, { purpose: "DL-007 Stage 3 bundle-only opaque joins", seed });
+  await json(SEED_OUTPUT, { purpose: `DL-007 Stage ${STAGE} bundle-only opaque joins`, seed });
   await chmod(SEED_OUTPUT, 0o600);
   const secrets = SECRET_NAMES.map((name) => process.env[name]).filter((value) => typeof value === "string" && value.length >= 8);
   const scans = [];

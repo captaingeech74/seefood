@@ -207,6 +207,17 @@ comparison only when a separately qualified Management photo exists on the
 same dish. Behavioral prompt candidates and gold comparison candidates are
 separate classes, and the first class never counts as coverage.
 
+DL-007 Stage 4 makes terminal review one-shot and makes its database predicate
+the single definition of a verified comparison. Stored consent cannot be
+repaired during review, contradictory terminal receipts cannot coexist, and a
+Customer photo that duplicates the selected Management photo is rejected.
+Management photos require separate provenance and usefulness review fields;
+legacy rows default to unreviewed and therefore receive no automatic gold
+credit. The review function is executable only by the service role. Public
+traffic remains `public_unverified`, records a separate analysis-eligibility
+state, and cannot be counted as verified behavioral traffic. The treatment
+remains disabled.
+
 ## Current Data-Quality State
 
 The July 23 systemic photo audit and cleanup is complete in production. The

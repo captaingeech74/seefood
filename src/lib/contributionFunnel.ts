@@ -31,9 +31,12 @@ export type ContributionTrafficClass =
 export interface ContributionAttemptBinding {
   restaurantId: string;
   menuItemId: number;
+  visitorId: string;
+  sessionId: string;
   experimentKey: string;
   variantKey: string;
   surface: string;
+  targetClass: string;
 }
 
 export function contributionAttemptMatches(
@@ -43,9 +46,12 @@ export function contributionAttemptMatches(
   return (
     actual.restaurantId === expected.restaurantId &&
     actual.menuItemId === expected.menuItemId &&
+    actual.visitorId === expected.visitorId &&
+    actual.sessionId === expected.sessionId &&
     actual.experimentKey === expected.experimentKey &&
     actual.variantKey === expected.variantKey &&
-    actual.surface === expected.surface
+    actual.surface === expected.surface &&
+    actual.targetClass === expected.targetClass
   );
 }
 
@@ -66,14 +72,16 @@ export function contributionTargetClasses(input: {
     (input.now ?? new Date()).getTime() - MENU_FRESHNESS_DAYS * 86_400_000;
   const currentObservation =
     Number.isFinite(observedAt) && observedAt >= freshnessCutoff;
-  const orderabilityEvidence =
+  const activeRecentlyObservedZeroMissingStreak =
     input.menuActive && input.menuMissingStreak === 0;
   const activeRestaurant =
     input.restaurantStatus === "active" &&
     input.entityStatus === "active" &&
     !["closed", "permanently_closed"].includes(input.operatingStatus ?? "");
   const behavioralPromptCandidate =
-    activeRestaurant && currentObservation && orderabilityEvidence;
+    activeRestaurant &&
+    currentObservation &&
+    activeRecentlyObservedZeroMissingStreak;
   return {
     behavioralPromptCandidate,
     goldComparisonCandidate:
@@ -81,10 +89,32 @@ export function contributionTargetClasses(input: {
     evidence: {
       activeRestaurant,
       currentObservation,
-      orderabilityEvidence,
+      activeRecentlyObservedZeroMissingStreak,
       freshnessDays: MENU_FRESHNESS_DAYS,
     },
   };
+}
+
+export type ContributionAnalysisEligibility =
+  | "unverified"
+  | "eligible_external"
+  | "excluded_fixture"
+  | "excluded_staff"
+  | "excluded_automation"
+  | "excluded_ineligible_entity";
+
+export function contributionAnalysisEligibility(
+  trafficClass: ContributionTrafficClass
+): ContributionAnalysisEligibility {
+  const excluded = {
+    fixture: "excluded_fixture",
+    staff: "excluded_staff",
+    automation: "excluded_automation",
+    ineligible_entity: "excluded_ineligible_entity",
+  } as const;
+  return trafficClass === "public_unverified"
+    ? "unverified"
+    : excluded[trafficClass];
 }
 
 export function terminalContributionReview(input: {
