@@ -2,14 +2,14 @@
 
 ## Verdict
 
-**Stalled**
+**Promising but unproven**
 
 ## Current Phase
 
-Baseline calibration is stopped at its reproducibility gate. A sanitized
-photo-level bundle arrived, but its comparison query does not reproduce the
-production V2 entity-level semantics and its record order reveals the blind
-4+4+4 buckets.
+DL-001 has completed a valid calibration of four sampled production V2
+comparison claims and four rich-unpaired controls. The sparse-control stratum
+is quarantined because three records were ranked with an unregistered internal
+entity-ID fallback. DL-002 is next.
 
 ## Current Goal
 
@@ -166,21 +166,69 @@ These are concrete failure examples, not a production precision estimate.
 No verified coverage changed. DL-001 remains `Quarantine / untested` against
 the actual production V2 signal.
 
+The main thread then supplied a corrected entity-level bundle. Independent
+validation confirmed:
+
+- exact parity with the installed production function for all seven exported
+  coverage fields, including six SQL-claimed comparison entities;
+- 1,390 entity candidates, exact seeded ranks, and the four lowest-ranked
+  claimed plus four lowest-ranked rich-unpaired entities;
+- complete deterministic claimed-dish and photo rosters;
+- 924 current-menu evidence rows and 78 locally available photo renders;
+- current V2 claims separated from eight historical stored-flag signals; and
+- a genuinely shuffled blind packet with passing hashes, redaction checks, and
+  no delivered unblinding material.
+
+A fresh Benchmark Guardian with no exposure to the rejected packet audited all
+12 opaque records and all 78 images before the Lead joined records by unique
+public name and coordinates.
+
+The four sampled current V2 claim dishes all failed the DataLab comparison
+definition:
+
+- three of four were visually distinct, strongly item-matched candidate
+  comparisons, but none had verified Customer provenance or reviewed rights;
+- the fourth used a crop/re-encode of the same underlying image on the
+  Management and Customer sides;
+- zero of 22 stored Customer author labels could be verified from the supplied
+  evidence; all were legacy Google-user heuristics;
+- all 56 Management labels were supported by management-controlled catalog or
+  first-party source evidence;
+- 51 of 78 images were exact or strong item matches, while 20 were rejected;
+- 71 of 78 were useful food images; seven contradicted their stored
+  useful/orderable state; and
+- the four rich-unpaired controls contained no missed strong comparison.
+
+Therefore production `comparisonCoverage = 6` remains a **claimed** count, not
+six verified comparison-ready entities. The deterministic four-claim sample
+verified 0/4, with a 95% Wilson interval of 0%–49%; this is a mechanism warning,
+not a population estimate and not proof that the other two claims fail.
+
+One protocol defect remains outside the core claim calibration. The corrected
+export ranked 1,207 identity-only entities with `entity-{internal UUID}` because
+they had no legacy or attached restaurant place ID. That fallback was not
+registered in `DL001_INPUT_HANDOFF.md`, and three of four sparse controls used
+it. One was a place identity for “Murrieta,” not a restaurant; two others could
+not be established as active restaurant locations. Sparse-control conclusions
+are quarantined. Internal entity UUIDs are now prohibited as cohort rank IDs.
+
+DL-001 closes as **Revise / mechanism confirmed**. It proves the SQL signal
+omits decisive provenance, rights, usefulness, and duplicate gates. It does not
+establish a complete Temecula baseline or improve coverage.
+
 ## Confidence
 
-High that the supplied export is read-only and bounded. High that it does not
-reproduce production V2 semantics and that its blindness is compromised. High
-that none of the five exploratory pair combinations satisfies the evidence
-provided in the packet. Confidence in the actual production comparison
-baseline remains Low because the wrong population and pairing semantics were
-sampled.
+High that the corrected export reproduces production V2 semantics. High that
+all four sampled current claims lack at least one gold requirement. High that
+the Customer-provenance evidence supplied is insufficient. Low confidence in
+the total number of verified comparisons because only four of six claims were
+sampled and the full Temecula census is not yet frozen.
 
 ## Cost
 
-$0. Local bundle validation and independent review only. The bundle had been
-prepared by the main thread through bounded reads; the DataLab made no
-production read or write, provider call, model call, image download, account,
-vendor contact, crawl, or paid-quota use.
+$0. Local bundle validation and independent blind review only. The DataLab made
+no production read or write, provider call, model call, image download,
+account, vendor contact, crawl, or paid-quota use.
 
 ## Production Impact
 
@@ -189,13 +237,12 @@ merges.
 
 ## Next Action
 
-Regenerate the ignored DL-001 bundle using the corrected contract in
-`DL001_INPUT_HANDOFF.md`: exact production entity-level semantics, deterministic
-claimed-dish and photo selection evidence, a completed redaction scan, and an
-independently shuffled opaque Guardian packet. Then rerun the same calibration.
-Do not advance to DL-002 or a source connector from this invalid sample.
+Begin DL-002 on the next cycle. Freeze the actual Temecula candidate frame and
+national holdout before testing sources. Require public/provider-derived stable
+rank IDs and exclude internal entity UUIDs from cohort selection. Report
+production comparison counts as claimed until provenance, rights, usefulness,
+and duplicate evidence pass Guardian review.
 
 ## Kyle Needs To Do
 
-Nothing. The main SeeFood thread can regenerate the corrected bounded handoff;
-Kyle should not handle credentials or raw customer data.
+Nothing.

@@ -227,3 +227,111 @@ model call, crawl, deploy, infrastructure change, paid quota, push, or merge.
 
 Regenerate the bundle under the corrected `DL001_INPUT_HANDOFF.md`, then rerun
 DL-001. Do not advance to DL-002 or a connector from this invalid sample.
+
+## Corrected Entity-Level Resume — 2026-07-27
+
+### Integrity And Parity
+
+The corrected ignored bundle passed the valid parts of the resume gate:
+
+- its installed production-function hash matched the recorded hash;
+- direct production output and the exporter's entity-level recomputation
+  matched on all seven content fields: 1,390 identified entities, 89 with a
+  menu, 156 with seven active non-storefront/menu photos, 74 with seven matched
+  photos, 64 at the claimed 20% rung, 52 at the claimed 50% rung, and six with
+  a claimed comparison;
+- all 1,390 candidate ranks and the lowest four claimed and four rich-unpaired
+  selections reproduced exactly;
+- all claimed-dish and photo ranks reproduced; every required claim photo was
+  included and every filler was the correct next-ranked record;
+- the bundle contained 924 active menu evidence rows and 78 photos, never more
+  than ten per entity or 120 total;
+- all 196 manifest entries passed;
+- 195 payload files had completed per-file secret and personal-data results;
+  the self-referential redaction log and checksum manifest had a recorded final
+  scan procedure;
+- the 78 evidence and 78 Guardian images were identical hash multisets, all
+  decoded, and none contained EXIF, XMP, or ICC metadata; and
+- the Guardian order mixed all three buckets and exposed only opaque menu,
+  dish, photo, and snapshot IDs.
+
+The DataLab made no production or provider call.
+
+### Frozen Blind Audit
+
+A fresh Benchmark Guardian with no prior packet exposure audited all 12 opaque
+entities and 78 images before unblinding:
+
+- 51/78 exact or strong item matches: 65.4%, 95% Wilson 54.3%–75.0%;
+- 71/78 useful food images: 91.0%, 95% Wilson 82.6%–95.6%;
+- 56/56 Management author labels supported by management-controlled source
+  evidence: 100%, 95% Wilson 93.6%–100%;
+- 0/22 Customer author labels verified: 0%, 95% Wilson 0%–14.9%;
+- 0/78 records had reviewed rights evidence;
+- seven images contradicted their stored useful/orderable state;
+- two visual near-duplicate pairs were found despite no byte-exact duplicates;
+  one invalidated a claimed comparison; and
+- no additional strong comparison was found among the rich-unpaired records.
+
+After the judgments froze, the Lead joined Guardian records to selected records
+by unique public name and coordinates. The four sampled production claim
+dishes were Epic Wings, Black Angus Steakhouse, Kabob House, and Campini's
+Deli.
+
+| Sampled claim | Content/item/distinctness | Customer provenance | Rights evidence | Gold result |
+|---|---|---|---|---|
+| Epic Wings | Fail: Management and Customer sides are a crop/re-encode of one underlying image | Unverified | Unreviewed | Fail |
+| Black Angus Steakhouse | Pass | Unverified | Unreviewed | Fail |
+| Kabob House | Pass; two distinct Management candidates | Unverified | Unreviewed | Fail |
+| Campini's Deli | Pass | Unverified | Unreviewed | Fail |
+
+Verified comparison dishes were 0/4 sampled current V2 claims, with a 95%
+Wilson interval of 0%–49%. Three of four claims passed the visual item and
+distinctness gates, with a 95% Wilson interval of 30.1%–95.4%. This confirms
+the registered mechanism hypothesis but is too small to estimate production
+precision or condemn the two unsampled claims.
+
+The four valid rich-unpaired controls contained no false-negative comparison.
+
+### Sparse-Stratum Protocol Defect
+
+The Adversarial Verifier found that 1,207 identity-only candidates had neither
+a legacy place ID nor an attached restaurant place ID. The exporter ranked
+them with an undocumented `entity-{internal UUID}` fallback. Three of four
+selected sparse records used it.
+
+That deterministic fallback was not registered and therefore invalidates the
+sparse selection. The blind audit also rejected “Murrieta” as a place rather
+than a restaurant and could not verify two other identity-only records as
+active restaurant locations. No sparse-stratum inference is accepted.
+
+The omission of the redaction log and checksum manifest from their own
+`perFileResults` is not treated as a safety failure: self-hashing is impossible,
+their serialization and final scans were documented, every manifest hash
+passed, and the DataLab independently found no credential, JWT, email, live
+URL, or image metadata.
+
+### Decision
+
+**Revise / mechanism confirmed.**
+
+The production V2 comparison mechanism is useful as a claimed diagnostic but
+does not prove gold comparisons. All four sampled claims lacked at least one
+required gate. The valid claimed and rich-unpaired findings are retained; the
+sparse stratum and every population-level precision inference are quarantined.
+
+Actual verified coverage improvement was zero. Measurement improved: SeeFood
+now knows the current signal's principal failure is Customer provenance and
+rights evidence, with duplicate and usefulness errors also present.
+
+### Cost And Impact
+
+$0. Bounded local validation and blind review only. No DataLab production
+read/write, source request, model call, crawl, deploy, infrastructure change,
+paid quota, push, or merge.
+
+### Next Action
+
+Proceed to DL-002 with stable public/provider-derived rank IDs, a real Temecula
+candidate frame, the locked national holdout, and claimed-versus-verified
+separation. Internal entity UUIDs are prohibited as selection ranks.

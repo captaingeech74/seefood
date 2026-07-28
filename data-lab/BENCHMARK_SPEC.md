@@ -194,6 +194,12 @@ name, coarse business type, coordinates, inclusion/status decision, provider
 IDs, chain/independent flag, web-strength stratum, and evidence timestamps. It
 will contain no credentials, private contacts, or personal data.
 
+Every selectable record must have a stable public- or provider-derived rank ID.
+An internal database entity UUID may be retained as a join key but may never be
+the deterministic selection rank input. An identity-only row with no qualifying
+stable external ID remains in identity-quality accounting but is ineligible for
+cohort selection until that ID is established.
+
 Temecula is visible to connector workers and may be optimized.
 
 Before lock, independently second-review 100% of ambiguous, truck, ghost,

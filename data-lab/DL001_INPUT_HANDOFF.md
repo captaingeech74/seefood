@@ -61,7 +61,10 @@ function text or its hash beside the export query.
 Keep the registered rank input stable: for an entity-level candidate,
 `stable_restaurant_id` means the entity's preserved `legacy_place_id`; when
 that is absent, use the lexicographically smallest attached restaurant
-`place_id` and record that fallback. Emit only one candidate row per entity.
+`place_id` and record that fallback. When neither exists, retain the entity for
+production-metric parity but exclude it from all DL-001 selection buckets.
+Never rank a cohort record using an internal entity UUID. Emit only one
+candidate row per entity.
 
 Confirm that at least four candidates exist in each bucket:
 
@@ -132,7 +135,11 @@ Include:
   blind audit is complete.
 
 The redaction log must show the secret-value scan as completed, not
-`run_before_completion`, and give a result for every exported file.
+`run_before_completion`, and give a result for every payload file. Because a
+redaction log and checksum manifest cannot contain their own final hashes
+without self-reference, record the exact completed scan-and-serialization
+procedure for those two control files and independently rescan them after
+serialization.
 
 Randomize Guardian restaurant order independently of bucket and selection
 order, assign opaque IDs only after that shuffle, and keep the seed or mapping
