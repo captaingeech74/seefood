@@ -1,0 +1,73 @@
+{
+  "experiment_id": "DL-007",
+  "stage": 3,
+  "reviewer_roles": [
+    "Benchmark Guardian",
+    "Adversarial Verifier"
+  ],
+  "decision": "Revise",
+  "verdict": "Promising but unproven",
+  "integrity": {
+    "sha256sums_hash": "e1dd7d08222b0f245ea740b9c8ac5e2288243d76d67971d48dbaf77f95e5e1dc",
+    "all_listed_hashes_passed": true,
+    "exporter_commit": "51013a83716d85d246e4582e8778fc8c6a13b8c4",
+    "read_only_repeatable_read_and_rollback_evidence": true,
+    "all_evidence_images_decoded_and_metadata_stripped": true,
+    "hidden_holdout_accessed": false
+  },
+  "reproduced": {
+    "dish_rows": 5048,
+    "restaurants": 69,
+    "behavioral_candidates": 4036,
+    "behavioral_candidate_restaurants": 58,
+    "gold_candidates": 0,
+    "stage2_top_photo_first_rights_only": 4876,
+    "stage3_corrected_rights_only": 4882,
+    "behavioral_and_corrected_rights_only_intersection": 3912,
+    "selection_difference": 6,
+    "blind_sample_rows": 100,
+    "blind_sample_restaurants": 47,
+    "sample_behavioral_candidates": 79,
+    "sample_source_split": {
+      "doordash": 94,
+      "grubhub": 4,
+      "schema_org": 2
+    },
+    "visually_plausible_orderable_images": 99,
+    "clear_nonfood_rejects": 1,
+    "clear_reject_ranks": [
+      78
+    ],
+    "independently_auditable_item_matches": 0,
+    "contribution_attempts": 0,
+    "contribution_receipts": 0
+  },
+  "accepted_implementation_fixes": [
+    "Upload and idempotent replay enforce the stored attempt restaurant/menu/experiment/variant/surface tuple.",
+    "Behavioral and gold target classes are separate.",
+    "Consent is versioned and display-only.",
+    "Identical receipts are not overwritten.",
+    "Native cancellation and additional failure stages exist.",
+    "Pending photos remain inactive.",
+    "Terminal review updates occur in one database function."
+  ],
+  "blocking_findings": [
+    "Terminal comparison creation uses a weaker Management predicate than the exported gold contract and does not prove distinct nonduplicate images.",
+    "Rejected reviews can be rerun into approval, so the terminal transition is not one-shot.",
+    "Review can backfill a missing stored rights scope.",
+    "Contradictory outcomes can coexist for one attempt/event/source.",
+    "Existing attempt reuse does not compare every stored binding field in createContributionAttempt.",
+    "Traffic classification is insufficient for a verified non-team denominator.",
+    "The orderability label is stronger than the missing-streak evidence.",
+    "The sample omits dish labels and source-page evidence, blocking exact item and provenance audit.",
+    "The six-row selection delta lacks a same-snapshot reconciliation ledger.",
+    "Zero attempts and receipts leave the runtime state machine unexercised."
+  ],
+  "independent_checks": {
+    "tests": "79 passed",
+    "typecheck": "passed with locked commit dependencies"
+  },
+  "coverage_improvement": 0,
+  "money_cost_usd": 0,
+  "production_impact_by_datalab": "none"
+}

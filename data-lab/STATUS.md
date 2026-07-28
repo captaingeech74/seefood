@@ -6,11 +6,46 @@
 
 ## Current Phase
 
-DL-007 Stage 2 independently verified the passive known-dish measurement and
-submission foundation deployed by the main thread. The sanitized bundle passed
-all integrity checks. New known-dish submissions now carry a stable menu-item
-field, UUID attempt, versioned display consent, server receipts, and
-pending/inactive/nonpublic review state. The treatment remains disabled.
+DL-007 Stage 3 independently verified 5,048 dish rows and 4,036 behavioral
+prompt candidates across 58 restaurants, but zero gold comparison candidates,
+attempts, receipts, or coverage improvement. The bundle and all 100 evidence
+images passed integrity and metadata checks. The treatment remains disabled.
+
+The corrected all-attached-photo ranking reports 4,882 rows failing only the
+prior stored rights gate, six more than Stage 2's top-photo-first 4,876. This is
+a 0.12% selection correction, not new data or coverage. The exact six rows
+cannot be reconciled across the two bundles because their snapshots, opaque
+seeds, and ordering salts differ.
+
+The blind packet contains 100 images across 47 restaurants: 94 DoorDash, four
+Grubhub, and two Schema.org. Ninety-nine plausibly depict orderable food or
+drink; one is plainly packaged cutlery. The packet withholds expected dish
+labels, so exact/strong item matching is unauditable. Management provenance,
+display rights, and independent near-duplicate review remain unverified for
+every row. The packet is heavily DoorDash-weighted and not a representative
+national evaluation.
+
+Stage 3 fixed upload attempt-to-dish binding, separated behavioral and gold
+targets, preserved display-only consent, added cancellation/failure stages,
+kept receipts from overwriting identical outcomes, and added an atomic review
+function. Activation still fails: terminal review uses a weaker Management
+predicate than the gold contract, can re-review a rejection into approval, can
+backfill missing consent scope, permits contradictory review outcomes, and can
+emit a claimed comparison without proving two distinct gold-qualified images.
+Traffic classification is not yet a trustworthy non-team denominator.
+
+DL-007 remains `Revise`. Push 4 must make terminal comparison creation use one
+canonical gold predicate, enforce a one-shot state machine and full receipt
+binding, and provide a same-snapshot selection ledger plus a label-and-image
+audit drawn from the behavioral intersection. No conversion or coverage
+improved.
+
+DL-007 Stage 2 previously independently verified the passive known-dish
+measurement and submission foundation deployed by the main thread. The
+sanitized bundle passed all integrity checks. New known-dish submissions now
+carry a stable menu-item field, UUID attempt, versioned display consent, server
+receipts, and pending/inactive/nonpublic review state. The treatment remains
+disabled.
 
 The target roster contains 5,048 mechanically selected dish candidates across
 69 restaurants but zero qualified targets. Every candidate fails the stored
