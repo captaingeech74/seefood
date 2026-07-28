@@ -13,6 +13,10 @@ const migration = await readFile(
   new URL("../db/migrations/2026-07-27-contribution-funnel-stage4.sql", import.meta.url),
   "utf8"
 );
+const stage5Migration = await readFile(
+  new URL("../db/migrations/2026-07-27-contribution-funnel-stage5.sql", import.meta.url),
+  "utf8"
+);
 const client = new Client({ connectionString: url });
 await client.connect();
 try {
@@ -37,7 +41,7 @@ try {
     create table menu_items(
       id bigint primary key, restaurant_id text, active boolean,
       missing_streak int, last_seen_at timestamptz, source_snapshot_id uuid,
-      canonical_dish_id uuid
+      canonical_dish_id uuid, source text
     );
     create table contribution_attempts(
       id uuid primary key, visitor_id text, session_id text, restaurant_id text,
@@ -67,6 +71,7 @@ try {
       on contribution_funnel_events(attempt_id,event_name,event_source,outcome);
   `);
   await client.query(migration);
+  await client.query(stage5Migration);
   await client.query(`
     insert into restaurant_entities values
       ('00000000-0000-4000-8000-000000000001','active','open');
@@ -77,7 +82,7 @@ try {
        '00000000-0000-4000-8000-000000000001','merchant','succeeded',now());
     insert into menu_items values
       (1,'fixture-restaurant',true,0,now(),
-       '00000000-0000-4000-8000-000000000002',null);
+       '00000000-0000-4000-8000-000000000002',null,'merchant');
     insert into photos(
       restaurant_id,active,photo_author_type,moderation_status,rights_status,
       rights_scope,source,source_platform,source_snapshot_id,storage_url,
@@ -91,7 +96,65 @@ try {
       true,false,false,1,'management-hash','management-phash','unique',90,
       'exact','verified','food_or_drink'
     );
+    update photos set
+      management_rights_review_status='approved',
+      management_rights_reviewed_at=now(),
+      management_rights_review_basis='fixture-license'
+    where photo_author_type='management';
   `);
+
+  const positiveContract = await client.query(
+    `select contribution_gold_contract('fixture-restaurant',1,null) contract`
+  );
+  if (!positiveContract.rows[0].contract.eligible) {
+    throw new Error("positive canonical gold contract failed");
+  }
+  const managementId = positiveContract.rows[0].contract.selectedPhotoId;
+  const gateCases = [
+    ["activeRestaurant", `update restaurants set status='inactive'`, `update restaurants set status='active'`],
+    ["activeEntity", `update restaurant_entities set status='inactive'`, `update restaurant_entities set status='active'`],
+    ["operatingStatusNotClosed", `update restaurant_entities set operating_status='closed'`, `update restaurant_entities set operating_status='open'`],
+    ["activeMenuItem", `update menu_items set active=false`, `update menu_items set active=true`],
+    ["zeroMissingStreak", `update menu_items set missing_streak=1`, `update menu_items set missing_streak=0`],
+    ["observedWithin30Days", `update menu_items set last_seen_at=now()-interval '31 days'`, `update menu_items set last_seen_at=now()`],
+    ["latestSuccessfulSourceSnapshot", `update source_snapshots set status='failed'`, `update source_snapshots set status='succeeded'`],
+    ["activeUsefulManagementPhoto", `update photos set is_orderable=false where id=${managementId}`, `update photos set is_orderable=true where id=${managementId}`],
+    ["accessibleRecordedLocator", `update photos set storage_url=null,origin_url=null where id=${managementId}`, `update photos set storage_url='https://fixture.invalid/m.webp' where id=${managementId}`],
+    ["successfulBoundPhotoSnapshot", `update photos set source='other' where id=${managementId}`, `update photos set source='merchant' where id=${managementId}`],
+    ["independentProvenanceReview", `update photos set provenance_review_status='not_reviewed' where id=${managementId}`, `update photos set provenance_review_status='verified' where id=${managementId}`],
+    ["independentDisplayRightsReview", `update photos set management_rights_review_status='not_reviewed' where id=${managementId}`, `update photos set management_rights_review_status='approved' where id=${managementId}`],
+    ["usefulnessReview", `update photos set usefulness_review_status='not_reviewed' where id=${managementId}`, `update photos set usefulness_review_status='food_or_drink' where id=${managementId}`],
+    ["reviewedDisplayRights", `update photos set rights_status='unreviewed' where id=${managementId}`, `update photos set rights_status='licensed' where id=${managementId}`],
+    ["exactOrExplicitItemLink", `update photos set menu_item_id=999 where id=${managementId}`, `update photos set menu_item_id=1 where id=${managementId}`],
+    ["perceptualHashMeasured", `update photos set perceptual_hash=null where id=${managementId}`, `update photos set perceptual_hash='management-phash' where id=${managementId}`],
+    ["independentNearDuplicateReview", `update photos set duplicate_review_status='not_reviewed' where id=${managementId}`, `update photos set duplicate_review_status='unique' where id=${managementId}`],
+    ["noDuplicateParentOrReason", `update photos set dedupe_reason='fixture' where id=${managementId}`, `update photos set dedupe_reason=null where id=${managementId}`],
+  ];
+  const gateAssertions = {};
+  for (const [gate, breakSql, restoreSql] of gateCases) {
+    await client.query(breakSql);
+    const result = await client.query(
+      `select contribution_gold_contract('fixture-restaurant',1,null) contract`
+    );
+    if (result.rows[0].contract.eligible) {
+      throw new Error(`gold gate ${gate} failed open`);
+    }
+    gateAssertions[gate] = "passed";
+    await client.query(restoreSql);
+  }
+  await client.query(`insert into photos(
+    restaurant_id,active,photo_author_type,moderation_status,rights_status,
+    rights_scope,menu_item_id,content_hash,perceptual_hash,duplicate_review_status
+  ) values('fixture-restaurant',true,'customer','approved','user_granted',
+    'display_with_dish',999,'management-hash','other-phash','unique')`);
+  let contract = await client.query(
+    `select contribution_gold_contract('fixture-restaurant',1,null) contract`
+  );
+  if (contract.rows[0].contract.eligible) {
+    throw new Error("exact-hash uniqueness failed open");
+  }
+  gateAssertions.exactHashUniqueAtRestaurant = "passed";
+  await client.query(`delete from photos where menu_item_id=999`);
 
   async function pendingAttempt(attempt, customerHash) {
     await client.query(`
@@ -202,6 +265,41 @@ try {
     throw new Error("first-receipt concurrency did not preserve exactly one outcome");
   }
 
+  const rejected = "00000000-0000-4000-8000-000000000015";
+  await pendingAttempt(rejected, "rejected-hash");
+  await client.query(
+    `select review_contribution_photo($1,'rejected','unmatched','duplicate','display_with_dish')`,
+    [rejected]
+  );
+  let rejectionReplayRejected = false;
+  try {
+    await client.query(
+      `select review_contribution_photo($1,'approved','exact','unique','display_with_dish')`,
+      [rejected]
+    );
+  } catch { rejectionReplayRejected = true; }
+  if (!rejectionReplayRejected) throw new Error("rejected review replay was accepted");
+
+  const terminalAttempt = "00000000-0000-4000-8000-000000000016";
+  await client.query(`insert into contribution_attempts(
+    id,visitor_id,session_id,restaurant_id,menu_item_id,experiment_key,variant_key,
+    surface,traffic_class,status
+  ) values($1,'v','s','fixture-restaurant',1,'e','v','known_dish','fixture','storage_failed')`,
+  [terminalAttempt]);
+  const retryAttempt = "00000000-0000-4000-8000-000000000017";
+  await client.query(`insert into contribution_attempts(
+    id,visitor_id,session_id,restaurant_id,menu_item_id,experiment_key,variant_key,
+    surface,traffic_class,status
+  ) values($1,'v','s','fixture-restaurant',1,'e','v','known_dish','fixture','created')`,
+  [retryAttempt]);
+  const retryRows = await client.query(
+    `select id,status from contribution_attempts where id in ($1,$2) order by id`,
+    [terminalAttempt,retryAttempt]
+  );
+  if (retryRows.rows.length !== 2 || retryRows.rows[0].id === retryRows.rows[1].id) {
+    throw new Error("failed attempt retry did not preserve a new ID");
+  }
+
   console.log(JSON.stringify({
     isolatedDatabase: parsed.pathname.slice(1),
     tests: {
@@ -211,6 +309,9 @@ try {
       canonicalGoldPredicateParity: "passed",
       noComparisonWhenGoldGateFails: "passed",
       firstReceiptConcurrency: "passed",
+      everyCanonicalGoldGateFailsClosed: gateAssertions,
+      rejectedReviewReplay: "passed",
+      failedAttemptRetryUsesNewId: "passed",
     },
   }, null, 2));
 } finally {

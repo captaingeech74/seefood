@@ -98,6 +98,12 @@ export async function POST(req: NextRequest) {
         },
       });
     }
+    if (attempt.status !== "created") {
+      return NextResponse.json(
+        { error: "That upload attempt is closed; please start a new one" },
+        { status: 409 }
+      );
+    }
     const target = await getCurrentContributionTarget(placeId, menuItemId);
     if (!target) {
       return NextResponse.json({ error: "That menu item is no longer current" }, { status: 409 });

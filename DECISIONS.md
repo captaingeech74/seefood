@@ -1872,3 +1872,20 @@ first server outcome, and cannot emit both success and failure for the same
 stage. Only the service role may execute it. Public traffic is explicitly
 unverified and is never promoted to eligible traffic by a client-supplied
 claim. These rules are enforced and tested before any treatment is enabled.
+
+## Share one contribution measurement contract everywhere (July 27, 2026)
+
+The contribution runtime, audit exporter, and terminal comparison transition
+must not independently recreate eligibility rules. The database-owned
+behavioral and Management-photo contract returns both its decision and every
+named gate. It binds menu and photo snapshots to the same entity and source,
+evaluates every attached Management photo, and selects the highest-quality
+photo that passes all gates. Terminal review and export consume that result.
+
+Management display rights require a separate reviewed state, timestamp, and
+basis; legacy metadata never approves them. Existing rows remain unreviewed.
+Failed upload attempts are terminal, and a legitimate retry receives a new
+attempt ID. `eligible_external` means only that server-side fixture, staff,
+automation, and ineligible-entity exclusions passed; it does not claim verified
+human identity. The behavioral treatment remains disabled pending independent
+DataLab parity review.

@@ -218,6 +218,17 @@ traffic remains `public_unverified`, records a separate analysis-eligibility
 state, and cannot be counted as verified behavioral traffic. The treatment
 remains disabled.
 
+DL-007 Push 5 removes the last parallel eligibility implementations. Database
+functions now return the named behavioral gates, evaluate every attached
+Management photo, select the highest-quality fully passing counterpart, and
+return the exact gold decision used by runtime, terminal review, and the
+read-only exporter. Management display rights have their own auditable review
+state and all existing rows default to unreviewed. Server-screened public
+traffic may be labeled `eligible_external` only after fixture, staff,
+automation, and ineligible-entity exclusions; this does not claim proof of a
+human. Failed attempts are terminal and the client uses a new attempt ID for a
+retry. The treatment remains disabled.
+
 ## Current Data-Quality State
 
 The July 23 systemic photo audit and cleanup is complete in production. The

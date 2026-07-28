@@ -70,8 +70,8 @@ describe("contribution funnel safety", () => {
     ).toBe(false);
   });
 
-  it("does not call unverified public traffic analysis-eligible", () => {
-    expect(contributionAnalysisEligibility("public_unverified")).toBe("unverified");
+  it("calls server-screened public traffic external without claiming human proof", () => {
+    expect(contributionAnalysisEligibility("public_unverified")).toBe("eligible_external");
     expect(contributionAnalysisEligibility("fixture")).toBe("excluded_fixture");
     expect(contributionAnalysisEligibility("staff")).toBe("excluded_staff");
     expect(contributionAnalysisEligibility("automation")).toBe("excluded_automation");

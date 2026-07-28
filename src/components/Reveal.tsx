@@ -593,6 +593,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         alert(data.error || "Upload failed — please try again.");
       }
     } catch {
+      contributionAttempts.current.delete(menuItemId);
       alert("Upload failed — check your connection and try again.");
     } finally {
       setUploading(false);

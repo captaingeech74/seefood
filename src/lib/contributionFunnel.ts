@@ -113,7 +113,7 @@ export function contributionAnalysisEligibility(
     ineligible_entity: "excluded_ineligible_entity",
   } as const;
   return trafficClass === "public_unverified"
-    ? "unverified"
+    ? "eligible_external"
     : excluded[trafficClass];
 }
 

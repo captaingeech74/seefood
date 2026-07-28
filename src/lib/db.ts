@@ -14,7 +14,6 @@ import {
   shouldActivatePhotoObservation,
 } from "./photoFingerprint";
 import {
-  contributionTargetClasses,
   pendingKnownDishPhotoState,
   terminalContributionReview,
 } from "./contributionFunnel";
@@ -298,9 +297,12 @@ export interface ContributionTarget {
   goldComparisonCandidate: boolean;
   targetEvidence: {
     activeRestaurant: boolean;
-    currentObservation: boolean;
-    activeRecentlyObservedZeroMissingStreak: boolean;
-    freshnessDays: number;
+    activeEntity: boolean;
+    operatingStatusNotClosed: boolean;
+    activeMenuItem: boolean;
+    zeroMissingStreak: boolean;
+    observedWithin30Days: boolean;
+    latestSuccessfulSourceSnapshot: boolean;
   };
 }
 
@@ -338,14 +340,27 @@ export async function getCurrentContributionTarget(
     entityStatus = entity?.status ?? entity?.operating_status ?? entityStatus;
     operatingStatus = entity?.operating_status ?? null;
   }
-  const classes = contributionTargetClasses({
-    restaurantStatus: restaurant.status ?? null,
-    entityStatus,
-    operatingStatus,
-    menuActive: Boolean(menuItem.active),
-    menuMissingStreak: Number(menuItem.missing_streak ?? 0),
-    menuLastSeenAt: menuItem.last_seen_at ?? null,
-  });
+  const { data: contract, error: contractError } = await supabase.rpc(
+    "contribution_gold_contract",
+    {
+      p_restaurant_id: restaurantId,
+      p_menu_item_id: menuItemId,
+      p_customer_photo_id: null,
+    }
+  );
+  if (contractError) throw contractError;
+  const behavioral = contract?.behavior ?? {};
+  const gates = behavioral.gates ?? {};
+  const targetEvidence = {
+    activeRestaurant: gates.activeRestaurant === true,
+    activeEntity: gates.activeEntity === true,
+    operatingStatusNotClosed: gates.operatingStatusNotClosed === true,
+    activeMenuItem: gates.activeMenuItem === true,
+    zeroMissingStreak: gates.zeroMissingStreak === true,
+    observedWithin30Days: gates.observedWithin30Days === true,
+    latestSuccessfulSourceSnapshot:
+      gates.latestSuccessfulSourceSnapshot === true,
+  };
   return {
     menuItemId: Number(menuItem.id),
     canonicalDishId: menuItem.canonical_dish_id ?? null,
@@ -353,9 +368,9 @@ export async function getCurrentContributionTarget(
     entityStatus,
     restaurantStatus: restaurant.status ?? null,
     operatingStatus,
-    behavioralPromptCandidate: classes.behavioralPromptCandidate,
-    goldComparisonCandidate: classes.goldComparisonCandidate,
-    targetEvidence: classes.evidence,
+    behavioralPromptCandidate: behavioral.eligible === true,
+    goldComparisonCandidate: contract?.eligible === true,
+    targetEvidence,
   };
 }
 
@@ -370,6 +385,7 @@ export interface StoredContributionAttempt {
   visitorId: string;
   sessionId: string;
   targetClass: string;
+  status: string;
 }
 
 export async function getContributionAttempt(
@@ -377,7 +393,7 @@ export async function getContributionAttempt(
 ): Promise<StoredContributionAttempt | null> {
   const { data, error } = await supabase
     .from("contribution_attempts")
-    .select("id,restaurant_id,menu_item_id,experiment_key,variant_key,surface,traffic_class,visitor_id,session_id,target_class")
+    .select("id,restaurant_id,menu_item_id,experiment_key,variant_key,surface,traffic_class,visitor_id,session_id,target_class,status")
     .eq("id", attemptId)
     .maybeSingle();
   if (error) throw error;
@@ -393,6 +409,7 @@ export async function getContributionAttempt(
         visitorId: data.visitor_id,
         sessionId: data.session_id,
         targetClass: data.target_class,
+        status: data.status,
       }
     : null;
 }
@@ -412,7 +429,7 @@ export async function createContributionAttempt(input: {
 }): Promise<void> {
   const { data: existing, error: readError } = await supabase
     .from("contribution_attempts")
-    .select("restaurant_id,menu_item_id,visitor_id,session_id,experiment_key,variant_key,surface,target_class")
+    .select("restaurant_id,menu_item_id,visitor_id,session_id,experiment_key,variant_key,surface,target_class,status")
     .eq("id", input.attemptId)
     .maybeSingle();
   if (readError) throw readError;
@@ -428,6 +445,9 @@ export async function createContributionAttempt(input: {
       existing.target_class !== input.targetClass
     ) {
       throw new Error("Contribution attempt identity mismatch");
+    }
+    if (existing.status !== "created") {
+      throw new Error("Contribution attempt is terminal; retry with a new attempt");
     }
     return;
   }
