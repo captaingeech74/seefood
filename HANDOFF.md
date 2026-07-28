@@ -155,6 +155,26 @@ The main thread supplies sealed read-only Stage 1 inputs; DataLab performs
 reconciliation and hidden cohort selection. Only then may the main thread
 produce bounded Stage 2 evidence for Guardian-selected public-ID hashes.
 
+DL-002 Stage 2 is now complete locally under
+`data-lab/raw/baseline/DL-002/main-thread-stage2/` in both checkouts. The
+exporter used only the registered 120 selected and 12 alternate public-ID
+hashes; it did not open the clear national manifest. The 516-record evaluation
+denominator contains 396 accepted Temecula identities and 120 hidden national
+identities. Exactly 393 Temecula identities map one-to-one to production
+entities; three remain identified but receive no duplicated production credit.
+None of the hidden national hashes or alternates currently matches a production
+provider identity.
+
+The claimed baseline is 84 restaurants with a current menu, 138 with seven
+food photos, 69 with seven menu-matched photos, 61 at the 20% menu-photo rung,
+49 at the 50% rung, and six with at least one claimed comparison dish. The
+packet contains all 21 claimed comparison dishes, 25 rich-unpaired controls,
+320 evidence photo records, 214 metadata-stripped renders, and 106 unavailable
+records explicitly marked unverifiable. These are claimed, not verified,
+results; DataLab owns the blind evaluation. The first mechanically valid but
+image-empty packet is retained under the ignored
+`main-thread-stage2-invalid-no-rendered-images-2026-07-27` name.
+
 ## Current Data-Quality State
 
 The July 23 systemic photo audit and cleanup is complete in production. The

@@ -1722,6 +1722,28 @@ hidden selection, independent review, experiments, and grading. DL-002 uses a
 two-stage handoff so the Guardian freezes public-ID hashes before the main
 thread exports any selected-record evidence.
 
+## Preserve blind national selection in DL-002 Stage 2 (July 27, 2026)
+
+The Stage 2 exporter accepts only the Guardian's registered SHA-256 public-ID
+hashes. It hashes production public provider IDs locally for comparison and
+never opens the clear national holdout manifest. A missing hash match is valid
+zero-coverage evidence and never triggers identity guessing or use of an
+alternate. Registered alternates remain outside the 516-record denominator
+unless the Guardian later makes a documented one-for-one replacement.
+
+Accepted Temecula identities map to production entities through a deterministic
+maximum one-to-one public-provider-ID assignment. Three of 396 identities
+collide onto already-assigned production entities; they remain identified but
+receive zero menu/photo credit rather than double-counting the same corpus
+data. The 120 hidden national identities currently have no production provider
+hash matches.
+
+Gold evidence may read an already-recorded R2 object or direct public
+source-image locator, but it may not discover missing images or call paid photo
+APIs. Unavailable recorded images are marked unverifiable. The accepted packet
+renders 214 of 320 bounded photo records after stripping metadata; all 21
+claimed dishes retain complete menu and photo references for the Guardian.
+
 ## Restore DoorDash and Grubhub as safe automatic sources (July 27, 2026)
 
 DoorDash and Grubhub remain crawler-side acquisition sources; neither is moved
