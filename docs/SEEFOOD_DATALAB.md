@@ -30,10 +30,11 @@ Use the rollout in `docs/METRO_ROLLOUT.md`:
 
 Maintain two evaluation sets:
 
-- A Temecula census used to optimize immediate market coverage.
+- A Temecula development cohort used to optimize immediate market coverage.
 - A locked national holdout spanning chains, independents, city sizes, rural
-  restaurants, trucks, ghost kitchens, cuisines, weak web presence, and recent
-  openings/closures. Connector workers must not tune against this holdout.
+  restaurants, Census divisions, and open/closed status sentinels. Optional
+  descriptive slices may be reported when known. Connector workers must not
+  tune against this holdout.
 
 ## Coverage Ladder
 
@@ -126,6 +127,27 @@ fetches. Each export must preserve provenance, include exact queries and hashes,
 remove customer personal data and secrets, and keep the implementer separate
 from the final evaluator. The current procedure is documented in
 `docs/DATALAB_READ_ONLY_EXPORT.md`.
+
+## Required Versus Optional Evidence
+
+Hard requirements exist only when they protect restaurant identity, current
+menu/photo coverage, comparison validity, rights, safety, or national
+generalizability. Ghost-kitchen classification, restaurant opening
+date/recency, website strength, exact cuisine quotas, and
+food-truck/nontraditional-venue subtypes are optional context. Missing any of
+them must never block a cohort, bundle, experiment, or recommendation.
+
+US Census geography and Overture are standardized national inputs. Local permit
+or inspection layers may independently check one development market, but they
+are optional validation sources rather than a county-by-county rollout
+architecture.
+
+The main product thread may prepare bounded, sanitized, forced-read-only input
+when DataLab cannot safely hold production credentials or make live source
+calls. It does not perform the experiment. DataLab owns reconciliation,
+Guardian selection, independent audits, experimentation, and grading. For
+DL-002, Stage 1 contains candidate frames; Stage 2 is produced only after the
+Guardian freezes and returns selected public-ID hashes.
 
 ## Cadence And Reporting
 

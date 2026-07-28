@@ -1701,6 +1701,27 @@ without reducing the 11,037 useful-photo rows, 7,609 verified unique hashes, 21
 comparison dishes, or any measured menu-photo coverage rung. The rollback point
 is `pre-reactivated-photo-quarantine-2026-07-27`.
 
+## Keep DataLab requirements tied to product value (July 27, 2026)
+
+Ghost-kitchen classification, restaurant opening date/recency, website
+strength, exact cuisine quotas, and food-truck/nontraditional-venue subtypes
+are optional context, not DataLab quotas or stop conditions. Missing any of
+them may never block a cohort, evidence bundle, experiment, or recommendation.
+Future hard fields must materially protect restaurant identity, current
+menu/photo coverage, comparison validity, rights, safety, or national
+generalizability.
+
+The scalable national identity/geography frame uses standardized Overture
+Places and US Census inputs. Riverside County permit data is an independent
+Temecula validation layer only. SeeFood will not require a custom permit
+integration for every county as it expands.
+
+The main SeeFood thread prepares bounded, sanitized, forced-read-only inputs
+when live production or source access is required. DataLab owns reconciliation,
+hidden selection, independent review, experiments, and grading. DL-002 uses a
+two-stage handoff so the Guardian freezes public-ID hashes before the main
+thread exports any selected-record evidence.
+
 ## Restore DoorDash and Grubhub as safe automatic sources (July 27, 2026)
 
 DoorDash and Grubhub remain crawler-side acquisition sources; neither is moved

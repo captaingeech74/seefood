@@ -139,6 +139,22 @@ restaurant-row-scoped bundle is retained locally under
 `DL-001-invalid-restaurant-semantics-2026-07-27`; the DataLab branch and its
 committed experiment files remain untouched.
 
+DL-002 uses Overture Places and standardized Census geography for its scalable
+national frame. Riverside County permits are only an independent Temecula
+validation source; SeeFood will not build a county-by-county national
+acquisition system. Founder direction on July 27 removed ghost-kitchen
+classification and restaurant opening date/recency as hard requirements. They
+are optional context and may never block a DataLab cohort, bundle, experiment,
+or recommendation.
+
+The same simplification applies to website-strength quotas, exact cuisine
+quotas, and food-truck/nontraditional-venue quotas. DataLab may report them
+when already supported, but the product does not need them to judge identity,
+current coverage, comparisons, rights, safety, or national generalizability.
+The main thread supplies sealed read-only Stage 1 inputs; DataLab performs
+reconciliation and hidden cohort selection. Only then may the main thread
+produce bounded Stage 2 evidence for Guardian-selected public-ID hashes.
+
 ## Current Data-Quality State
 
 The July 23 systemic photo audit and cleanup is complete in production. The
