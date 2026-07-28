@@ -9,11 +9,11 @@
 Kyle authorized no more than five additional major main-thread/DataLab cycles,
 with an early stop when the grand experiment reaches a defensible conclusion.
 DataLab does not see five mandatory cycles. Cycle 6 measurement readiness
-failed and closed DL-007. Cycle 7's stored-evidence preflight is complete and
-hit its stop condition. Cycle 8 is selected for the only complementary
-Customer-side evidence still capable of changing the decision, but it requires
-explicit controller-contact authorization. Cycle 9 remains the final portfolio
-synthesis. Cycle 10 is reserve only.
+failed and closed DL-007. Cycle 7's stored-evidence preflight hit its stop
+condition. Cycle 8 is complete and access-blocked because no
+controller-authorized Tattle packet or verified SeeFood sender exists. Cycle 9
+is selected for the final portfolio synthesis and has not started. Cycle 10
+remains unallocated reserve only.
 
 The finish line is fixed in `GRAND_EXPERIMENT_FINISH_LINE.md`. A Go requires
 either a Management path projected to add at least 20 percentage points of
@@ -75,11 +75,32 @@ rights remain unclear. Cycle 7's evidence decision is `Revise`; its access
 action is `Pursue permission or obtain a separate founder boundary decision`.
 No further stored-only analysis is useful.
 
-Cycle 8 selects DL-012's controller-authorized Tattle schema/rights/yield gate.
-It has not started, DataLab is not authorized to contact Tattle, and no
-outreach, data transfer, or spending is authorized. If authorization or a
-qualifying controller packet is unavailable, skip Cycle 8 execution and
-proceed to Cycle 9 synthesis.
+Cycle 8 completed DL-012's controller schema/rights/yield gate. The main thread
+verified that current official Tattle contact channels exist, but no
+controller-authorized packet exists. The connected outbound Gmail identity is
+not Kyle or a verified SeeFood business identity, and the repository contains
+no verified real SeeFood sender address. Main correctly did not impersonate,
+use demo contact data, submit a form, or send outreach. DataLab also made zero
+external requests.
+
+Preserved public evidence confirms transaction-triggered surveys,
+order-contextual item feedback, optional meal-photo upload, general API/export
+capability, and a claimed nationally relevant footprint. It does not establish
+exact photo-to-order-line binding, multi-item disambiguation, a supported photo
+export field, participating-controller/Customer rights for SeeFood, deletion
+propagation, 1,000 already-sent prompt outcomes, 35 blinded historical photos,
+valid-upload conversion, item precision, Management overlap, duplicates,
+unique-location yield, or economics.
+
+Cycle 8 closes `Revise / Needs a decision / access-blocked` with zero valid
+uploads, auditable records, new comparison dishes, coverage improvement,
+external requests, and cost. Tattle remains Potentially High inferred
+technical value behind commercial/custom permission from Tattle and a
+participating controller plus Customer consent.
+
+Cycle 9 final portfolio synthesis is selected and not started. It must add no
+new source test, outreach, live retrieval, credential, production access, or
+projected coverage and must issue exactly one fixed finish-line decision.
 
 Before the bounded Cycle 6 reopening, DL-007 had completed its fifth authorized
 stage. Push 5 was
@@ -621,20 +642,17 @@ future national ceiling design is preserved in
 DoorDash consent or a separate founder bot-control/downstream-use boundary
 decision.
 
-Cycle 8 is selected but not started: DL-012's controller-authorized Tattle
-schema/rights/yield gate. Kyle or the main thread must explicitly authorize
-human contact. DataLab must not contact Tattle, send messages, receive personal
-data, start a paid service, or substitute public projections for the required
-controller packet and historical evidence.
+Do not continue Cycle 8 or contact Tattle from DataLab. Preserve the exact
+human-authenticated request in `DEAL_BACKLOG.md`.
+
+Cycle 9 final portfolio synthesis is selected but not started. It must reconcile
+the zero verified comparison baseline, selected Management quality, failed
+DL-007 readiness gate, absent DL-014 national replay yield, and access-blocked
+DL-012 controller evidence. It adds no new source work and must issue Go,
+Conditional Go, or No-Go / Redirect under the fixed finish line.
 
 ## Kyle Needs To Do
 
-Choose one:
-
-1. authorize a human to request Tattle's redacted schema/rights packet for the
-   bounded DL-012 gate; or
-2. decline/hold that contact, in which case skip Cycle 8 execution and proceed
-   to the Cycle 9 final portfolio synthesis.
-
-A live DL-014 test remains a separate DoorDash permission/boundary decision and
-is not bundled into Cycle 8.
+Nothing to close Cycle 8 or select Cycle 9. Any later Tattle contact must come
+from Kyle or a verified SeeFood representative and is a preserved business
+decision, not unfinished DataLab execution.

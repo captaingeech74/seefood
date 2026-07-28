@@ -17,7 +17,7 @@ potentially High and unmeasured rather than rejected.
 
 | ID | Question | Bound | Status |
 |---|---|---|---|
-| Cycle 8 / DL-012 | Can a controller-supplied Tattle schema/rights packet and already-sent historical evidence establish a scalable exact-item Customer-photo path? | Human contact requires explicit authorization. Documentary gate first; only if it passes, at least 1,000 aggregate already-sent prompts and 35 blinded historical photo records across at least 10 locations; no DataLab outreach, SMS, personal data, production access, or paid commitment | Selected, not started, not authorized for outreach; skip to Cycle 9 synthesis if the packet cannot be requested or supplied |
+| Cycle 9 / Final synthesis | Does the verified portfolio support Go, Conditional Go, or No-Go / Redirect under the fixed finish line? | Synthesize only completed evidence through Cycle 8; no new source experiment, outreach, live retrieval, credential, production access, paid cost, hidden-holdout unblinding, or projected coverage | Selected, not started |
 
 | Rank | ID | Hypothesis | Bounded evidence | Expected value | Status |
 |---|---|---|---|---|---|
@@ -27,7 +27,7 @@ potentially High and unmeasured rather than rejected.
 | Complete | Cycle 6 / DL-007 | Correcting the audited final defects makes the existing contribution system trustworthy enough for a separately authorized behavioral pilot. | Exact main-thread handoff; zero DB/runtime mismatches; complete adversarial matrix; retry rotation; treatment disabled | Highest immediate decision value because it could unlock real Customer-behavior evidence; failure closes DL-007 without another repair | Reject / closed: parity passed, but required route-level new-ID retry proof and per-gate terminal-absence matrix were not supplied |
 | Complete | DL-007 stages 1–5 | Targeted Management and Customer contribution prompts close the final comparison gap more cheaply than another automatic source. | Five bounded read-only stages; final gate required exact exporter/runtime/database parity and adversarial state-machine proof | Tested the Customer-supply frontier without enabling treatment | Revise: runtime contract-key mismatch; 0 gold, attempts, conversions, or coverage gain |
 | Complete | DL-014 | If rendered retrieval were authorized and reliable, DoorDash public-store extraction could add at least 20 percentage points of national current-menu-plus-strong-photo coverage. | Cycle 7 used only stored replays and existing sanitized evidence. A live nationally stratified 30-restaurant/300-image probe still requires either written DoorDash consent or a separate founder amendment of the current bot-control boundary; never unbounded | Highest-ranked remaining Management path, but stored evidence can measure only selected Temecula item quality, not national yield | Revise / Needs a decision: zero national replay restaurants; exact future test preserved; no more stored-only analysis |
-| Active | DL-012 | A transaction-triggered Tattle partnership can export rights-valid Customer meal photos bound to exact order lines at nationally material unique-location yield. | Documentary gate first: controller-authorized redacted schema/rights packet; only if it passes, at least 1,000 aggregate already-delivered prompts plus 35 blinded historical photo records across at least 10 locations, including multi-item orders; no DataLab outreach or SMS | Highest-potential complementary Customer channel; exact binding, rights, real yield, and economics could change the final portfolio decision | Cycle 8 selected, not started; explicit authorization required before human contact |
+| Complete | DL-012 | A transaction-triggered Tattle partnership can export rights-valid Customer meal photos bound to exact order lines at nationally material unique-location yield. | Documentary gate first: controller-authorized redacted schema/rights packet; only if it passes, at least 1,000 aggregate already-delivered prompts plus 35 blinded historical photo records across at least 10 locations, including multi-item orders; no DataLab outreach or SMS | Highest-potential complementary Customer channel; exact binding, rights, real yield, and economics could change the final portfolio decision | Revise / Needs a decision / access-blocked: no controller packet, verified sender, 1,000-prompt aggregate, 35-photo fixture, rights, or measured yield |
 | 4 | DL-004 | Existing unmatched Customer/Unknown photos contain recoverable strong item matches using preserved menu evidence rather than label containment alone. | Maximum 100 existing photos; one bounded read per already-recorded public or authorized locator; no replacement-URL discovery or material paid quota; blind Guardian audit | Direct comparison-dish leverage against the bottleneck Gemini did not solve | Deprioritized: Stage 2 found no accessible recorded Customer locator |
 | 5 | DL-008 | Tripadvisor Terra review-linked photos, captions or review text can produce strong Customer-to-menu matches at nationally meaningful scale. | Contract/schema review first; only if Kyle or the main thread separately authorizes access, analyze a supplied nationally stratified fixture capped at 30 restaurants and 150 review-photo records, including a Temecula validation slice; blind item/provenance audit; no overage | Potentially High Customer-photo corpus; published default terms currently block SeeFood's intended use | Quarantined unless a negotiated Order grants explicit rights; DataLab cannot start service |
 | 6 | DL-003 | Flipdish's documented merchant-authorized menu path produces exact item-linked Management images and useful freshness signals beyond the frozen stack. | One access path; public docs and local schema fixture first; only with permission, 3 development merchants, one current menu each, maximum 30 item images; Guardian hidden holdout | Best evidenced newer provider path; Management-side leverage | Awaiting merchant permission |
@@ -44,12 +44,17 @@ are zero national replay restaurants, zero raw store-page replays, and no
 measured rights, corrected-path failures, repeat retention, or national yield.
 A live DL-014 ceiling test remains a separate permission/boundary decision.
 
-DL-012 therefore becomes the exact Cycle 8 selection as the only complementary
-Customer-side evidence still capable of changing the portfolio decision.
-Selection is not outreach authorization and Cycle 8 has not started. If Kyle
-does not authorize a human controller request or Tattle cannot supply the
-documentary packet, do not replace it with synthetic work; skip Cycle 8
-execution and proceed to Cycle 9 synthesis.
+Cycle 8 applied the DL-012 stop gate without outreach. Official contact
+channels exist, but no controller-authorized packet or verified SeeFood sender
+exists. Public evidence does not resolve exact photo-line binding, photo
+export, SeeFood rights, deletion, 1,000-prompt/35-photo evidence, valid-upload
+conversion, or national unique-location yield. DL-012 is access-blocked rather
+than technically rejected.
+
+Cycle 9 final portfolio synthesis is now the exact selection and has not
+started. Do not insert another evidence cycle merely because budget remains.
+The synthesis must preserve the DoorDash and Tattle permission/deal paths
+without counting either as coverage.
 
 DL-002 makes raw Customer-photo recovery less attractive as the immediate next
 step because all 100 Customer evidence photos in the packet lacked an

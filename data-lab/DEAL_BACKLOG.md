@@ -99,9 +99,11 @@ access and downstream rights are separately established.
 ## Tattle — Transaction-Triggered Customer Photo Partnership
 
 **Readiness:** Highest-priority Customer opportunity, but still behind a
-documentary schema-and-rights gate. Cycle 8 is selected but not started. It is
-not ready for outreach from the DataLab; Kyle or the main thread must explicitly
-authorize human contact.
+documentary schema-and-rights gate. Cycle 8 closed access-blocked: official
+contact channels exist, but no controller-authorized packet or verified
+SeeFood sender exists. It is not ready for outreach from the DataLab; only Kyle
+or a verified SeeFood representative may explicitly authorize and make human
+contact.
 
 **Technical value:** Potentially High. Tattle already documents the difficult
 building blocks: post-transaction SMS/email surveys, ordered-item context,
@@ -109,6 +111,12 @@ item-level feedback, an optional guest meal-photo upload, API access, advanced
 exports, 34+ named integrations, 250+ brands, and a claimed 15,000+ locations.
 Public evidence does not show that the uploaded photo is attached to one exact
 order line, exportable with that relationship, or reusable by SeeFood.
+
+Cycle 8 also confirmed that preserved evidence contains no deletion-state
+contract, 1,000-prompt aggregate, 35-photo/10-location fixture, valid-upload
+conversion, Management-counterpart overlap, national unique-location yield, or
+economics. General survey participation, API/export capability, and platform
+footprint cannot substitute for those units.
 
 **Controllers:** Tattle plus the participating restaurant or brand, which
 Tattle's public privacy materials describe as controller for survey feedback.

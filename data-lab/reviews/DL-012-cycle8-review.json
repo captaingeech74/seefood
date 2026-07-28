@@ -1,0 +1,84 @@
+{
+  "experiment_id": "DL-012",
+  "cycle": 8,
+  "reviewer_roles": [
+    "DataLab Lead",
+    "Benchmark Guardian",
+    "Adversarial Verifier"
+  ],
+  "decision": "Revise / access-blocked",
+  "verdict": "Needs a decision",
+  "hypothesis_passed": false,
+  "stop_gate_triggered": true,
+  "safety": {
+    "network_requests": 0,
+    "outreach_messages": 0,
+    "forms_submitted": 0,
+    "credentials_used": false,
+    "production_access": false,
+    "personal_data_received": false,
+    "money_cost_usd": 0,
+    "connected_gmail_used": false,
+    "impersonation_or_demo_identity_used": false
+  },
+  "access_facts": {
+    "official_contact_channels_verified_by_main": true,
+    "controller_authorized_packet_available": false,
+    "connected_outbound_identity_is_kyle": false,
+    "connected_outbound_identity_is_verified_seefood_business": false,
+    "verified_real_seefood_sender_in_repository": false,
+    "datalab_contact_authorized": false
+  },
+  "public_capabilities_preserved": {
+    "transaction_triggered_surveys": true,
+    "order_contextual_item_feedback": true,
+    "optional_meal_photo_upload": true,
+    "general_api_or_advanced_export_capability": true,
+    "claimed_national_platform_footprint": true
+  },
+  "required_gate_results": {
+    "exact_photo_to_order_line_binding": "unresolved",
+    "multi_item_disambiguation": "unresolved",
+    "supported_photo_export_payload": "unresolved",
+    "participating_controller_authority_for_seefood": "unresolved",
+    "customer_rights_for_seefood": "unresolved",
+    "deletion_propagation": "unresolved",
+    "aggregate_already_sent_prompts_at_least_1000": "absent",
+    "blinded_historical_photos_at_least_35": "absent",
+    "distinct_locations_at_least_10": "absent",
+    "valid_upload_conversion": "unmeasured",
+    "exact_strong_item_precision": "unmeasured",
+    "wilson_lower_bound": "unmeasured",
+    "management_counterpart_overlap": "unmeasured",
+    "duplicate_and_wrong_restaurant_rate": "unmeasured",
+    "national_unique_location_comparison_yield": "unmeasured",
+    "economics": "unmeasured"
+  },
+  "adversarial_corrections": [
+    "Survey participation is not photo-upload or valid-upload conversion.",
+    "Transaction and item-feedback context do not prove that the uploaded photo depicts one exact order line.",
+    "General API/export capability does not prove that photos and deletion state are exportable.",
+    "A participating restaurant being controller does not prove authority or Customer consent for SeeFood retention, pairing, display, derived labels, sublicensing, or deletion propagation.",
+    "A claimed platform footprint is not a measured unique-location comparison yield.",
+    "Projected uploads and public capability claims do not satisfy Go or Conditional Go."
+  ],
+  "coverage_improvement": 0,
+  "valid_customer_uploads": 0,
+  "auditable_customer_records": 0,
+  "prompt_denominator_supplied": 0,
+  "national_yield_estimate": null,
+  "confidence": {
+    "public_product_capability": "high",
+    "absence_of_controller_packet": "high",
+    "exact_item_binding": "none",
+    "seefood_rights": "none",
+    "real_yield_and_economics": "none"
+  },
+  "technical_value": "Potentially High, inferred",
+  "access_posture": "Commercial/custom permission required from Tattle and participating controller, plus Customer consent",
+  "access_action": "Pursue permission only through a verified SeeFood representative",
+  "finish_line_threshold_changed": false,
+  "finish_line_movement": "No controller packet or real yield exists; Cycle 9 must synthesize the portfolio without counting Tattle as coverage.",
+  "cycle9_selection": "Final portfolio synthesis",
+  "cycle9_started": false
+}

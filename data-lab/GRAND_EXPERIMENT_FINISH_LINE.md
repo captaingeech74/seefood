@@ -2,7 +2,7 @@
 
 ## Current Position
 
-The grand experiment has established three facts:
+The grand experiment has established four facts:
 
 1. SeeFood's verified comparison baseline is zero, despite six production SQL
    claims.
@@ -14,6 +14,9 @@ The grand experiment has established three facts:
 3. First-party Customer contribution is mechanically plausible, but DL-007 is
    closed as not pilot-ready. Cycle 6 fixed database/runtime parity but failed
    the fixed route-retry and every-gate terminal-evidence requirements.
+4. Tattle remains a credible Customer-photo partnership concept, but Cycle 8
+   found no controller packet, verified SeeFood sender, exact photo-line
+   binding, photo export/rights/deletion proof, or real yield evidence.
 
 This is promising evidence, not yet a defensible go or no-go conclusion.
 
@@ -28,13 +31,11 @@ complete; the remaining likely path is:
 2. **Cycle 7 — complete, stopped:** the selected Pacific packet retained strong
    item precision, but no national replay corpus exists. DL-014 is preserved
    behind a written-permission or founder-boundary decision.
-3. **Cycle 8 — selected, not started:** DL-012's controller-authorized Tattle
-   schema/rights/yield gate is the only complementary Customer-side evidence
-   still capable of changing the portfolio decision. Human contact requires
-   explicit authorization. If no qualifying packet is available, skip Cycle 8
-   execution rather than substituting projections.
-4. **Cycle 9 — final portfolio decision:** issue a go, conditional-go, or
-   no-go decision.
+3. **Cycle 8 — complete, access-blocked:** no controller-authorized Tattle
+   packet or verified SeeFood sender exists. Public capability evidence did not
+   satisfy any binding, rights, deletion, or real-yield gate.
+4. **Cycle 9 — selected, not started:** issue a Go, Conditional Go, or No-Go /
+   Redirect decision from completed evidence only.
 
 Cycle 10 is unallocated reserve. Use it only if Cycles 7 or 8 expose one
 specific, bounded uncertainty capable of changing the final decision. Do not
