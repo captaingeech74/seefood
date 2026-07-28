@@ -377,6 +377,23 @@ function locatorKeys(photo) {
     .filter((value, index, all) => all.indexOf(value) === index);
 }
 
+function recordedHttpLocators(photo) {
+  return [
+    photo.origin_url,
+    ...photo.origins.map((origin) => origin.originUrl),
+  ]
+    .filter((value) => /^https:\/\//iu.test(value || ""))
+    .filter((value) => {
+      try {
+        const host = new URL(value).hostname.toLowerCase();
+        return !["maps.googleapis.com", "places.googleapis.com"].includes(host);
+      } catch {
+        return false;
+      }
+    })
+    .filter((value, index, all) => all.indexOf(value) === index);
+}
+
 function createR2Reader() {
   const required = [
     "R2_ACCOUNT_ID",
@@ -426,13 +443,41 @@ async function dHash64(bytes) {
 }
 
 async function renderStoredEvidence(photo, target, readR2) {
-  if (!readR2) {
-    return { accessible: false, reason: "r2_read_configuration_unavailable" };
-  }
   const errors = [];
-  for (const key of locatorKeys(photo)) {
+  const candidates = [
+    ...locatorKeys(photo).map((key) => ({
+      mechanism: "existing_r2_object_read",
+      locatorHash: sha256(`r2|${key}`),
+      read: async () => {
+        if (!readR2) throw new Error("r2_configuration_unavailable");
+        return readR2(key);
+      },
+    })),
+    ...recordedHttpLocators(photo).map((locator) => ({
+      mechanism: "existing_recorded_source_http_read",
+      locatorHash: sha256(`http|${locator}`),
+      read: async () => {
+        const response = await fetch(locator, {
+          redirect: "follow",
+          signal: AbortSignal.timeout(15_000),
+          headers: { "user-agent": "SeeFood-DL002-Stage2/1.0" },
+        });
+        if (!response.ok) throw new Error(`http_${response.status}`);
+        const declared = Number(response.headers.get("content-length") || 0);
+        if (declared > 15 * 1024 * 1024) {
+          throw new Error("http_object_too_large");
+        }
+        const bytes = Buffer.from(await response.arrayBuffer());
+        if (bytes.length > 15 * 1024 * 1024) {
+          throw new Error("http_object_too_large");
+        }
+        return bytes;
+      },
+    })),
+  ];
+  for (const candidate of candidates) {
     try {
-      const original = await readR2(key);
+      const original = await candidate.read();
       const metadata = await sharp(original).metadata();
       if (!metadata.width || !metadata.height) {
         throw new Error("stored bytes did not decode");
@@ -450,7 +495,8 @@ async function renderStoredEvidence(photo, target, readR2) {
       await writeFile(target, rendered);
       return {
         accessible: true,
-        mechanism: "existing_r2_object_read",
+        mechanism: candidate.mechanism,
+        locatorSha256: candidate.locatorHash,
         originalSha256: sha256(original),
         renderedSha256: sha256(rendered),
         renderedBytes: rendered.length,
@@ -462,15 +508,15 @@ async function renderStoredEvidence(photo, target, readR2) {
         computedDHash64: await dHash64(normalized),
       };
     } catch (error) {
-      errors.push(error.message);
+      errors.push(String(error.message || "read_error").slice(0, 80));
     }
   }
   return {
     accessible: false,
-    reason: locatorKeys(photo).length
-      ? "stored_r2_object_unavailable"
-      : "no_existing_r2_object_locator",
-    attemptedStoredObjects: locatorKeys(photo).length,
+    reason: candidates.length
+      ? "existing_recorded_image_unavailable"
+      : "no_existing_recorded_image_locator",
+    attemptedRecordedLocators: candidates.length,
     errorClasses: [...new Set(errors)],
   };
 }
@@ -552,9 +598,10 @@ function sanitizePhoto(row, entityOpaqueId) {
       distinctOriginUrlCount: row.distinct_origin_url_count,
       sourceCount: row.origin_source_count,
     },
-    accessibilityEvidence: locatorKeys(row).length
-      ? "existing_r2_locator_present"
-      : "no_existing_r2_locator",
+    accessibilityEvidence:
+      locatorKeys(row).length + recordedHttpLocators(row).length > 0
+        ? "existing_recorded_locator_present"
+        : "no_existing_recorded_locator",
   };
 }
 
@@ -1263,9 +1310,9 @@ only registered public-ID SHA-256 values. The clear national manifest, names,
 locations, and selection seed were not accessed.
 
 All production queries ran inside one REPEATABLE READ READ ONLY transaction
-ending in ROLLBACK. Missing images were not downloaded from providers. Only
-already stored R2 objects were read; missing stored evidence is marked
-unverifiable.
+ending in ROLLBACK. No missing evidence was discovered or fetched. The exporter
+read only already-recorded R2 or direct source-image locators, without paid API
+calls; unavailable recorded evidence is marked unverifiable.
 
 All coverage and comparison fields are claimed, not verified. DataLab and its
 Benchmark Guardian must perform the blind claimed-versus-verified evaluation.
