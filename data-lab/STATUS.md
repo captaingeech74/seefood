@@ -6,20 +6,32 @@
 
 ## Current Phase
 
-DL-001 completed a valid calibration. DL-002 is active. Its official Temecula
-boundary and independent Riverside County permit candidate/status frame are
-frozen. The sanitized Stage 1 read-only handoff is now present at
-`raw/baseline/DL-002/main-thread-stage1/`. Its manifest, mirror, redaction
-scans, and forced-read-only transaction proof pass. It contains 796 SeeFood,
-312 OpenStreetMap, and 425 Overture Temecula rows plus 1,727 Guardian-only
-national candidates. Restaurant reconciliation and the hidden national
-holdout remain DataLab work.
+DL-001 completed a valid calibration. DL-002 Stage 1 is accepted and Stage 2 is
+next. The forced-read-only bundle passed its hashes, redaction, transaction,
+stable-ID, and boundary checks.
+
+The frozen Temecula development cohort contains 396 independently reviewed
+active provider identities. It excludes 241 unknown-status identities and one
+unresolved active co-location; one confirmed closure is kept separately. The
+county permit challenge does not enlarge the cohort: among 100 frozen review
+records, 48 were likely genuine provider omissions/status candidates, 20 were
+already provider-represented, eight were likely ineligible, and 24 remained
+unresolved.
+
+The Guardian froze 120 hidden national records plus 12 direct replacements.
+Every hard geography, market, business-form, status, and brand rule passes.
+No clear national identity or seed is committed or available to the evidence
+exporter; only registered public-ID hashes may be used for Stage 2.
 
 Founder priority correction: website strength, exact cuisine balance,
 food-truck/nontraditional subtypes, ghost-kitchen classification, and restaurant
 opening date/recency are optional context, not benchmark quotas or stop
 conditions. The benchmark and DL-002 handoff now apply that rule to every
 worker and reviewer.
+
+No coverage improved in Stage 1. It established trustworthy measurement
+cohorts; it did not create a menu, photo, strong match, or new production
+record.
 
 ## Current Goal
 

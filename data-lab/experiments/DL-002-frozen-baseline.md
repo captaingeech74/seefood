@@ -77,34 +77,71 @@ requirement to export evidence for records that do not yet exist as a cohort.
 
 ## Result
 
-DL-002 is reproducibly prepared but not complete. The city boundary and
-independent local candidate/status frame are frozen. The reconciled restaurant
-cohort, provider union, hidden national holdout, evidence packet, and baseline
-metrics are not frozen.
+Stage 1 is accepted. Stage 2 evidence and baseline metrics remain pending.
+
+The corrected read-only bundle passed every mechanical input gate:
+
+- manifest hashes and redaction checks passed;
+- the database proof used `REPEATABLE READ READ ONLY`, verified
+  `transaction_read_only=on`, recorded unchanged WAL positions, and rolled
+  back;
+- all selectable records used stable public/provider IDs rather than internal
+  UUIDs;
+- all Temecula coordinates fell inside the locked city polygon; and
+- the bundle contained 796 SeeFood, 312 OpenStreetMap, 425 Overture, and 1,727
+  Guardian-only national candidate rows.
+
+The Temecula reconciliation produced 639 provider identity clusters. An
+independent Adversarial Verifier:
+
+- audited all 260 automatic cross-source merges and found zero obvious errors
+  (95% Wilson lower bound 98.5%);
+- supplied 20 additional merge groups covering 55 provider records;
+- verified the resulting 397 open candidates, 241 unknown-status
+  identity-only candidates, and one closure;
+- identified one unresolved active co-location, which was excluded; and
+- left a frozen 396-record active development cohort plus the separate closure
+  ledger.
+
+The independent county omission challenge froze 100 reviewed records: 48
+likely genuine provider omissions/status candidates, 20 already represented,
+eight likely ineligible, and 24 unresolved. County rows were not added to the
+cohort and do not count as restaurants or coverage.
+
+The Benchmark Guardian normalized the national candidate frame to 1,464
+eligible rows and froze 120 hidden records plus 12 direct replacements. The
+holdout exactly satisfies every registered hard market, census-division,
+business-form, operating-status, brand-cap, and same-brand-distance rule. It
+contains no unknown hard assignment. The seed and clear identities remain
+ignored and private. `NATIONAL_HOLDOUT_LOCK.md` records the aggregate design,
+portable recipe, and cryptographic commitments without unblinding it.
 
 No coverage metric improved. No restaurant, raw record, or image is counted as
-new coverage.
+new menu, Management-photo, Customer-photo, or comparison coverage.
 
 ## Decision
 
-**Continue only after the read-only handoff.**
+**Continue to DL-002 Stage 2.**
 
-Do not start DL-004, DL-007, DL-012, or a Management connector until the
-accepted bundle freezes both cohorts and establishes the baseline. The permit
-frame does not become a census until reconciliation and eligibility review
-remove non-restaurants and resolve duplicates.
+The main SeeFood thread should export Stage 2 evidence for only the 120 selected
+and 12 alternate public-ID hashes in the Guardian's ignored handoff. The clear
+holdout manifest must remain unavailable to the exporter and the Lead until
+the Guardian freezes blind evidence decisions.
+
+Do not start DL-004, DL-007, DL-012, or a Management connector until Stage 2
+establishes the claimed-versus-verified baseline.
 
 ## Cost And Impact
 
-$0. One 9.4 MB official Census archive, one 47 KB single-feature TIGERweb
-response, and one 535 KB/979-row county permit response were downloaded to
-ignored lab storage. There was no production read or write, paid provider
+$0 incremental money. Stage 1 used the already prepared bounded read-only
+bundle and local Node scripts. There was no production write, paid provider
 query, model call, paid quota, account, crawl, outreach, deployment,
 infrastructure change, push, or merge.
 
 ## Next Action
 
-The main SeeFood thread should generate the exact sanitized bundle in
-`DL002_INPUT_HANDOFF.md`. The DataLab will reconcile the provider inputs with
-the county frame. It will validate the national bundle before inspecting any
-clear cohort records; the Guardian will own the national IDs and secret seed.
+The main SeeFood thread should generate the exact Stage 2 sanitized evidence
+bundle in `DL002_INPUT_HANDOFF.md`, using only
+`raw/holdout/national-v1-stage2-hashes.json` for national selection. The
+Guardian remains the only role allowed to inspect the hidden national IDs
+before blind evaluation is complete.
