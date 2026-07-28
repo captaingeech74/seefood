@@ -9,24 +9,24 @@ The grand experiment has established three facts:
 2. The selected DoorDash-heavy Management packet has excellent item-to-photo
    alignment, but national yield, original provenance, and display rights are
    not proved.
-3. First-party Customer contribution is mechanically plausible, but DL-007 has
-   not produced one valid behavioral result because treatment stayed off and
-   its final runtime contract disagreed with the database.
+3. First-party Customer contribution is mechanically plausible, but DL-007 is
+   closed as not pilot-ready. Cycle 6 fixed database/runtime parity but failed
+   the fixed route-retry and every-gate terminal-evidence requirements.
 
 This is promising evidence, not yet a defensible go or no-go conclusion.
 
 ## Remaining Decision Budget
 
 Kyle authorized at most five additional major main-thread/DataLab cycles.
-DataLab does **not** currently see five mandatory evidence cycles. The likely
-path is two evidence cycles plus one final synthesis after Cycle 6:
+DataLab does **not** currently see five mandatory evidence cycles. Cycle 6 is
+complete; the remaining likely path is:
 
-1. **Cycle 6 — measurement readiness:** repair and independently prove the
-   existing first-party contribution measurement contract.
-2. **Cycle 7 — highest remaining real evidence:** either Customer behavior
-   falsification after Cycle 6 passes and a live treatment is separately
-   authorized, or a nationally stratified Management-source ceiling after its
-   access boundary is authorized.
+1. **Cycle 6 — complete, failed:** parity passed, but the exact retry and
+   terminal state-machine evidence gate did not. DL-007 is closed.
+2. **Cycle 7 — highest remaining authorized real evidence:** inspect only
+   already-stored DL-014 DoorDash replays and existing sanitized evidence to
+   decide whether a separately authorized national Management-source ceiling
+   test is worth requesting. This does not authorize live retrieval.
 3. **Cycle 8 — complementary evidence, only if decision-changing:** test the
    other side of the portfolio only when it can still change the outcome.
 4. **Cycle 9 — final portfolio decision:** issue a go, conditional-go, or
@@ -38,8 +38,9 @@ invent work to consume it.
 
 ## Early Stops
 
-- If Cycle 6 fails its exact predeclared parity/state-machine gate, close
-  DL-007 as not pilot-ready. Do not run another repair cycle.
+- Cycle 6 failed its exact predeclared parity/state-machine gate. DL-007 is
+  closed as not pilot-ready; no further repair cycle or treatment is
+  authorized.
 - If a Customer-behavior cycle reaches its bound and fails the behavioral
   floor, reject the organic in-app contribution flywheel as the primary
   Customer strategy.

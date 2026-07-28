@@ -8,13 +8,13 @@
 
 Kyle authorized no more than five additional major main-thread/DataLab cycles,
 with an early stop when the grand experiment reaches a defensible conclusion.
-DataLab does not see five mandatory cycles. The concrete plan is Cycle 6
-measurement readiness, Cycle 7 for the highest remaining authorized real
-evidence, conditional Cycle 8 for complementary evidence only if it can change
-the decision, and Cycle 9 final portfolio synthesis. Cycle 10 is reserve only
-and must resolve one specific decision-changing uncertainty.
+DataLab does not see five mandatory cycles. Cycle 6 measurement readiness is
+complete and failed. Cycle 7 is selected for the highest remaining authorized
+real evidence, Cycle 8 remains conditional on decision-changing complementary
+evidence, and Cycle 9 remains the final portfolio synthesis. Cycle 10 is
+reserve only and must resolve one specific decision-changing uncertainty.
 
-The finish line is now fixed in `GRAND_EXPERIMENT_FINISH_LINE.md`. A Go requires
+The finish line is fixed in `GRAND_EXPERIMENT_FINISH_LINE.md`. A Go requires
 either a Management path projected to add at least 20 percentage points of
 national current-menu-plus-strong-photo coverage at at least 95% item precision
 with a 95% Wilson lower bound of at least 90%, or a real Customer treatment
@@ -23,20 +23,40 @@ same precision bound, and scalable economics. A smaller 10–34-upload Customer
 result or a technically strong permission gate may support Conditional Go only
 under the exact qualifications recorded in the finish-line document.
 
-Cycle 6 reopens DL-007 once because its remaining defects are concrete,
-repairable, and block the fastest decision-relevant test: actual Customer
-behavior. Tattle/Ovation, DoorDash national yield, and merchant APIs remain
-high-potential, but their next meaningful steps require separate live-source,
-controller, or merchant authorization. Synthetic work would not change the
-decision.
+Cycle 6 is complete and **failed its predeclared hard exit gate**. DL-007 is
+closed as not pilot-ready with no further repair cycle. Treatment remains
+disabled.
 
-The bounded main-thread handoff is `CYCLE6_MAIN_HANDOFF.md`. It requires true
-database-to-live-runtime parity, retry rotation, assertion-level adversarial
-tests, and explicit reconciliation evidence. Treatment remains disabled.
-Failure closes DL-007 without another repair cycle; success only permits
-consideration of a separately authorized Cycle 7. Cycle 7 has not started.
+The implementation fixed the Stage 5 runtime key and parity method. DataLab
+independently replayed the exact live adapter across all 5,204 sanitized
+database contracts and found zero mismatches. A fresh checkout passed 90/90
+unit/application tests, TypeScript, an inert production build, and the supplied
+33-assertion isolated PostgreSQL runner.
 
-DL-007 has completed its fifth and final authorized cycle. Push 5 is
+The required adversarial evidence is nevertheless incomplete. No test invokes
+either contribution API route. Retry tests call a pure Boolean helper but do
+not exercise the cached-attempt map or prove that every local/server failure
+causes a newly generated attempt ID. The database retry label is backed by two
+preselected UUID inserts. The every-gate loop checks contract eligibility but
+does not run terminal review and assert both `comparison_ready` and
+`verified_comparison_created` absence for every failed behavioral and gold
+gate. The hard gate did not allow those cases to be inferred from adjacent
+tests.
+
+The Cycle 6 bundle is clean, but its actual behavioral aggregate is 4,186
+candidates across 59 restaurants, not the main summary's stale 4,004 across
+57. Gold candidates, real attempts, receipts, conversions, new comparison
+dishes, and verified coverage improvement all remain zero. Cost was $0.
+
+Cycle 7 selects DL-014's stored-replay and existing-evidence preflight because
+it is the highest-ranked remaining path with an authorized real-evidence first
+step. DL-012 remains the leading Customer-channel opportunity but requires
+explicit controller-contact authorization. Cycle 7 has not started; no
+main-thread handoff was created, and no live DoorDash request or bot-control
+boundary change is authorized.
+
+Before the bounded Cycle 6 reopening, DL-007 had completed its fifth authorized
+stage. Push 5 was
 `Revise / run closed`; treatment remains disabled and no Push 6 is requested.
 
 The Stage 5 bundle is internally clean: 5,204 canonical roster rows across 71
@@ -567,17 +587,18 @@ merges.
 
 ## Next Action
 
-Run DL-007 next: a read-only audit of SeeFood's existing contribution funnel
-and a paper experiment for targeted Management and Customer prompts. This is
-the highest-value work that can proceed without vendor contact, credentials,
-production changes, or a policy expansion.
+Do not run another DL-007 repair or enable its treatment.
 
-Keep two DoorDash decisions separate from that work: whether to send the
-prepared bespoke-data documentary request, and whether to authorize a bounded
-live scraping feasibility test that encounters bot controls. Neither decision
-should delay DL-007.
+Cycle 7 is selected but not started: inventory and evaluate only already-stored
+DoorDash replays and existing sanitized evidence for DL-014. The purpose is to
+decide whether the evidence is sufficient to justify requesting a separately
+authorized nationally stratified Management-source ceiling test. Do not issue a
+live store request, use credentials, encounter or evade bot controls, access
+production or the hidden holdout, download new images, or create a synthetic
+coverage result.
 
 ## Kyle Needs To Do
 
-Nothing for DL-007. Later, decide separately on DoorDash outreach and the live
-scraping-test boundary.
+Nothing to close DL-007 or record Cycle 7 selection. A future live DL-014 step
+would require Kyle's separate bot-control-boundary decision or written
+DoorDash consent; the stored-evidence preflight does not.

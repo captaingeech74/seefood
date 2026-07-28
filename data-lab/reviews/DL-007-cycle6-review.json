@@ -1,0 +1,68 @@
+{
+  "experiment_id": "DL-007",
+  "cycle": 6,
+  "reviewer_roles": [
+    "DataLab Lead",
+    "Benchmark Guardian",
+    "Adversarial Verifier"
+  ],
+  "decision": "Reject as not pilot-ready and close DL-007",
+  "verdict": "Promising but unproven",
+  "exit_gate_passed": false,
+  "integrity": {
+    "sha256sums_hash": "b13882a2bec706e11cb91104ff2366059bda754556c7d000023db4fd617fb524",
+    "all_listed_hashes_passed": true,
+    "exporter_commit": "42cccfff640570f2b22c68b84dbc36754916ed19",
+    "read_only_repeatable_read_and_rollback_evidence": true,
+    "redaction_review_passed": true,
+    "hidden_holdout_accessed": false
+  },
+  "reproduced": {
+    "roster_rows": 5204,
+    "restaurants": 71,
+    "entities": 71,
+    "behavioral_candidates": 4186,
+    "behavioral_candidate_restaurants": 59,
+    "gold_candidates": 0,
+    "database_live_adapter_mismatches": 0,
+    "selector_reconciliation_rows": 0,
+    "contribution_attempts": 0,
+    "contribution_receipts": 0,
+    "unit_application_tests_passed": 90,
+    "unit_application_tests_total": 90,
+    "isolated_database_assertion_labels_passed": 33,
+    "isolated_database_assertion_labels_total": 33
+  },
+  "accepted_improvements": [
+    "Runtime reads the database behavioral key through the same fail-closed adapter used by the exporter.",
+    "The exact adapter reproduced all 5204 sanitized database decisions with zero mismatches.",
+    "Fresh unit, TypeScript, inert-build, and isolated-PostgreSQL checks passed.",
+    "Treatment, conversion claims, and coverage claims remain disabled.",
+    "The bundle passed integrity, rollback, aggregate-geography, and redaction review."
+  ],
+  "blocking_findings": [
+    "The supplied main summary says 4004 behavioral candidates across 57 restaurants, but the Cycle 6 roster independently contains 4186 across 59.",
+    "No test imports or invokes either contribution API route.",
+    "Retry tests call only a pure boolean helper and never exercise the cached-attempt map or prove a newly generated UUID after a local or server non-OK failure.",
+    "The isolated database retry label is backed only by inserting two preselected different UUID literals.",
+    "The every-gate loop proves contract eligibility fails closed but does not run terminal review and assert both comparison_ready absence and verified_comparison_created absence for every failed behavioral and gold gate."
+  ],
+  "independent_checks": {
+    "bundle_hashes": "passed",
+    "sanitized_contract_replay": "5204 passed with exact supplied runtime adapter",
+    "tests": "90 passed in a fresh locked-dependency detached checkout",
+    "typecheck": "passed with locked dependencies",
+    "production_build": "passed with inert placeholder environment values",
+    "isolated_database": "33 supplied assertions reproduced in a fresh disposable PostgreSQL 16 database",
+    "source_review": "runtime, client, routes, migrations, exporter, and tests inspected"
+  },
+  "coverage_improvement": 0,
+  "money_cost_usd": 0,
+  "production_impact_by_datalab": "none",
+  "treatment_authorized": false,
+  "live_pilot_authorized": false,
+  "further_dl007_repair_authorized": false,
+  "cycle7_selected": "DL-014 stored-replay and existing-evidence preflight",
+  "cycle7_started": false,
+  "cycle7_main_thread_handoff_created": false
+}
