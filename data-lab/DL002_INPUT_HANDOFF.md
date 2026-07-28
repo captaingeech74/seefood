@@ -87,7 +87,7 @@ Exclude owner names, contributor identifiers, emails, phone numbers, permit
 holder details, free-text inspection narratives, and private contacts.
 
 Cap the reconciled selectable Temecula frame at 500 restaurants. If the union
-exceeds 500, keep all ambiguous, closure, truck, ghost, duplicate, and
+exceeds 500, keep all ambiguous, closure, truck, duplicate, and
 independent-frame-only rows, then deterministically select ordinary rows by
 ascending `SHA-256("DL-002-TEM-2026-07-27" || stableExternalId)`. Report the
 full pre-cap counts by source and overlap.
@@ -97,8 +97,8 @@ Also create:
 - `temecula-reconciliation.jsonl`, one row per proposed location cluster with
   every source ID, match evidence, distance, name/address scores, proposed
   inclusion, business type, status, and ambiguity flags;
-- `temecula-review-roster.json`, containing 100% of ambiguous, truck, ghost,
-  closure, and duplicate decisions plus the deterministic 10% ordinary review
+- `temecula-review-roster.json`, containing 100% of ambiguous, truck, closure,
+  and duplicate decisions plus the deterministic 10% ordinary review
   sample; and
 - `temecula-source-summary.json`, containing source counts, overlap counts,
   exclusions, pre/post-cap counts, observation times, licenses, and hashes.
@@ -124,10 +124,9 @@ Each row must have:
 - `marketSize`: `top20`, `otherTop50`, `msa51_387`, `micropolitan`, or
   `noncore`;
 - `businessForm`: `chain`, `singleIndependent`, `smallMulti`, `foodTruck`,
-  `ghostKitchen`, or `nontraditional`;
+  `nontraditional`, or `otherEligible`;
 - `webStrength`: `structured`, `orderingOnly`, `weakPdfSocial`, or `none`;
-- `lifecycle`: `stableOpen`, `newWithin12Months`, or
-  `closedMovedReplaced`;
+- `sourceStatus`: `openOrderable`, `closedMovedReplaced`, or `unknown`;
 - exactly one of the 12 registered cuisine groups;
 - one Census division;
 - normalized brand key;
@@ -135,10 +134,13 @@ Each row must have:
   duplicate-group fields; and
 - field-level evidence and `verified`, `inferred`, or `unknown` confidence.
 
-Unknown values cannot satisfy a quota. Do not invent truck, ghost, lifecycle,
-website, cuisine, or market assignments. The frame must contain enough
-verified candidates to satisfy every published quota and yield 24 feasible
-alternates. If it does not, stop and report the exact deficient cells.
+Unknown values cannot satisfy a published quota. Do not invent truck, status,
+website, cuisine, or market assignments. Ghost/virtual classification and
+opening date/recency are optional context only, carry no quota, and may remain
+unknown. The frame must contain enough verified or source-evidenced inferred
+candidates to satisfy every published quota and yield 24 feasible alternates;
+the Guardian independently reviews inferred assignments before lock. If it
+does not, stop and report the exact deficient cells.
 
 The Guardian, not the exporter, creates the secret seed, seed commitment,
 selection ranks, 120-record holdout, and 24 alternates. The exporter must not

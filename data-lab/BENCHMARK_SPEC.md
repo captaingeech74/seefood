@@ -156,8 +156,9 @@ neither defines the census.
 
 Include active customer-facing restaurants, cafes, bakeries, bars with a food
 menu, winery/brewery kitchens, food-hall stalls, stable public food-truck
-locations, and distinct local ghost/virtual brands whose service point lies
-inside the polygon.
+locations, and other distinct publicly orderable food businesses whose service
+point lies inside the polygon. Ghost/virtual classification is optional and is
+never required for inclusion.
 
 Exclude grocery/convenience retail without a prepared-food restaurant, private
 clubs without public ordering, catering-only businesses without public service,
@@ -206,30 +207,31 @@ cohort selection until that ID is established.
 
 Temecula is visible to connector workers and may be optimized.
 
-Before lock, independently second-review 100% of ambiguous, truck, ghost,
-closure, and duplicate decisions plus a deterministic 10% sample of ordinary
-rows.
+Before lock, independently second-review 100% of ambiguous, truck, closure, and
+duplicate decisions plus a deterministic 10% sample of ordinary rows.
 
 ## Locked National Holdout
 
 ### Size And Orthogonal Margins
 
 Freeze 120 unique records: 108 open/orderable locations in the content
-denominator and 12 recent closure/move/replacement sentinels scored for status
-accuracy.
+denominator and 12 confirmed closure/move/replacement sentinels scored for
+status accuracy. No opening date or opening-recency evidence is required.
 
 | Axis | Required distribution |
 |---|---|
 | Market size | 36 top-20 MSA, 30 other top-50 MSA, 24 MSA ranks 51-387, 18 micropolitan, 12 noncore rural |
-| Business form | 30 national/large regional chain, 48 single-location independent, 12 small multi-location, 12 food trucks, 12 ghost kitchens, 6 nontraditional venues |
+| Business form | Minimums: 30 national/large regional chain, 48 single-location independent, 12 small multi-location, 12 food trucks, and 6 nontraditional venues; the remaining 12 records are unrestricted eligible businesses |
 | Web strength | 30 structured first-party, 30 ordering-platform-only, 30 weak/PDF/social-only, 30 with no discoverable website |
-| Lifecycle | 96 stable open, 12 opened within 12 months, 12 recently closed/moved/replaced |
+| Operating status | 108 open/orderable and 12 confirmed closed/moved/replaced; opening date and recency are not stratification fields |
 | Cuisine | 10 each: American/comfort; Mexican/Latin American; Italian/European; Chinese/Taiwanese; Japanese/Korean; Southeast Asian; South Asian; Middle Eastern/Mediterranean; African/Caribbean; barbecue/soul/Cajun; cafe/bakery/dessert; vegetarian/health/specialty |
 | Census geography | New England 10, Middle Atlantic 14, East North Central 14, West North Central 10, South Atlantic 18, East South Central 8, West South Central 14, Mountain 14, Pacific 18 |
 
 Business form and cuisine use one primary assignment per location so totals
-cannot be inflated through overlapping labels. Limit any brand to two
-geographically separated locations. The selection log records ambiguous cases.
+cannot be inflated through overlapping labels. Ghost/virtual status may be
+recorded when already known but has no quota and may remain unknown. Limit any
+brand to two geographically separated locations. The selection log records
+ambiguous cases.
 
 ### Candidate Frame And Deterministic Selection
 

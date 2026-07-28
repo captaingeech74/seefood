@@ -35,6 +35,15 @@ case. Prioritize only opportunities with a credible path to materially
 transform national coverage. Never promote a Temecula-only optimization as a
 game changer.
 
+Do not make optional descriptive data a prerequisite for useful work. Ghost
+kitchen classification and restaurant opening dates/recency are explicitly
+optional: never block a cohort, bundle, experiment, or recommendation because
+they are missing. When known they may be retained as context, but they carry no
+quota and unknown values are acceptable. Apply the same product-value test to
+future fields: a hard requirement must materially protect restaurant identity,
+current menu/photo coverage, comparison validity, rights, safety, or national
+generalizability.
+
 Use `raw/`, `artifacts/`, and `tmp/` for generated data. These paths are ignored.
 Never commit credentials, session data, personal data, or large downloaded
 corpora.

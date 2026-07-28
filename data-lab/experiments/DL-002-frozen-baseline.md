@@ -58,6 +58,12 @@ No local authorized national candidate snapshot contains the registered
 stratification fields. Therefore the Guardian could not honestly freeze the
 120-record holdout from current local files.
 
+The founder subsequently removed two artificial requirements: ghost-kitchen
+classification and opening date/recency are optional context and may not block
+DL-002 or any later experiment. Business-form quotas now leave 12 records
+unrestricted, and the status margin is simply 108 open/orderable locations plus
+12 confirmed closure/move/replacement sentinels.
+
 ## Result
 
 DL-002 is reproducibly prepared but not complete. The city boundary and
