@@ -6,9 +6,36 @@
 
 ## Current Phase
 
-DL-007 Stage 1 completed the first-party contribution-funnel audit. The
-sanitized read-only bundle passed all integrity and redaction checks, but it
-found zero creditable real Customer-photo contributions and zero restaurants
+DL-007 Stage 2 independently verified the passive known-dish measurement and
+submission foundation deployed by the main thread. The sanitized bundle passed
+all integrity checks. New known-dish submissions now carry a stable menu-item
+field, UUID attempt, versioned display consent, server receipts, and
+pending/inactive/nonpublic review state. The treatment remains disabled.
+
+The target roster contains 5,048 mechanically selected dish candidates across
+69 restaurants but zero qualified targets. Every candidate fails the stored
+Management-rights gate. Exactly 4,876 candidates across 67 restaurants fail
+only that recorded gate under the exporter's other database tests. This is a
+large possible inventory, not verified prompt eligibility or coverage: menu
+freshness/orderability, Management provenance, duplicate review, and the chosen
+photo were not independently evidenced, and no images were supplied.
+
+Activation remains unsafe. Upload replay does not enforce the attempt's
+original restaurant/menu-item binding; `eligible_prompt_impression` does not
+require a qualified target; staff exclusion remains unverified; several
+failure/cancellation receipts are incomplete; receipt upserts can overwrite
+their first observation; and no implemented review transition can record a
+completed verified comparison. The consent text is display-scoped and must not
+be represented as broader derivative or model rights.
+
+DL-007 remains `Revise`. Push 3 must harden these mechanics, separate
+behavioral-prompt candidates from gold comparison candidates, and provide a
+blind bounded evidence audit of at most 100 rights-only candidates. No
+conversion or coverage improved.
+
+DL-007 Stage 1 previously completed the first-party contribution-funnel audit.
+The sanitized read-only bundle passed all integrity and redaction checks, but
+it found zero creditable real Customer-photo contributions and zero restaurants
 improved. Its four stored Customer-classified photos were all test fixtures
 with unreviewed rights.
 

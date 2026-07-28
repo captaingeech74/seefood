@@ -1,0 +1,61 @@
+{
+  "experiment_id": "DL-007",
+  "stage": 2,
+  "reviewer_roles": [
+    "Benchmark Guardian",
+    "Adversarial Verifier"
+  ],
+  "decision": "Revise",
+  "verdict": "Promising but unproven",
+  "integrity": {
+    "sha256sums_hash": "9405ffc06311a71b0a247ad4e0290abad1a51fd376405574de867f3538cec8a5",
+    "all_listed_hashes_passed": true,
+    "exporter_commit": "ebda99f51dd094a697815caad52eacaeae156c79",
+    "read_only_repeatable_read_and_rollback_evidence": true,
+    "hidden_holdout_accessed": false
+  },
+  "reproduced": {
+    "dish_candidates": 5048,
+    "restaurants": 69,
+    "selected_management_photos": 5026,
+    "qualified_targets": 0,
+    "rights_only_failures": 4876,
+    "reviewed_rights_failures": 5048,
+    "robust_duplicate_evidence_failures": 167,
+    "active_useful_management_photo_failures": 64,
+    "active_non_test_entity_failures": 36,
+    "contribution_attempts": 0,
+    "funnel_events": 0,
+    "legacy_app_open_rows": 38,
+    "fixture_app_open_rows": 29,
+    "public_unverified_app_open_rows": 9,
+    "behaviorally_eligible_legacy_rows": 0
+  },
+  "implementation_strengths": [
+    "Stable menu-item field is carried by the known-dish upload.",
+    "UUID attempts and a unique photo-per-attempt constraint exist.",
+    "New contributions default inactive and unpublished with pending review states.",
+    "Versioned consent and named client/server receipts exist.",
+    "Treatment remains disabled."
+  ],
+  "blocking_findings": [
+    "Upload and idempotent replay do not enforce the attempt's original restaurant/menu-item binding.",
+    "Eligible prompt impressions are recorded without qualified-target enforcement.",
+    "Public-unverified traffic does not affirmatively exclude staff.",
+    "Native picker cancellations and multiple server failure receipts are incomplete.",
+    "Receipt upserts can overwrite first occurrence time and outcome.",
+    "No implementation completes terminal review and writes verified_comparison_created.",
+    "Current/orderable, provenance, and duplicate gate labels overstate their database evidence.",
+    "No bounded image and source-rights packet supports independent target qualification.",
+    "The v1 grant is display-scoped and must not be represented as broader derivative or model rights."
+  ],
+  "independent_checks": {
+    "tests": "73 passed",
+    "typecheck": "passed with locked commit dependencies",
+    "build": "compiled and typechecked; disposable no-secret checkout stopped at page-data collection because Supabase environment variables were intentionally absent"
+  },
+  "coverage_improvement": 0,
+  "money_cost_usd": 0,
+  "production_impact_by_datalab": "none"
+}
+
