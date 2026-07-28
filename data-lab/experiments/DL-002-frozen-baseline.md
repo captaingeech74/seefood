@@ -14,7 +14,7 @@ records or weak stored flags from being reported as comparison-ready coverage.
 ## Registered Bounds
 
 - at most 500 selectable Temecula restaurant candidates;
-- exactly 120 hidden national records plus 24 alternates;
+- exactly 120 hidden national records plus 12 alternates;
 - at most 100 claimed comparison dishes audited, or every claim when fewer;
 - at most 150 evidence entities and 1,500 photo records;
 - no production or provider write, paid service, material paid quota, crawl,

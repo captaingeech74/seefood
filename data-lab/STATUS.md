@@ -254,12 +254,13 @@ merges.
 
 ## Next Action
 
-Resume DL-002 from `DL002_INPUT_HANDOFF.md`. Reconcile SeeFood/Google, OSM, and
-Overture against the 822 inside-polygon county permit rows, withholding
-home-based records and reviewing non-restaurant permit classes. Have the
-Guardian privately prove the 120-record national quotas plus 24 alternates from
-a versioned national frame. Do not start a source experiment until both cohorts
-and the baseline hash are frozen.
+Resume DL-002 Stage 1 from `DL002_INPUT_HANDOFF.md`. Reconcile SeeFood/Google,
+OSM, and Overture. Use the county permits only as an omission/status challenge:
+review up to 100 stable-ranked plausible provider-unmatched rows rather than
+classifying all 822 permits. Have the Guardian privately prove the 120-record
+national hard quotas plus 12 alternates from the versioned national frame. Do
+not start a source experiment until both cohorts and the baseline hash are
+frozen.
 
 ## Kyle Needs To Do
 
