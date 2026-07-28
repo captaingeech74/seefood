@@ -60,9 +60,20 @@ stratification fields. Therefore the Guardian could not honestly freeze the
 
 The founder subsequently removed two artificial requirements: ghost-kitchen
 classification and opening date/recency are optional context and may not block
-DL-002 or any later experiment. Business-form quotas now leave 12 records
-unrestricted, and the status margin is simply 108 open/orderable locations plus
-12 confirmed closure/move/replacement sentinels.
+DL-002 or any later experiment. The status margin is simply 108
+open/orderable locations plus 12 confirmed closure/move/replacement sentinels.
+
+A follow-on simplicity review removed exact website-strength and cuisine
+quotas plus mandatory food-truck and nontraditional-venue counts. Those fields
+remain useful reported slices when known. The hard national design now protects
+only geography, market size, chain/independent representation, operating-status
+sentinels, brand concentration, and blind selection.
+
+The read-only handoff is also split into two bounded stages. Stage 1 supplies
+the Temecula/provider and Guardian-only national candidate frames. After the
+Guardian freezes the hidden cohort, Stage 2 exports only the selected baseline
+and gold evidence by opaque public-ID hash. This removes the circular
+requirement to export evidence for records that do not yet exist as a cohort.
 
 ## Result
 

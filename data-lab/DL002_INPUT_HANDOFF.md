@@ -7,6 +7,18 @@ Temecula candidate baseline, let the Benchmark Guardian privately select the
 120-location national holdout, and compute the claimed-versus-verified
 baseline. This is an evidence export, not a product change.
 
+The handoff is deliberately two-stage so the main exporter is not asked to
+export evidence for a national cohort that the Guardian has not selected yet:
+
+1. Stage 1 supplies sections A-C and the production metric/schema proof.
+2. The Guardian freezes the hidden holdout and writes only the selected public
+   ID hashes needed by the forced-read-only exporter.
+3. Stage 2 supplies sections D-E for the frozen hashes without exposing clear
+   national IDs to the main implementer.
+
+Stage 1 may be accepted as a candidate-frame handoff while Stage 2 remains
+pending. DL-002 itself is complete only after both stages pass.
+
 ## Absolute Restrictions
 
 Do not give the DataLab production credentials. Do not write production data,
@@ -33,6 +45,10 @@ Place the finished bundle only at:
 `data-lab/raw/baseline/DL-002/`
 
 Do not edit DataLab control or experiment files.
+
+Main-thread files live under `main-thread-stage1/` and
+`main-thread-stage2/` inside that ignored directory. Existing `tiger-2025/`
+and `riverside-deh/` inputs remain DataLab-owned and must not be overwritten.
 
 ## A. Frozen Metadata
 
@@ -61,10 +77,9 @@ four separate, versioned inputs whose service points fall inside that polygon:
    Facility Permits snapshot documented in `TEMECULA_FRAME.md`. Do not
    duplicate it or substitute a search-results scrape.
 
-The county layer is an independently maintained candidate/status frame, but it
-contains many non-restaurant permits. Search results, individual inspection
-documents, the 60-day closure/downgrade lists, and aggregate establishment
-counts remain insufficient substitutes.
+The county layer is an independently maintained omission/status challenge, but
+it contains many non-restaurant permits. It is not a mandatory row-by-row
+cohort source and is not a county-by-county national rollout strategy.
 
 Every candidate row must contain only:
 
@@ -87,24 +102,25 @@ Exclude owner names, contributor identifiers, emails, phone numbers, permit
 holder details, free-text inspection narratives, and private contacts.
 
 Cap the reconciled selectable Temecula frame at 500 restaurants. If the union
-exceeds 500, keep all ambiguous, closure, truck, duplicate, and
+exceeds 500, keep all ambiguous, closure, duplicate, and
 independent-frame-only rows, then deterministically select ordinary rows by
 ascending `SHA-256("DL-002-TEM-2026-07-27" || stableExternalId)`. Report the
 full pre-cap counts by source and overlap.
 
-Also create:
+After accepting Stage 1, the DataLab—not the main exporter—creates:
 
 - `temecula-reconciliation.jsonl`, one row per proposed location cluster with
   every source ID, match evidence, distance, name/address scores, proposed
   inclusion, business type, status, and ambiguity flags;
-- `temecula-review-roster.json`, containing 100% of ambiguous, truck, closure,
-  and duplicate decisions plus the deterministic 10% ordinary review
+- `temecula-review-roster.json`, containing 100% of ambiguous, closure, and
+  duplicate decisions in the selected cohort, up to 100 stable-ranked
+  provider-unmatched plausible restaurant permits, plus the deterministic 10%
+  ordinary review
   sample; and
 - `temecula-source-summary.json`, containing source counts, overlap counts,
   exclusions, pre/post-cap counts, observation times, licenses, and hashes.
 
-Do not label the result a census unless an acceptable independent frame exists
-and every required review is complete.
+Call the result a development cohort, not a complete restaurant census.
 
 ## C. Guardian-Only National Candidate Frame
 
@@ -123,27 +139,27 @@ Each row must have:
 - eligibility and exclusion reason;
 - `marketSize`: `top20`, `otherTop50`, `msa51_387`, `micropolitan`, or
   `noncore`;
-- `businessForm`: `chain`, `singleIndependent`, `smallMulti`, `foodTruck`,
-  `nontraditional`, or `otherEligible`;
-- `webStrength`: `structured`, `orderingOnly`, `weakPdfSocial`, or `none`;
+- `businessForm`: at minimum `chain`, `independent`, or `unknown`; optional
+  subtypes may be retained when already supported;
+- optional `webStrength` and cuisine context when already supported;
 - `sourceStatus`: `openOrderable`, `closedMovedReplaced`, or `unknown`;
-- exactly one of the 12 registered cuisine groups;
 - one Census division;
 - normalized brand key;
 - `isTemecula`, `isLegacyBenchmark`, `isDevelopment`, `isTestFixture`, and
   duplicate-group fields; and
 - field-level evidence and `verified`, `inferred`, or `unknown` confidence.
 
-Unknown values cannot satisfy a published quota. Do not invent truck, status,
-website, cuisine, or market assignments. Ghost/virtual classification and
-opening date/recency are optional context only, carry no quota, and may remain
-unknown. The frame must contain enough verified or source-evidenced inferred
-candidates to satisfy every published quota and yield 24 feasible alternates;
+Unknown values cannot satisfy the required market, geography, operating-status,
+or chain/independent quotas. Do not invent those assignments. Website strength,
+cuisine, food-truck, nontraditional-venue, ghost/virtual, and opening-recency
+fields are optional context, carry no quota, and may remain unknown. The frame
+must contain enough verified or source-evidenced inferred candidates to satisfy
+the published hard quotas and yield 12 feasible alternates;
 the Guardian independently reviews inferred assignments before lock. If it
 does not, stop and report the exact deficient cells.
 
 The Guardian, not the exporter, creates the secret seed, seed commitment,
-selection ranks, 120-record holdout, and 24 alternates. The exporter must not
+selection ranks, 120-record holdout, and 12 alternates. The exporter must not
 order candidates to influence selection.
 
 ## D. Claimed Baseline Snapshot
@@ -224,7 +240,7 @@ The handoff is accepted only when:
 
 1. an independent local frame is present, or the result is explicitly stopped
    as a candidate baseline rather than called a census;
-2. the Guardian proves every national quota plus 24 alternates is feasible;
+2. the Guardian proves every national quota plus 12 alternates is feasible;
 3. stable public/provider IDs drive every deterministic rank;
 4. all seven rungs are reproducible for the same snapshot;
 5. claimed and verified comparisons remain separate;

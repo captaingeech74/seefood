@@ -11,7 +11,8 @@ boundary and independent Riverside County permit candidate/status frame are
 frozen. The provider union, restaurant eligibility review, and hidden national
 holdout still require a sanitized read-only handoff.
 
-Founder priority correction: ghost-kitchen classification and restaurant
+Founder priority correction: website strength, exact cuisine balance,
+food-truck/nontraditional subtypes, ghost-kitchen classification, and restaurant
 opening date/recency are optional context, not benchmark quotas or stop
 conditions. The benchmark and DL-002 handoff now apply that rule to every
 worker and reviewer.

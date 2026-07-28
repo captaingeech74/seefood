@@ -142,7 +142,7 @@ when `X` is included. A source does not receive credit for duplicate rows,
 already-covered dishes, or a Management photo on a dish that still has no
 Customer photo.
 
-## Temecula Census
+## Temecula Development Cohort
 
 ### Boundary
 
@@ -150,7 +150,7 @@ Use the versioned US Census TIGER/Line incorporated-place polygon for Temecula,
 California (state FIPS 06, place FIPS 78120). Record the TIGER/Line vintage,
 download URL, file hash, and snapshot date in the manifest. The existing 9 km
 discovery radius and 15 km dashboard radius are useful product controls, but
-neither defines the census.
+neither defines the cohort.
 
 ### Inclusion
 
@@ -166,37 +166,35 @@ duplicates, test fixtures, and locations confirmed closed before the freeze.
 Keep closures in a separate status ledger so the identity system is still
 tested.
 
-### Candidate Union
+### Candidate Union And Local Challenge
 
-The census is the deduplicated union of versioned, bounded snapshots from:
+The development cohort is selected from the deduplicated union of versioned,
+bounded snapshots from:
 
 - existing SeeFood entities and Google identities;
 - OpenStreetMap identities;
-- Overture identities; and
-- one independently maintained local permit, inspection, license, or equivalent
-  location/status frame selected from cited evidence before DL-002 starts.
+- Overture identities.
 
-No single provider is treated as ground truth. DL-002 cannot lock the census
-until the independent local frame has been versioned, bounded, and reconciled.
-If no $0 frame currently authorized for this benchmark is available, DL-002
-must stop with a corpus-derived candidate baseline and must not call it a
-census. A superior permission-gated frame should still be recorded as an
-opportunity, but it cannot enter the benchmark before permission.
+No single provider is treated as ground truth. One independently maintained
+local permit, inspection, license, or equivalent frame is used as a bounded
+omission/status challenge, not as a mandatory row-by-row member of the cohort
+and not as a county integration pattern for national rollout.
 
 DL-DR-001 initially identified Riverside County DEH inspection records but did
 not locate a bulk export. DL-002 subsequently found and froze the official
-public Riverside County DES Food Facility Permits ArcGIS layer. It satisfies
-the independent candidate/status-frame requirement after polygon filtering,
-but not the restaurant-census claim by itself: permits must be deduplicated and
-non-restaurant, home-based, mobile-base, temporary, and ambiguous facility
-types must be reviewed. Searchable inspection reports and 60-day closure lists
-still do not satisfy the candidate-frame requirement.
+public Riverside County DES Food Facility Permits ArcGIS layer. It is a useful
+Temecula omission/status challenge after polygon filtering, but permit rows are
+not restaurant rows. DL-002 reviews all provider-unmatched plausible
+restaurant permits up to 100 rows using a stable public-ID rank. It does not
+manually classify every school, market, hotel, nonprofit, caterer, mobile base,
+temporary facility, or other permit before useful experiments may start.
 
 ### Manifest
 
 The committed sanitized manifest will contain the stable DataLab ID, public
 name, coarse business type, coordinates, inclusion/status decision, provider
-IDs, chain/independent flag, web-strength stratum, and evidence timestamps. It
+IDs, chain/independent flag, and evidence timestamps. Optional website and
+cuisine context may be retained when already supported. It
 will contain no credentials, private contacts, or personal data.
 
 Every selectable record must have a stable public- or provider-derived rank ID.
@@ -221,17 +219,17 @@ status accuracy. No opening date or opening-recency evidence is required.
 | Axis | Required distribution |
 |---|---|
 | Market size | 36 top-20 MSA, 30 other top-50 MSA, 24 MSA ranks 51-387, 18 micropolitan, 12 noncore rural |
-| Business form | Minimums: 30 national/large regional chain, 48 single-location independent, 12 small multi-location, 12 food trucks, and 6 nontraditional venues; the remaining 12 records are unrestricted eligible businesses |
-| Web strength | 30 structured first-party, 30 ordering-platform-only, 30 weak/PDF/social-only, 30 with no discoverable website |
+| Business form | At least 30 national/large regional chain and at least 48 independent locations; remaining records are unrestricted eligible businesses |
 | Operating status | 108 open/orderable and 12 confirmed closed/moved/replaced; opening date and recency are not stratification fields |
-| Cuisine | 10 each: American/comfort; Mexican/Latin American; Italian/European; Chinese/Taiwanese; Japanese/Korean; Southeast Asian; South Asian; Middle Eastern/Mediterranean; African/Caribbean; barbecue/soul/Cajun; cafe/bakery/dessert; vegetarian/health/specialty |
 | Census geography | New England 10, Middle Atlantic 14, East North Central 14, West North Central 10, South Atlantic 18, East South Central 8, West South Central 14, Mountain 14, Pacific 18 |
 
-Business form and cuisine use one primary assignment per location so totals
-cannot be inflated through overlapping labels. Ghost/virtual status may be
-recorded when already known but has no quota and may remain unknown. Limit any
-brand to two geographically separated locations. The selection log records
-ambiguous cases.
+Website strength, cuisine, food-truck, nontraditional-venue, ghost/virtual, and
+opening-recency fields are descriptive slices, not quotas. Report them when
+supported, but do not block selection when they are unknown. The selected
+holdout should represent at least eight cuisine groups when those labels are
+available, with no known cuisine above 20% of the cohort. Limit any brand to
+two geographically separated locations. The selection log records ambiguous
+cases.
 
 ### Candidate Frame And Deterministic Selection
 
@@ -248,12 +246,13 @@ Selection is a deterministic constrained optimization:
 1. Remove Temecula, legacy benchmark, development, test-fixture, duplicate, and
    ineligible records.
 2. Compute `rank = SHA-256(secret_seed || stable_id)` and sort ascending.
-3. Choose exactly 120 binary records satisfying every published quota and the
-   two-location brand cap while minimizing the sum of ranks. Ties break on
+3. Choose exactly 120 binary records satisfying the geography, market,
+   chain/independent, operating-status, and brand-cap rules while
+   minimizing the sum of ranks. Ties break on
    stable ID.
 4. Independently review eligibility, then rerun the same optimization with
    factually ineligible IDs excluded. Do not hand-substitute favorable rows.
-5. Reserve the next 24 feasible records under the same objective as alternates.
+5. Reserve the next 12 feasible records under the same objective as alternates.
 
 Commit the algorithm, candidate-frame hash, solver/version, quota totals, and a
 SHA-256 commitment to the secret seed. Keep the seed and clear IDs with the
