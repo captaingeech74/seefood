@@ -261,7 +261,7 @@ async function main() {
       _source: row,
     };
   });
-  const priorRightsOnly = rows.filter((entry) => {
+  const priorRightsOnlyPopulation = rows.filter((entry) => {
     const row = entry._source;
     const prior = {
       activeNonTestEntity: ["active", "open"].includes(row.entity_status),
@@ -279,7 +279,8 @@ async function main() {
     };
     const misses = failed(prior);
     return misses.length === 1 && misses[0] === "reviewedRights";
-  }).slice(0, 100);
+  });
+  const priorRightsOnly = priorRightsOnlyPopulation.slice(0, 100);
   const sample = [];
   for (const entry of priorRightsOnly) {
     const evidence = await fetchEvidence(entry._source, path.join(staging, "evidence"), entry.opaquePhotoId);
@@ -311,10 +312,10 @@ async function main() {
     totalDishRows: rows.length,
     behavioralPromptCandidates: rows.filter((row) => row.behavioralPromptCandidate).length,
     goldComparisonCandidates: rows.filter((row) => row.goldComparisonCandidate).length,
-    priorRightsOnlyPopulation: rows.filter((entry) => {
-      const miss = entry.goldFailedGates;
-      return miss.includes("reviewedDisplayRights");
-    }).length,
+    recordedRightsFailures: rows.filter((entry) =>
+      entry.goldFailedGates.includes("reviewedDisplayRights")
+    ).length,
+    priorContractRightsOnlyPopulation: priorRightsOnlyPopulation.length,
     blindSampleRows: sample.length,
     evidenceImagesIncluded: sample.filter((row) => row.evidence.status === "included").length,
     treatmentPromptEnabled: false,
