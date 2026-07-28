@@ -6,7 +6,10 @@ outreach, spending, account creation, or data access.
 
 ## Ready For Human Outreach
 
-None.
+DoorDash is technically ready for a narrowly scoped documentary request, but
+the DataLab is not authorized to send it. DL-013 passed schema and national
+geography, then failed to find a standard marketplace-wide read grant or the
+required downstream rights. Kyle must explicitly authorize contact.
 
 The Gemini reports proposed several deals, but supplied no usable citations and
 overstated multiple photo and coverage claims. DL-DR-001 and DL-DR-002 retained
@@ -15,15 +18,32 @@ thread decide whether an entry ever becomes outreach-ready.
 
 ## DoorDash — Read-Only Menu And Management-Photo Data Path
 
-**Readiness:** Highest-priority Management opportunity after DL-002, but not
-ready for outreach without Kyle's approval.
+**Readiness:** Documentary ask ready. No outreach without Kyle's explicit
+approval, and no connector or pilot until the response passes.
 
 **Technical value:** Potentially High and now partly measured. In the selected
 DL-002 evidence packet, all 168 rendered DoorDash records were exact item
-matches, 164 were useful food images, and Management provenance passed 168/168.
+matches and 164 were useful food images. All 168 were classified as Management
+because they came through a management-catalog source, but original
+merchant/POS/controller authorship was not verified and rights were unreviewed.
 The packet was selected around claims and rich controls, so it proves payload
 quality rather than national location yield. Every rights status remained
 unreviewed.
+
+DL-013 confirmed official authenticated menu schemas with documented menu,
+category, and item identifiers plus an item-level `original_image_url` field,
+and a public store-sitemap index covering all 50 states, DC, and Puerto Rico.
+It did not measure identifier stability or image population. Standard
+Marketplace reads are limited to merchants onboarded or configured to the
+active integration; DoorDash says the Marketplace program is approval-only and
+currently at capacity. Standard merchant/developer terms do not grant SeeFood
+the required national reuse rights.
+
+The standard connector result does not falsify scraping. National sitemap
+discovery, working RSC extraction, and the selected-record quality result make
+public-store extraction a potentially High technical path. It remains a
+separate experiment with unresolved retrieval reliability, coverage,
+provenance, refresh, duplication, machine cost, and access posture.
 
 **Controller:** DoorDash partnerships or platform/data licensing, plus
 participating merchants where merchant authorization or image rights require
@@ -343,7 +363,7 @@ recording the loss of structured modifier and image linkage.
 
 | Source | Why retained | Why not ready |
 |---|---|---|
-| DoorDash | DL-002 measured 168/168 exact Management item matches and 164/168 useful images in its selected evidence packet; the platform has national technical reach | National eligible-location yield, discovery/display/combination rights, delivery path, refresh, and economics are unverified |
+| DoorDash | DL-002 measured 168/168 exact Management item matches and 164/168 useful images; DL-013 confirmed official item-image schemas and sitemap entries for all 50 states, DC, and Puerto Rico | Standard APIs expose only configured merchants, the partner program is currently at capacity, and national eligible-location/image yield plus retention/display/combination rights, refresh, and economics remain private |
 | Tattle | Current docs establish transaction context, ordered-item feedback, optional meal-photo upload, API/export capability, and claimed 15,000+ location reach | Exact photo-to-order-line binding, photo export schema, controller/Customer rights, photo yield, Management overlap, and unique-location coverage are private and unmeasured |
 | Ovation | Current docs establish 50+ SMS integrations and questions targeted to what a guest ordered | No public meal-photo upload, media export, stable order-line schema, exact footprint, or third-party reuse rights |
 | Tripadvisor Terra | Current docs describe restaurant reviews with photos, review text, and reviewer details; legacy partner feeds show caption and review-ID fields that may aid matching | Published Master Terms appear incompatible with SeeFood matching and pairing absent explicit written exceptions. Treat as unusable unless an Order permits algorithmic dish matching, combination with Management content, selective display, retention, derived labels, and model use, plus acceptable national depth and economics. |

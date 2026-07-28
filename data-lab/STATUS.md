@@ -2,13 +2,42 @@
 
 ## Verdict
 
-**Needs a decision**
+**Promising but unproven**
 
 ## Current Phase
 
-DL-001 completed a valid calibration. DL-002 is complete with a `Revise`
-decision. It establishes the first frozen claimed-versus-verified baseline,
-but it does not create or improve coverage.
+DL-013 completed the first post-baseline technical qualification. It found that
+DoorDash's standard APIs are not a current national acquisition connector while
+preserving both a bespoke-data opportunity and a separate scraping hypothesis.
+DoorDash has the right data shape and credible national geography, but its
+standard APIs do not provide SeeFood a marketplace-wide read path. Required
+downstream rights and representative image yield remain private. No coverage
+improved.
+
+Official DoorDash documentation confirms authenticated active-menu JSON with
+documented menu/category/item identifiers and an item-level
+`original_image_url` field. Identifier stability and image population were not
+measured.
+DL-013's single bounded read of the public store-sitemap index found entries
+for all 50 states, DC, and Puerto Rico. Combined with DL-002's 168/168 exact
+selected DoorDash item matches and 164 useful images, technical potential is
+High.
+
+The standard path is not SeeFood's path. Marketplace GET Menu is limited to
+stores onboarded or configured to the active provider; Storefront reads are
+business/store scoped. DoorDash says Marketplace access is approval-only and
+the integration pipeline is currently at capacity. Published terms do not
+grant SeeFood marketplace-wide retention, display, derived matching,
+cross-source combination, or deletion rights.
+
+The standard-API failure does not reject scraping. National discovery is
+visible, the RSC parser has worked, and selected-record item linkage was
+excellent. A reliable scraping system could theoretically produce a
+game-changing menu and strong-photo upgrade. Its national store-match,
+rendered-fetch, image-population, refresh, duplicate/ghost/retail filtering,
+source-provenance, and machine-cost rates remain unmeasured. The current
+DataLab boundary does not authorize defeating bot controls, so live scaling
+requires a separate decision or written consent.
 
 The frozen Temecula development cohort contains 396 independently reviewed
 active provider identities. It excludes 241 unknown-status identities and one
@@ -38,18 +67,19 @@ The Guardian verified zero comparison dishes. All 45 Customer references used
 by those claims were unavailable, Customer provenance was unverified, and all
 73 claim-photo rights statuses were unreviewed.
 
-Across 214 rendered Management evidence photos, 175 item matches passed and 39
-failed: 81.78% precision with a 95% Wilson interval of 76.06%–86.37%, below the
-95% promotion gate. Management provenance passed 214/214. The national active
-holdout had zero production matches and therefore zero claimed content coverage
-beyond identity.
+Across 214 rendered catalog-source evidence photos, 175 item matches passed and
+39 failed: 81.78% precision with a 95% Wilson interval of 76.06%–86.37%, below
+the 95% promotion gate. All 214 were classified as Management from their source
+path, but original merchant/POS/controller authorship and rights were not
+verified. The national active holdout had zero production matches and therefore
+zero claimed content coverage beyond identity.
 
 The pooled score hides an important source split. DoorDash supplied 168/168
-exact Management item matches and 164 useful images in this selected evidence
-packet. Schema.org supplied only 7 exact matches, 39 rejects, and 6
+exact item matches and 164 useful catalog-source images in this selected
+evidence packet. Schema.org supplied only 7 exact matches, 39 rejects, and 6
 unverifiable records. This does not measure DoorDash's national location yield
-or establish usage rights, but it raises the technical potential of an
-authorized DoorDash data path materially.
+or establish original authorship or usage rights, but it raises the technical
+potential of both authorized and scraping paths materially.
 
 On founder instruction, Benchmark Specification 0.2 now allows bounded image
 reads from public or already-authorized recorded locators. The 214 Stage 2
@@ -296,42 +326,53 @@ Verifier independently identified six of those as duplicate-reject candidates
 from stored cross-author perceptual hashes and left 15 unverifiable. Both
 evaluators agree the verified comparison-ready baseline is zero.
 
-The Guardian inspected all 214 rendered Management records: 175 exact item
-matches, 39 rejects, 171 useful nonduplicate food images, and 214/214 verified
-Management provenance. Item-match precision was 81.78% with a 76.06%–86.37%
-Wilson interval, below the promotion gate. All 100 declared Customer evidence
-records were unavailable, and all 320 rights statuses were unreviewed. The 25
-rich-unpaired controls produced no verified false negative; 17 were
-unverifiable and eight had no Customer candidate. No national controls existed
-because no national selected record matched production.
+The Guardian inspected all 214 rendered catalog-source records: 175 exact item
+matches, 39 rejects, and 171 useful nonduplicate food images. All 214 were
+classified as Management from their source path, but original
+merchant/POS/controller authorship was not verified. Item-match precision was
+81.78% with a 76.06%–86.37% Wilson interval, below the promotion gate. All 100
+declared Customer evidence records were unavailable, and all 320 rights
+statuses were unreviewed. The 25 rich-unpaired controls produced no verified
+false negative; 17 were unverifiable and eight had no Customer candidate. No
+national controls existed because no national selected record matched
+production.
 
 Source-separated results were sharply different: DoorDash passed 168/168 item
 matches and 164/168 usefulness checks; schema.org passed 7/46 rendered item
 matches and 7/46 usefulness checks. The evidence packet was selected for
-claims and rich controls, not for estimating source coverage. DoorDash quality
-is therefore real in the packet, while national yield and rights remain
-unmeasured.
+claims and rich controls, not for estimating source coverage. DoorDash item
+quality is therefore real in the packet, while original authorship, national
+yield, and rights remain unmeasured.
 
 DL-002 closes as **Revise / baseline established**. It found large whitespace,
 not a coverage improvement.
 
+DL-013 then tested DoorDash's documentary and technical gate. Official
+documentation and one bounded sitemap-index request established a documented
+item-linkage schema, an image field, and nationwide geography. They did not establish
+a marketplace-wide SeeFood read path, current partner availability, usable
+retention/display/combination rights, representative image-populated restaurant
+yield, refresh/deletion terms, or economics. It closes as **Reject as a current
+standard connector / preserve bespoke and scraping opportunities**. Verified
+coverage improvement remains zero.
+
 ## Confidence
 
-High in the frozen cohorts, read-only snapshot, production parity, corrected
-denominator, current-menu count, and zero verified comparisons. High that the
-existing Customer evidence is insufficient. High in Management provenance;
-high in the measured 81.78% Management item-match precision for the 214
-rendered evidence records. Low confidence in the true Customer-photo and
-comparison count beyond the verified floor of zero because no Customer image
-was accessible. Status-sentinel accuracy is unknown because Stage 2 omitted
-the required status evidence.
+High in the frozen cohorts, corrected baseline, zero verified comparisons, and
+the selected DoorDash packet's item-match result. High that DoorDash's standard
+documented APIs are scoped to configured merchants rather than a
+marketplace-wide discovery feed. High that its geography is national. Low in
+the actual fraction of US restaurants with current, approved item photos and
+zero confidence in SeeFood's reuse rights until DoorDash supplies a written
+grant. Status-sentinel accuracy remains unknown because Stage 2 omitted the
+required status evidence.
 
 ## Cost
 
-$0. Local validation and blind review plus 214 bounded reads from already
-recorded source-image locators. No production write, paid provider call,
-material paid quota, account, vendor contact, unbounded crawl, deployment,
-infrastructure change, push, or merge.
+$0. DL-013 added one 13.9 KB public sitemap-index request and public
+documentation review; it downloaded no images. Across the program there was no
+production write, paid provider call, material paid quota, account, vendor
+contact, unbounded crawl, deployment, infrastructure change, push, or merge.
 
 ## Production Impact
 
@@ -340,14 +381,17 @@ merges.
 
 ## Next Action
 
-Make the founder go/no-go call. The evidence supports one more bounded
-game-changer qualification phase, not a large integration build. A retained
-Management source or portfolio must plausibly add at least 20 percentage points
-of national current-menu-plus-strong-Management-photo coverage. A retained
-Customer path must produce accessible, rights-valid, exact-item contributions
-across multiple national strata rather than merely doubling a zero baseline.
+Run DL-007 next: a read-only audit of SeeFood's existing contribution funnel
+and a paper experiment for targeted Management and Customer prompts. This is
+the highest-value work that can proceed without vendor contact, credentials,
+production changes, or a policy expansion.
+
+Keep two DoorDash decisions separate from that work: whether to send the
+prepared bespoke-data documentary request, and whether to authorize a bounded
+live scraping feasibility test that encounters bot controls. Neither decision
+should delay DL-007.
 
 ## Kyle Needs To Do
 
-Decide whether to authorize that bounded qualification phase. No vendor
-outreach, paid service, or implementation should begin before the decision.
+Nothing for DL-007. Later, decide separately on DoorDash outreach and the live
+scraping-test boundary.

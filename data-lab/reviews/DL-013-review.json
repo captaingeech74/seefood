@@ -1,0 +1,42 @@
+{
+  "experiment_id": "DL-013",
+  "reviewer_role": "Adversarial Verifier",
+  "decision": "Revise",
+  "verdict": "Promising but unproven",
+  "reproduced": {
+    "sitemap_bytes": 13915,
+    "sitemap_sha256": "cac7359828af65416a268ad13db30f31b2cc8e6e68ef166ee7a86e2e09de3dc4",
+    "unique_global_region_labels": 119,
+    "expected_us_state_dc_pr_labels": 52,
+    "present_us_state_dc_pr_labels": 52,
+    "missing_us_labels": [],
+    "national_twenty_point_minimum": {
+      "active_holdout_denominator": 108,
+      "minimum_incremental_restaurants": 22,
+      "percentage_points": 20.37
+    }
+  },
+  "accepted_findings": [
+    "Marketplace GET Menu is scoped to an onboarding ID or store configured to the active provider, not a marketplace-wide feed.",
+    "Storefront exposes authenticated business/store-scoped menus with item identifiers and an original_image_url field.",
+    "Marketplace access is approval-only and the published integration pipeline is currently at capacity.",
+    "The sitemap proves broad geography only, not restaurant count, menu freshness, image population, rights, or coverage.",
+    "No public grant establishes SeeFood retention, display, matching, combination, or deletion rights."
+  ],
+  "required_corrections": [
+    "Treat 168 DoorDash records as catalog-source Management classifications, not verified original merchant/POS authorship.",
+    "Keep all 168 rights statuses unreviewed.",
+    "Separate menu and item-linkage schema from image-field population.",
+    "Call identifiers documented rather than stable because refresh stability was not measured.",
+    "Scope the capacity finding to Marketplace.",
+    "Allow direct merchant/POS authorization as an alternative to a DoorDash-originated grant for original controller payloads."
+  ],
+  "founder_scope_correction": {
+    "instruction": "Do not reject DoorDash scraping merely because the standard authorized API path fails.",
+    "effect": "The final record preserves scraping as a separate, potentially High technical hypothesis. Its live national probe remains gated by the current bot-control boundary or written consent."
+  },
+  "coverage_improvement": 0,
+  "money_cost_usd": 0,
+  "hidden_holdout_unblinded": false,
+  "production_impact": "none"
+}
