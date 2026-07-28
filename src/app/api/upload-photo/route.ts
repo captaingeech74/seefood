@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasDuplicatePhoto, saveUserUploadedPhoto } from "@/lib/db";
+import {
+  getContributionPhotoByAttempt,
+  getCurrentContributionTarget,
+  hasDuplicatePhoto,
+  recordContributionFunnelEvent,
+  savePendingKnownDishPhoto,
+  updateContributionAttempt,
+} from "@/lib/db";
 import { uploadPhotoBuffer } from "@/lib/storage";
 import { createHash } from "crypto";
 import { optimizeImage } from "@/lib/imageOptimization";
+import {
+  CONTRIBUTION_RIGHTS_VERSION,
+  isUuid,
+} from "@/lib/contributionFunnel";
 
-// "Take Photo of Dish" (experimental — PRD's long-term user-contribution
-// vision, scoped down: no accounts/moderation yet, just a real working
-// upload). No auth exists to rate-limit by user, so size/type are the only
-// guardrails; this is deliberately minimal per the "experimentation" framing.
+// Known-current-dish contribution intake. The client supplies a stable menu
+// item and a versioned rights grant; the resulting record stays inactive and
+// unpublished until moderation, item matching, and duplicate review pass.
 export const maxDuration = 30;
 const MAX_BYTES = 8 * 1024 * 1024; // 8MB
 
@@ -23,9 +33,20 @@ export async function POST(req: NextRequest) {
   const tierRaw = form.get("tier");
   const menuItemIdRaw = form.get("menuItemId");
   const contributorId = form.get("contributorId");
+  const attemptId = form.get("attemptId");
+  const rightsVersion = form.get("rightsVersion");
 
-  if (!(file instanceof File) || typeof placeId !== "string" || !placeId) {
-    return NextResponse.json({ error: "photo and placeId are required" }, { status: 400 });
+  if (
+    !(file instanceof File) ||
+    typeof placeId !== "string" ||
+    !placeId ||
+    !isUuid(attemptId) ||
+    rightsVersion !== CONTRIBUTION_RIGHTS_VERSION
+  ) {
+    return NextResponse.json(
+      { error: "photo, current dish, attempt, and photo rights are required" },
+      { status: 400 }
+    );
   }
   if (!file.type.startsWith("image/")) {
     return NextResponse.json({ error: "Only image files are accepted" }, { status: 400 });
@@ -34,24 +55,122 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Image too large (8MB max)" }, { status: 400 });
   }
 
+  const menuItemId =
+    typeof menuItemIdRaw === "string" && menuItemIdRaw
+      ? Number(menuItemIdRaw)
+      : NaN;
+  if (!Number.isSafeInteger(menuItemId)) {
+    return NextResponse.json({ error: "A current menu item is required" }, { status: 400 });
+  }
+
+  try {
+    const existing = await getContributionPhotoByAttempt(attemptId);
+    if (existing) {
+      return NextResponse.json({
+        receipt: {
+          attemptId,
+          status: existing.moderationStatus ?? "pending",
+          idempotentReplay: true,
+        },
+      });
+    }
+    const target = await getCurrentContributionTarget(placeId, menuItemId);
+    if (!target) {
+      return NextResponse.json({ error: "That menu item is no longer current" }, { status: 409 });
+    }
+    await updateContributionAttempt({
+      attemptId,
+      status: "upload_received",
+      rightsVersion: CONTRIBUTION_RIGHTS_VERSION,
+    });
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "rights_grant_recorded",
+      eventSource: "server",
+      outcome: "observed",
+    });
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "server_upload_received",
+      eventSource: "server",
+      outcome: "observed",
+    });
+  } catch (error) {
+    console.error("[contribution-funnel] authoritative receipt failed", error);
+    return NextResponse.json(
+      { error: "Upload audit is temporarily unavailable; please retry" },
+      { status: 503 }
+    );
+  }
+
   const original = Buffer.from(await file.arrayBuffer());
   const duplicateHash = createHash("sha256").update(original).digest("hex");
   if (await hasDuplicatePhoto(placeId, duplicateHash)) {
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "duplicate_result",
+      eventSource: "server",
+      outcome: "duplicate",
+    }).catch((error) =>
+      console.error("[contribution-funnel] duplicate receipt failed", error)
+    );
+    await updateContributionAttempt({ attemptId, status: "rejected" }).catch(() => {});
     return NextResponse.json({ error: "That photo is already on SeeFood." }, { status: 409 });
+  }
+  try {
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "duplicate_result",
+      eventSource: "server",
+      // The synchronous SHA check can reject an exact duplicate, but it cannot
+      // honestly clear perceptual/near duplicates. Keep that review pending.
+      outcome: "pending",
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Upload audit is temporarily unavailable; please retry" },
+      { status: 503 }
+    );
   }
   const optimized = await optimizeImage(original).catch(() => null);
   if (!optimized) return NextResponse.json({ error: "We could not process that image." }, { status: 422 });
-  const key = `user-uploads/${placeId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+  const key = `user-uploads/${placeId}/${attemptId}.webp`;
 
   const url = await uploadPhotoBuffer(optimized.buffer, optimized.contentType, key);
   if (!url) {
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "storage_result",
+      eventSource: "server",
+      outcome: "failure",
+    }).catch(() => {});
+    await updateContributionAttempt({ attemptId, status: "storage_failed" }).catch(() => {});
     return NextResponse.json({ error: "Upload failed — please try again" }, { status: 502 });
+  }
+  try {
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "storage_result",
+      eventSource: "server",
+      outcome: "success",
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Saved securely, but audit recording failed; please retry" },
+      { status: 503 }
+    );
   }
 
   const tier = (tierRaw === "1" || tierRaw === "2" || tierRaw === "3" ? parseInt(String(tierRaw), 10) : 2) as 1 | 2 | 3;
-  const menuItemId = typeof menuItemIdRaw === "string" && menuItemIdRaw ? parseInt(menuItemIdRaw, 10) : undefined;
+  const target = await getCurrentContributionTarget(placeId, menuItemId);
+  if (!target) {
+    await updateContributionAttempt({ attemptId, status: "record_failed" }).catch(() => {});
+    return NextResponse.json({ error: "That menu item is no longer current" }, { status: 409 });
+  }
 
-  const photo = await saveUserUploadedPhoto({
+  const photo = await savePendingKnownDishPhoto({
+    attemptId,
+    rightsVersion: CONTRIBUTION_RIGHTS_VERSION,
     placeId,
     originUrl: url,
     dishName: typeof dishName === "string" && dishName ? dishName : null,
@@ -59,12 +178,51 @@ export async function POST(req: NextRequest) {
     isMenuMatch,
     tier,
     menuItemId,
+    canonicalDishId: target.canonicalDishId,
     width: optimized.width,
     height: optimized.height,
     contributorId: typeof contributorId === "string" ? contributorId.slice(0, 100) : undefined,
     duplicateHash,
   });
 
-  if (!photo) return NextResponse.json({ error: "Saved the image but failed to record it — please retry" }, { status: 500 });
-  return NextResponse.json({ photo });
+  if (!photo) {
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "photo_record_result",
+      eventSource: "server",
+      outcome: "failure",
+    }).catch(() => {});
+    await updateContributionAttempt({ attemptId, status: "record_failed" }).catch(() => {});
+    return NextResponse.json({ error: "Saved the image but failed to record it — please retry" }, { status: 500 });
+  }
+  try {
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "photo_record_result",
+      eventSource: "server",
+      outcome: "success",
+    });
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "moderation_result",
+      eventSource: "server",
+      outcome: "pending",
+    });
+    await recordContributionFunnelEvent({
+      attemptId,
+      eventName: "item_match_result",
+      eventSource: "server",
+      outcome: "pending",
+    });
+    await updateContributionAttempt({ attemptId, status: "pending_review" });
+  } catch (error) {
+    console.error("[contribution-funnel] final receipt failed", error);
+    return NextResponse.json(
+      { error: "Your photo is safely pending review, but its receipt is incomplete" },
+      { status: 503 }
+    );
+  }
+  return NextResponse.json({
+    receipt: { attemptId, status: "pending_review", idempotentReplay: false },
+  });
 }

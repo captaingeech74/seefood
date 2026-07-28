@@ -53,6 +53,8 @@ export interface DishPhoto {
   url: string;
   dishName: string | null;
   dishDescription: string | null; // menu item description when available
+  /** Stable current-menu target used by known-dish contribution receipts. */
+  menuItemId?: number;
   /** true = matched against the restaurant's actual menu (fuzzy or exact) */
   isMenuMatch: boolean;
   /** where this photo came from */

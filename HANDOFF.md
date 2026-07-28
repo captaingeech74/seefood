@@ -187,6 +187,15 @@ photo. Prompt impressions, prompt opens, upload starts, cancellations, and
 failures were never instrumented and cannot be inferred. Production was not
 changed or deployed.
 
+DL-007 Stage 2 adds a separate, idempotent audit trail for the existing
+known-current-dish “Add a Photo” surface. Every attempt is tied to a current
+menu-item ID, session, experiment, and passive variant. New known-dish photos
+carry an explicit versioned rights grant and remain inactive and unpublished
+while moderation, exact/strong item matching, and near-duplicate review are
+pending. The behavioral treatment prompt remains disabled. Historical
+`app_events` are still upper-bound browser activity, not known people or
+verified eligible traffic.
+
 ## Current Data-Quality State
 
 The July 23 systemic photo audit and cleanup is complete in production. The

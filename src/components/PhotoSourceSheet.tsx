@@ -24,21 +24,30 @@ export default function PhotoSourceSheet({
   open,
   onClose,
   onPick,
+  onSourceChoice,
+  onCancel,
 }: {
   open: boolean;
   onClose: () => void;
-  onPick: (file: File) => void;
+  onPick: (file: File, source: "camera" | "library") => void;
+  onSourceChoice?: (source: "camera" | "library") => void;
+  onCancel?: () => void;
 }) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const [mounted, setMounted] = useState(false);
+  const [rightsAccepted, setRightsAccepted] = useState(false);
+  const selectedSource = useRef<"camera" | "library">("library");
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (open) setRightsAccepted(false);
+  }, [open]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (file) onPick(file);
+    if (file) onPick(file, selectedSource.current);
     onClose();
   };
 
@@ -54,6 +63,7 @@ export default function PhotoSourceSheet({
           className="fixed inset-0 z-[200] bg-black/60 flex items-end justify-center fade-in"
           onClick={(event) => {
             event.stopPropagation();
+            onCancel?.();
             onClose();
           }}
         >
@@ -64,9 +74,27 @@ export default function PhotoSourceSheet({
           >
             <div className="w-9 h-1 rounded-full bg-white/15 mx-auto mb-4" />
 
+            <label className="flex items-start gap-3 px-3 py-3 mb-2 rounded-2xl bg-white/5 text-left">
+              <input
+                type="checkbox"
+                checked={rightsAccepted}
+                onChange={(event) => setRightsAccepted(event.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-orange-500"
+              />
+              <span className="text-[12.5px] leading-relaxed text-white/75">
+                I took this photo or have permission to share it, and I allow SeeFood to
+                display it with this dish.
+              </span>
+            </label>
+
             <button
-              onClick={() => cameraInputRef.current?.click()}
-              className="w-full flex items-center gap-3 py-3.5 px-3 rounded-2xl active:bg-white/8 transition-colors"
+              disabled={!rightsAccepted}
+              onClick={() => {
+                selectedSource.current = "camera";
+                onSourceChoice?.("camera");
+                cameraInputRef.current?.click();
+              }}
+              className="w-full flex items-center gap-3 py-3.5 px-3 rounded-2xl active:bg-white/8 transition-colors disabled:opacity-35"
             >
               <span className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "var(--surface-2)" }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-white/85">
@@ -78,8 +106,13 @@ export default function PhotoSourceSheet({
             </button>
 
             <button
-              onClick={() => libraryInputRef.current?.click()}
-              className="w-full flex items-center gap-3 py-3.5 px-3 rounded-2xl active:bg-white/8 transition-colors"
+              disabled={!rightsAccepted}
+              onClick={() => {
+                selectedSource.current = "library";
+                onSourceChoice?.("library");
+                libraryInputRef.current?.click();
+              }}
+              className="w-full flex items-center gap-3 py-3.5 px-3 rounded-2xl active:bg-white/8 transition-colors disabled:opacity-35"
             >
               <span className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "var(--surface-2)" }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-white/85">
@@ -92,7 +125,10 @@ export default function PhotoSourceSheet({
             </button>
 
             <button
-              onClick={onClose}
+              onClick={() => {
+                onCancel?.();
+                onClose();
+              }}
               className="w-full mt-1.5 py-3 text-center text-white/45 font-semibold text-[14px]"
             >
               Cancel

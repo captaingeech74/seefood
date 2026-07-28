@@ -13,6 +13,7 @@ import {
   canReactivateQuarantinedPhoto,
   shouldActivatePhotoObservation,
 } from "./photoFingerprint";
+import { pendingKnownDishPhotoState } from "./contributionFunnel";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -80,6 +81,7 @@ function rowToDishPhoto(p: PhotoRow, menuItem?: MenuItemRow): DishPhoto {
     url: p.storage_url ?? p.origin_url ?? "",
     dishName: menuItem?.name ?? p.gemini_label ?? null,
     dishDescription: menuItem?.description ?? null,
+    menuItemId: p.menu_item_id ?? undefined,
     isMenuMatch: !!menuItem,
     source,
     attribution: legacyAttribution,
@@ -279,6 +281,149 @@ export async function recordAppEvent(input: {
     metadata: input.metadata ?? {},
   });
   if (error) throw error;
+}
+
+export interface ContributionTarget {
+  menuItemId: number;
+  canonicalDishId: string | null;
+  restaurantId: string;
+  entityStatus: string | null;
+}
+
+export async function getCurrentContributionTarget(
+  restaurantId: string,
+  menuItemId: number
+): Promise<ContributionTarget | null> {
+  const { data: menuItem, error: menuError } = await supabase
+    .from("menu_items")
+    .select("id,restaurant_id,canonical_dish_id,active")
+    .eq("id", menuItemId)
+    .eq("restaurant_id", restaurantId)
+    .eq("active", true)
+    .maybeSingle();
+  if (menuError) throw menuError;
+  if (!menuItem) return null;
+
+  const { data: restaurant, error: restaurantError } = await supabase
+    .from("restaurants")
+    .select("status,entity_id")
+    .eq("place_id", restaurantId)
+    .maybeSingle();
+  if (restaurantError) throw restaurantError;
+  if (!restaurant) return null;
+
+  let entityStatus = restaurant.status ?? null;
+  if (restaurant.entity_id) {
+    const { data: entity, error: entityError } = await supabase
+      .from("restaurant_entities")
+      .select("status,operating_status")
+      .eq("id", restaurant.entity_id)
+      .maybeSingle();
+    if (entityError) throw entityError;
+    entityStatus = entity?.status ?? entity?.operating_status ?? entityStatus;
+  }
+  return {
+    menuItemId: Number(menuItem.id),
+    canonicalDishId: menuItem.canonical_dish_id ?? null,
+    restaurantId: menuItem.restaurant_id,
+    entityStatus,
+  };
+}
+
+export async function createContributionAttempt(input: {
+  attemptId: string;
+  visitorId: string;
+  sessionId: string;
+  restaurantId: string;
+  menuItemId: number;
+  trafficClass: string;
+  entityStatus: string | null;
+  experimentKey: string;
+  variantKey: string;
+}): Promise<void> {
+  const { data: existing, error: readError } = await supabase
+    .from("contribution_attempts")
+    .select("restaurant_id,menu_item_id,visitor_id,session_id")
+    .eq("id", input.attemptId)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (existing) {
+    if (
+      existing.restaurant_id !== input.restaurantId ||
+      Number(existing.menu_item_id) !== input.menuItemId ||
+      existing.visitor_id !== input.visitorId ||
+      existing.session_id !== input.sessionId
+    ) {
+      throw new Error("Contribution attempt identity mismatch");
+    }
+    return;
+  }
+  const { error } = await supabase.from("contribution_attempts").insert({
+    id: input.attemptId,
+    visitor_id: input.visitorId,
+    session_id: input.sessionId,
+    restaurant_id: input.restaurantId,
+    menu_item_id: input.menuItemId,
+    experiment_key: input.experimentKey,
+    variant_key: input.variantKey,
+    surface: "known_dish",
+    traffic_class: input.trafficClass,
+    entity_status: input.entityStatus,
+  });
+  if (error) throw error;
+}
+
+export async function recordContributionFunnelEvent(input: {
+  attemptId: string;
+  eventName: string;
+  eventSource: "client" | "server" | "review";
+  outcome: string;
+}): Promise<void> {
+  const { error } = await supabase.from("contribution_funnel_events").upsert(
+    {
+      attempt_id: input.attemptId,
+      event_name: input.eventName,
+      event_source: input.eventSource,
+      outcome: input.outcome,
+      occurred_at: new Date().toISOString(),
+    },
+    { onConflict: "attempt_id,event_name" }
+  );
+  if (error) throw error;
+}
+
+export async function updateContributionAttempt(input: {
+  attemptId: string;
+  status: string;
+  rightsVersion?: string;
+}): Promise<void> {
+  const patch: Record<string, unknown> = {
+    status: input.status,
+    updated_at: new Date().toISOString(),
+  };
+  if (input.rightsVersion) {
+    patch.rights_version = input.rightsVersion;
+    patch.rights_granted_at = new Date().toISOString();
+  }
+  const { error } = await supabase
+    .from("contribution_attempts")
+    .update(patch)
+    .eq("id", input.attemptId);
+  if (error) throw error;
+}
+
+export async function getContributionPhotoByAttempt(
+  attemptId: string
+): Promise<{ photoId: number; moderationStatus: string | null } | null> {
+  const { data, error } = await supabase
+    .from("photos")
+    .select("id,moderation_status")
+    .eq("contribution_attempt_id", attemptId)
+    .maybeSingle();
+  if (error) throw error;
+  return data
+    ? { photoId: Number(data.id), moderationStatus: data.moderation_status }
+    : null;
 }
 
 export async function incrementPhotoView(photoId: number): Promise<void> {
@@ -1913,23 +2058,23 @@ export async function incrementPrimaryVotes(photoId: string): Promise<number | n
  * dish being viewed. Returns the new corpus-backed DishPhoto so the client
  * can splice it into the current view without a full reload.
  */
-export async function saveUserUploadedPhoto(input: {
+export async function savePendingKnownDishPhoto(input: {
+  attemptId: string;
+  rightsVersion: string;
   placeId: string;
   originUrl: string;
   dishName: string | null;
   dishDescription: string | null;
   isMenuMatch: boolean;
   tier: 1 | 2 | 3;
-  menuItemId?: number;
+  menuItemId: number;
+  canonicalDishId: string | null;
   width: number;
   height: number;
   contributorId?: string;
   duplicateHash?: string;
-}): Promise<DishPhoto | null> {
+}): Promise<{ photoId: number } | null> {
   const photoQualityScore = 82;
-  const canonical = input.dishName
-    ? await ensureCanonicalDishes(input.placeId, [{ name: input.dishName, description: input.dishDescription }])
-    : new Map<string, string>();
   const { data, error } = await supabase
     .from("photos")
     .insert({
@@ -1946,8 +2091,72 @@ export async function saveUserUploadedPhoto(input: {
       width: input.width,
       height: input.height,
       gemini_label: input.dishName,
+      menu_item_id: input.menuItemId,
+      canonical_dish_id: input.canonicalDishId,
+      photo_quality_score: photoQualityScore,
+      dish_popularity_score: 7,
+      is_hero_candidate: !!input.dishName,
+      is_storefront: false,
+      is_menu_photo: false,
+      contributor_id: input.contributorId ?? null,
+      submitted_at: new Date().toISOString(),
+      duplicate_hash: input.duplicateHash ?? null,
+      abuse_flags: [],
+      ...pendingKnownDishPhotoState({
+        attemptId: input.attemptId,
+        rightsVersion: input.rightsVersion,
+      }),
+      last_seen_at: new Date().toISOString(),
+      missing_streak: 0,
+    })
+    .select("id")
+    .single();
+  if (error || !data) { console.error("[corpus] saveUserUploadedPhoto failed:", error?.message); return null; }
+
+  return { photoId: Number(data.id) };
+}
+
+/** Legacy missing-dish contribution path. Kept separate from the DL-007
+ * known-current-dish experiment and its denominators. */
+export async function saveUserUploadedPhoto(input: {
+  placeId: string;
+  originUrl: string;
+  dishName: string | null;
+  dishDescription: string | null;
+  isMenuMatch: boolean;
+  tier: 1 | 2 | 3;
+  menuItemId?: number;
+  width: number;
+  height: number;
+  contributorId?: string;
+  duplicateHash?: string;
+}): Promise<DishPhoto | null> {
+  const photoQualityScore = 82;
+  const canonical = input.dishName
+    ? await ensureCanonicalDishes(input.placeId, [
+        { name: input.dishName, description: input.dishDescription },
+      ])
+    : new Map<string, string>();
+  const { data, error } = await supabase
+    .from("photos")
+    .insert({
+      restaurant_id: input.placeId,
+      origin_url: input.originUrl,
+      source: "user_suggested",
+      attribution: "user",
+      source_platform: "user_suggested",
+      photo_author_type: "customer",
+      trust_label: "seefood_photo",
+      attribution_confidence: 1,
+      tier: input.tier,
+      is_orderable: true,
+      width: input.width,
+      height: input.height,
+      gemini_label: input.dishName,
       menu_item_id: input.menuItemId ?? null,
-      canonical_dish_id: input.dishName ? canonical.get(normalizeDishName(input.dishName)) ?? null : null,
+      canonical_dish_id: input.dishName
+        ? canonical.get(normalizeDishName(input.dishName)) ?? null
+        : null,
       photo_quality_score: photoQualityScore,
       dish_popularity_score: 7,
       is_hero_candidate: !!input.dishName,
@@ -1964,24 +2173,26 @@ export async function saveUserUploadedPhoto(input: {
     })
     .select("id")
     .single();
-  if (error || !data) { console.error("[corpus] saveUserUploadedPhoto failed:", error?.message); return null; }
-
+  if (error || !data) {
+    console.error("[corpus] saveUserUploadedPhoto failed:", error?.message);
+    return null;
+  }
   await refreshRestaurantPhotoSignals(input.placeId);
-
   return {
     id: `corpus-${data.id}`,
     url: input.originUrl,
     dishName: input.dishName,
     dishDescription: input.dishDescription,
+    menuItemId: input.menuItemId,
     isMenuMatch: input.isMenuMatch,
-    source: "user_upload",
+    source: "user_suggested",
     attribution: "user",
     tier: input.tier,
     width: input.width,
     height: input.height,
     loveCount: 0,
     primaryVotes: 0,
-    sourcePlatform: "user_upload",
+    sourcePlatform: "user_suggested",
     photoAuthorType: "customer",
     trustLabel: "seefood_photo",
     photoQualityScore,

@@ -1812,3 +1812,24 @@ coverage. The baseline must explicitly report prompt impressions, prompt opens,
 upload starts, cancellations, optimization failures, API failures, and event
 delivery failures as unmeasurable until the main product deliberately
 instruments them. A missing event is never interpreted as a user rejection.
+
+## Keep known-dish contributions private until verification (July 27, 2026)
+
+The existing “Add a Photo” surface may passively record an idempotent,
+privacy-safe attempt chain, but the DL-007 treatment prompt stays disabled
+until DataLab approves a pilot. Each attempt uses a stable current menu-item
+target and a versioned affirmative rights grant. Server receipts are
+authoritative and receipt-write failures are visible to the uploader.
+
+A newly submitted known-dish photo is inactive and unpublished by default.
+It becomes eligible for Customer comparison only after rights, moderation,
+exact/strong dish matching, and exact plus perceptual duplicate review all
+pass. An exact SHA check may reject a duplicate immediately, but it does not
+claim that a photo is near-duplicate-free.
+
+Dish-level experiment targets must pass every gate: active non-fixture entity,
+current menu item, accessible useful Management photo, explicit provenance,
+approved moderation, reviewed rights, exact or explicit item linkage, robust
+duplicate evidence, and no verified Customer photo on that dish. Entity-level
+counts such as the earlier 89 mechanical candidates are not qualified-dish
+counts.

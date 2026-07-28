@@ -5,10 +5,11 @@ import { DishPhoto, Restaurant } from "@/lib/types";
 import { provenanceLabel } from "./DishTile";
 import { shareDish } from "@/lib/share";
 import { pickPrimary } from "@/lib/dishGrouping";
-import { getVisitorId, trackEvent } from "@/lib/analytics";
+import { getSessionId, getVisitorId, trackEvent } from "@/lib/analytics";
 import { withPhotoSignals } from "@/lib/photoSignals";
 import PhotoSourceSheet from "./PhotoSourceSheet";
 import { optimizeImageFile } from "@/lib/clientImageOptimization";
+import { CONTRIBUTION_RIGHTS_VERSION } from "@/lib/contributionFunnel";
 
 interface RevealProps {
   /** Deduped, one-per-dish list — drives vertical prev/next so a dish never repeats while scrolling. */
@@ -466,32 +467,127 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
 
   const [uploading, setUploading] = useState(false);
   const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
-  const handleFileSelected = async (file: File) => {
-    if (!activePhoto) return;
+  const contributionAttempts = useRef(new Map<number, string>());
+  const impressionReceipts = useRef(new Set<string>());
+  const attemptFor = useCallback((menuItemId: number) => {
+    const existing = contributionAttempts.current.get(menuItemId);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    contributionAttempts.current.set(menuItemId, created);
+    return created;
+  }, []);
+  const recordContributionReceipt = useCallback(
+    async (
+      menuItemId: number,
+      attemptId: string,
+      eventName: string,
+      outcome: string
+    ) => {
+      const response = await fetch("/api/contributions/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attemptId,
+          eventName,
+          outcome,
+          visitorId: getVisitorId(),
+          sessionId: getSessionId(),
+          restaurantId: restaurant.placeId || restaurant.id,
+          menuItemId,
+        }),
+      });
+      if (!response.ok) throw new Error("contribution receipt failed");
+    },
+    [restaurant.id, restaurant.placeId]
+  );
+
+  useEffect(() => {
+    if (!detailOpen || !activePhoto?.menuItemId) return;
+    const menuItemId = activePhoto.menuItemId;
+    const attemptId = attemptFor(menuItemId);
+    const key = `${attemptId}:eligible_prompt_impression`;
+    if (impressionReceipts.current.has(key)) return;
+    impressionReceipts.current.add(key);
+    void recordContributionReceipt(
+      menuItemId,
+      attemptId,
+      "eligible_prompt_impression",
+      "observed"
+    ).catch(() => impressionReceipts.current.delete(key));
+  }, [
+    activePhoto?.menuItemId,
+    attemptFor,
+    detailOpen,
+    recordContributionReceipt,
+  ]);
+
+  const openPhotoSource = async () => {
+    if (!activePhoto?.menuItemId) {
+      alert("This dish is not linked to a current menu item yet.");
+      return;
+    }
+    const attemptId = attemptFor(activePhoto.menuItemId);
+    try {
+      await recordContributionReceipt(
+        activePhoto.menuItemId,
+        attemptId,
+        "prompt_open",
+        "observed"
+      );
+      setPhotoSourceOpen(true);
+    } catch {
+      alert("Photo sharing is temporarily unavailable — please try again.");
+    }
+  };
+
+  const handleFileSelected = async (
+    file: File,
+    _source: "camera" | "library"
+  ) => {
+    if (!activePhoto?.menuItemId) return;
+    const menuItemId = activePhoto.menuItemId;
+    const attemptId = attemptFor(menuItemId);
     setUploading(true);
     try {
-      const optimized = await optimizeImageFile(file);
+      await recordContributionReceipt(
+        menuItemId,
+        attemptId,
+        "file_selected",
+        "observed"
+      );
+      let optimized: File;
+      try {
+        optimized = await optimizeImageFile(file);
+        await recordContributionReceipt(
+          menuItemId,
+          attemptId,
+          "client_preparation_result",
+          "success"
+        );
+      } catch {
+        await recordContributionReceipt(
+          menuItemId,
+          attemptId,
+          "client_preparation_result",
+          "failure"
+        );
+        throw new Error("client preparation failed");
+      }
       const form = new FormData();
       form.append("photo", optimized);
+      form.append("attemptId", attemptId);
+      form.append("rightsVersion", CONTRIBUTION_RIGHTS_VERSION);
       form.append("contributorId", getVisitorId());
       form.append("placeId", restaurant.placeId || restaurant.id);
+      form.append("menuItemId", String(menuItemId));
       if (activePhoto.dishName) form.append("dishName", activePhoto.dishName);
       if (activePhoto.dishDescription) form.append("dishDescription", activePhoto.dishDescription);
       form.append("isMenuMatch", String(activePhoto.isMenuMatch));
       form.append("tier", String(activePhoto.tier));
       const res = await fetch("/api/upload-photo", { method: "POST", body: form });
       const data = await res.json();
-      if (res.ok && data.photo) {
-        const newIndex = variants.length;
-        setUploadedPhotos((prev) => [...prev, data.photo]);
-        setVariantIndex(newIndex);
-        trackEvent("photo_add", restaurant.placeId || restaurant.id, {
-          surface: "dish_detail",
-          photoId: data.photo.id,
-          photoUrl: data.photo.url,
-          dishName: data.photo.dishName ?? activePhoto.dishName ?? "Dish photo",
-          restaurantName: restaurant.name,
-        });
+      if (res.ok && data.receipt) {
+        alert("Thanks — your photo is safely submitted and pending review.");
       } else {
         alert(data.error || "Upload failed — please try again.");
       }
@@ -872,8 +968,8 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
 
           <div className="grid grid-cols-3 gap-2 mb-1">
             <button
-              onClick={() => setPhotoSourceOpen(true)}
-              disabled={uploading}
+              onClick={() => void openPhotoSource()}
+              disabled={uploading || !activePhoto.menuItemId}
               className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border active:scale-[0.96] transition-all disabled:opacity-50"
               style={{ background: "var(--surface-2)", borderColor: "rgba(255,255,255,0.1)" }}
             >
@@ -882,7 +978,11 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
                 <circle cx="12" cy="13" r="4"/>
               </svg>
               <span className="text-[10.5px] font-bold text-white/85 text-center leading-tight">
-                {uploading ? "Uploading…" : "Add a Photo"}
+                {uploading
+                  ? "Uploading…"
+                  : activePhoto.menuItemId
+                    ? "Add a Photo"
+                    : "Not available"}
               </span>
             </button>
 
@@ -933,6 +1033,26 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
         open={photoSourceOpen}
         onClose={() => setPhotoSourceOpen(false)}
         onPick={handleFileSelected}
+        onSourceChoice={(source) => {
+          if (!activePhoto?.menuItemId) return;
+          const attemptId = attemptFor(activePhoto.menuItemId);
+          void recordContributionReceipt(
+            activePhoto.menuItemId,
+            attemptId,
+            "photo_source_choice",
+            source
+          );
+        }}
+        onCancel={() => {
+          if (!activePhoto?.menuItemId) return;
+          const attemptId = attemptFor(activePhoto.menuItemId);
+          void recordContributionReceipt(
+            activePhoto.menuItemId,
+            attemptId,
+            "file_cancelled",
+            "cancelled"
+          );
+        }}
       />
     </div>
   );
