@@ -2,17 +2,18 @@
 
 ## Verdict
 
-**Promising but unproven**
+**Needs a decision**
 
 ## Current Phase
 
 Kyle authorized no more than five additional major main-thread/DataLab cycles,
 with an early stop when the grand experiment reaches a defensible conclusion.
-DataLab does not see five mandatory cycles. Cycle 6 measurement readiness is
-complete and failed. Cycle 7 is selected for the highest remaining authorized
-real evidence, Cycle 8 remains conditional on decision-changing complementary
-evidence, and Cycle 9 remains the final portfolio synthesis. Cycle 10 is
-reserve only and must resolve one specific decision-changing uncertainty.
+DataLab does not see five mandatory cycles. Cycle 6 measurement readiness
+failed and closed DL-007. Cycle 7's stored-evidence preflight is complete and
+hit its stop condition. Cycle 8 is selected for the only complementary
+Customer-side evidence still capable of changing the decision, but it requires
+explicit controller-contact authorization. Cycle 9 remains the final portfolio
+synthesis. Cycle 10 is reserve only.
 
 The finish line is fixed in `GRAND_EXPERIMENT_FINISH_LINE.md`. A Go requires
 either a Management path projected to add at least 20 percentage points of
@@ -48,12 +49,37 @@ candidates across 59 restaurants, not the main summary's stale 4,004 across
 57. Gold candidates, real attempts, receipts, conversions, new comparison
 dishes, and verified coverage improvement all remain zero. Cost was $0.
 
-Cycle 7 selects DL-014's stored-replay and existing-evidence preflight because
-it is the highest-ranked remaining path with an authorized real-evidence first
-step. DL-012 remains the leading Customer-channel opportunity but requires
-explicit controller-contact authorization. Cycle 7 has not started; no
-main-thread handoff was created, and no live DoorDash request or bot-control
-boundary change is authorized.
+Cycle 7 completed DL-014's stored-replay and existing-evidence preflight at $0
+with zero network requests, new images, credentials, production access, or
+hidden-holdout access. The preregistered stop condition fired because no
+nationally stratified replay corpus exists.
+
+The strongest reproducible DoorDash result remains 168/168 exact item matches
+across 26 entities in a selected Temecula packet, with a 95% Wilson lower bound
+of 97.76%. Useful-food judgments were 164/168. All 168 rights statuses were
+unreviewed. The wider 9,340 DoorDash menu rows and 4,490 photo rows are
+normalized development-corpus state rather than source attempts; they provide
+no national restaurant denominator, raw response replay, corrected-path
+failure rate, repeat retention, or cost measurement.
+
+There are zero stored national DoorDash replay restaurants and zero raw store
+page replays. The retained RSC fixture represents one programmatically
+constructed two-item subset with no image field. The 13,915-byte sitemap index
+proves all-state geography only. Fourteen parser/discovery tests pass, but one
+test named as rejecting a single generic word actually expects the known
+`Cafe` false-positive match.
+
+DL-014 remains Potentially High technical value, not measured national
+coverage. Current live access is Observable but unauthorized and downstream
+rights remain unclear. Cycle 7's evidence decision is `Revise`; its access
+action is `Pursue permission or obtain a separate founder boundary decision`.
+No further stored-only analysis is useful.
+
+Cycle 8 selects DL-012's controller-authorized Tattle schema/rights/yield gate.
+It has not started, DataLab is not authorized to contact Tattle, and no
+outreach, data transfer, or spending is authorized. If authorization or a
+qualifying controller packet is unavailable, skip Cycle 8 execution and
+proceed to Cycle 9 synthesis.
 
 Before the bounded Cycle 6 reopening, DL-007 had completed its fifth authorized
 stage. Push 5 was
@@ -589,16 +615,26 @@ merges.
 
 Do not run another DL-007 repair or enable its treatment.
 
-Cycle 7 is selected but not started: inventory and evaluate only already-stored
-DoorDash replays and existing sanitized evidence for DL-014. The purpose is to
-decide whether the evidence is sufficient to justify requesting a separately
-authorized nationally stratified Management-source ceiling test. Do not issue a
-live store request, use credentials, encounter or evade bot controls, access
-production or the hidden holdout, download new images, or create a synthetic
-coverage result.
+Do not run more DL-014 stored-only analysis or a live DoorDash probe. The exact
+future national ceiling design is preserved in
+`experiments/DL-014-stored-replay-preflight.md`, but it requires written
+DoorDash consent or a separate founder bot-control/downstream-use boundary
+decision.
+
+Cycle 8 is selected but not started: DL-012's controller-authorized Tattle
+schema/rights/yield gate. Kyle or the main thread must explicitly authorize
+human contact. DataLab must not contact Tattle, send messages, receive personal
+data, start a paid service, or substitute public projections for the required
+controller packet and historical evidence.
 
 ## Kyle Needs To Do
 
-Nothing to close DL-007 or record Cycle 7 selection. A future live DL-014 step
-would require Kyle's separate bot-control-boundary decision or written
-DoorDash consent; the stored-evidence preflight does not.
+Choose one:
+
+1. authorize a human to request Tattle's redacted schema/rights packet for the
+   bounded DL-012 gate; or
+2. decline/hold that contact, in which case skip Cycle 8 execution and proceed
+   to the Cycle 9 final portfolio synthesis.
+
+A live DL-014 test remains a separate DoorDash permission/boundary decision and
+is not bundled into Cycle 8.

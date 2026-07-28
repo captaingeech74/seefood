@@ -1,0 +1,95 @@
+{
+  "experiment_id": "DL-014",
+  "cycle": 7,
+  "reviewer_roles": [
+    "DataLab Lead",
+    "Benchmark Guardian",
+    "Adversarial Verifier"
+  ],
+  "decision": "Revise",
+  "verdict": "Needs a decision",
+  "hypothesis_passed": false,
+  "stop_condition_triggered": true,
+  "safety": {
+    "network_requests": 0,
+    "new_images": 0,
+    "credentials_used": false,
+    "production_access": false,
+    "hidden_holdout_unblinded": false,
+    "bot_control_boundary_changed": false,
+    "money_cost_usd": 0
+  },
+  "stored_inventory": {
+    "stage2_manifest_files_verified": 228,
+    "stage2_manifest_all_passed": true,
+    "selected_doordash_records": 168,
+    "selected_doordash_entities": 26,
+    "selected_exact_item_matches": 168,
+    "selected_item_precision_point": 1.0,
+    "selected_item_precision_wilson95": [
+      0.977645,
+      1.0
+    ],
+    "selected_useful_food_records": 164,
+    "selected_usefulness_point": 0.97619,
+    "selected_usefulness_wilson95": [
+      0.940388,
+      0.990703
+    ],
+    "selected_rights_unreviewed": 168,
+    "normalized_doordash_menu_rows": 9340,
+    "normalized_doordash_menu_entities": 79,
+    "normalized_doordash_photo_rows": 4490,
+    "normalized_doordash_photo_entities": 63,
+    "normalized_photo_rows_with_source_snapshot_hash": 0,
+    "normalized_photo_rights_unreviewed": 4490,
+    "raw_store_page_replays": 0,
+    "national_doordash_replay_restaurants": 0,
+    "rsc_fixture_restaurants": 1,
+    "rsc_fixture_items": 2,
+    "rsc_fixture_item_images": 0,
+    "sitemap_fixture_urls": 10,
+    "stored_parser_discovery_tests_passed": 14,
+    "stored_parser_discovery_tests_total": 14,
+    "sitemap_index_bytes": 13915,
+    "sitemap_index_sha256": "cac7359828af65416a268ad13db30f31b2cc8e6e68ef166ee7a86e2e09de3dc4",
+    "sitemap_us_state_dc_pr_labels": 52,
+    "historical_old_path_benchmark_restaurants": 25,
+    "historical_old_path_doordash_hits": 0
+  },
+  "adversarial_findings": [
+    "The 168/168 exact result is a selected Temecula packet and cannot estimate national restaurant yield.",
+    "The wider DoorDash rows are normalized corpus state, not raw replay artifacts with a request denominator.",
+    "The locked national cohort had zero production matches and supplied zero DoorDash replay evidence.",
+    "The retained RSC fixture is one programmatically constructed two-item subset with no image field or raw page.",
+    "The sitemap index proves geography only and contains no restaurant, menu, or image rows.",
+    "A passing sitemap test is mislabeled: it says a generic one-word query does not match, while its assertion deliberately accepts the known Cafe false positive.",
+    "All selected and normalized measured DoorDash photo rights are unreviewed, and original merchant/POS/controller provenance is not established.",
+    "No stored ledger measures corrected-path discovery, retrieval, parsing failures, repeat retention, or cost."
+  ],
+  "gate_results": {
+    "inventory_reproducible": true,
+    "thirty_restaurants_two_national_strata": false,
+    "national_denominator_and_source_funnel": false,
+    "thirty_five_item_judgments": "selected Pacific packet only",
+    "precision_separated_from_yield": true,
+    "failures_duplicates_cost_refresh_measured": false,
+    "provenance_and_usable_rights_path": false
+  },
+  "coverage_improvement": 0,
+  "national_yield_estimate": null,
+  "confidence": {
+    "selected_packet_item_alignment": "high",
+    "absence_of_national_replay_corpus": "high",
+    "national_incremental_yield": "none",
+    "usable_rights": "none"
+  },
+  "technical_value": "Potentially High, inferred",
+  "access_posture": "Observable but unauthorized for live testing; downstream rights unclear",
+  "access_action": "Pursue permission or a separate founder boundary decision",
+  "finish_line_threshold_changed": false,
+  "finish_line_movement": "Stored-only evidence is exhausted; a real Management result now requires a human access decision.",
+  "cycle8_selection": "DL-012 controller-authorized Tattle schema/rights/yield gate",
+  "cycle8_started": false,
+  "cycle8_authorized": false
+}

@@ -7,8 +7,10 @@ The grand experiment has established three facts:
 1. SeeFood's verified comparison baseline is zero, despite six production SQL
    claims.
 2. The selected DoorDash-heavy Management packet has excellent item-to-photo
-   alignment, but national yield, original provenance, and display rights are
-   not proved.
+   alignment. Cycle 7 confirmed the stored corpus has zero national replay
+   restaurants, so national yield, original provenance, display rights,
+   corrected-path failures, refresh, and cost are not measurable without a
+   new access decision.
 3. First-party Customer contribution is mechanically plausible, but DL-007 is
    closed as not pilot-ready. Cycle 6 fixed database/runtime parity but failed
    the fixed route-retry and every-gate terminal-evidence requirements.
@@ -23,12 +25,14 @@ complete; the remaining likely path is:
 
 1. **Cycle 6 — complete, failed:** parity passed, but the exact retry and
    terminal state-machine evidence gate did not. DL-007 is closed.
-2. **Cycle 7 — highest remaining authorized real evidence:** inspect only
-   already-stored DL-014 DoorDash replays and existing sanitized evidence to
-   decide whether a separately authorized national Management-source ceiling
-   test is worth requesting. This does not authorize live retrieval.
-3. **Cycle 8 — complementary evidence, only if decision-changing:** test the
-   other side of the portfolio only when it can still change the outcome.
+2. **Cycle 7 — complete, stopped:** the selected Pacific packet retained strong
+   item precision, but no national replay corpus exists. DL-014 is preserved
+   behind a written-permission or founder-boundary decision.
+3. **Cycle 8 — selected, not started:** DL-012's controller-authorized Tattle
+   schema/rights/yield gate is the only complementary Customer-side evidence
+   still capable of changing the portfolio decision. Human contact requires
+   explicit authorization. If no qualifying packet is available, skip Cycle 8
+   execution rather than substituting projections.
 4. **Cycle 9 — final portfolio decision:** issue a go, conditional-go, or
    no-go decision.
 
@@ -47,7 +51,7 @@ invent work to consume it.
 - If a Management-source cycle cannot test national yield without new
   permission, credentials, production access, or prohibited circumvention,
   convert it to a concrete deal/access decision rather than substituting mock
-  data.
+  data. Cycle 7 reached this stop for DL-014.
 - End immediately when the evidence supports a defensible final decision. Do
   not continue merely because budget remains.
 

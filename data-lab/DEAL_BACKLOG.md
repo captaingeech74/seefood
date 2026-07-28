@@ -45,6 +45,14 @@ public-store extraction a potentially High technical path. It remains a
 separate experiment with unresolved retrieval reliability, coverage,
 provenance, refresh, duplication, machine cost, and access posture.
 
+Cycle 7 exhausted the stored-only path. It found zero raw store-page replays
+and zero national DoorDash replay restaurants. The wider 9,340 menu and 4,490
+photo rows are normalized development-corpus state, not a request-denominated
+source replay; all 4,490 photo rights are unreviewed and none has a bound
+source-snapshot hash. The retained RSC fixture is one constructed two-item
+subset with no image field. This does not lower technical value, but it proves
+that another local parser or schema exercise cannot measure national yield.
+
 **Controller:** DoorDash partnerships or platform/data licensing, plus
 participating merchants where merchant authorization or image rights require
 it. The exact current decision-maker and eligible program must be confirmed.
@@ -57,9 +65,13 @@ attribution, combine Management photos with separately rights-cleared Customer
 photos, and propagate removal.
 
 **Smallest pilot after the documentary gate:** At most 30 restaurants and 300
-item images across multiple hidden national market-size/division strata plus a
-Temecula validation slice. No order, customer, courier, payment, or personal
-data. One initial read and one bounded repeat.
+item images: 24 locked national records split evenly between major-metro and
+smaller-metro/rural strata across at least two census divisions, plus six
+Temecula validation restaurants. The implementation and matching rules freeze
+before the Guardian releases a one-shot challenge. Audit every restaurant
+match and at least 35 deterministic item-image records. No order, customer,
+courier, payment, or personal data. One initial read and one separately capped
+repeat.
 
 **Success:** A credible route to at least a 20-percentage-point national gain in
 current-menu-plus-strong-Management-photo coverage; at least 95% item-match
@@ -87,7 +99,9 @@ access and downstream rights are separately established.
 ## Tattle — Transaction-Triggered Customer Photo Partnership
 
 **Readiness:** Highest-priority Customer opportunity, but still behind a
-documentary schema-and-rights gate. Not ready for outreach from the DataLab.
+documentary schema-and-rights gate. Cycle 8 is selected but not started. It is
+not ready for outreach from the DataLab; Kyle or the main thread must explicitly
+authorize human contact.
 
 **Technical value:** Potentially High. Tattle already documents the difficult
 building blocks: post-transaction SMS/email surveys, ordered-item context,
