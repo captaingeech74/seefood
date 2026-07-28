@@ -219,7 +219,7 @@ async function main() {
     legacyRaw = (await client.query(QUERIES.legacyEvents, [snapshot])).rows;
     attemptsRaw = (await client.query(QUERIES.attempts, [snapshot])).rows;
     funnelRaw = (await client.query(QUERIES.funnelEvents, [snapshot])).rows;
-    targetsRaw = (await client.query(QUERIES.dishTargets, [snapshot, RIGHTS])).rows;
+    targetsRaw = (await client.query(QUERIES.dishTargets)).rows;
     schema = (await client.query(QUERIES.schema)).rows;
     proofAfter = (await client.query(QUERIES.proof)).rows[0];
     await client.query("rollback");
