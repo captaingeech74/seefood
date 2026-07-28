@@ -1,0 +1,75 @@
+{
+  "experiment_id": "DL-GRAND-004",
+  "cycle": 9,
+  "reviewer_roles": [
+    "DataLab Lead",
+    "Benchmark Guardian",
+    "Adversarial Verifier"
+  ],
+  "evidence_universe": [
+    "DL-001",
+    "DL-002",
+    "DL-013",
+    "DL-007/Cycle 6",
+    "DL-014/Cycle 7",
+    "DL-012/Cycle 8"
+  ],
+  "decision": "No-Go / Redirect",
+  "verdict": "No-Go / Redirect",
+  "go_gate_passed": false,
+  "conditional_go_gate_passed": false,
+  "management_gate": {
+    "national_incremental_coverage_at_least_20pp": false,
+    "at_least_two_national_strata": false,
+    "qualifying_precision_audit": false,
+    "repeatable_refresh_failures_duplicates_cost": false,
+    "usable_rights_or_controller_deal": false,
+    "reason": "Selected Pacific/Temecula image precision was strong, but no accepted experiment measured representative national yield, refresh economics, or usable rights."
+  },
+  "customer_gate": {
+    "valid_rights_granted_uploads": 0,
+    "valid_upload_conversion_measured": false,
+    "qualifying_precision_audit": false,
+    "zero_wrong_restaurant_and_same_image_pairs_in_qualifying_treatment": false,
+    "scalable_economics_measured": false,
+    "reason": "No real bounded Customer treatment or controller-supplied historical fixture produced a valid upload."
+  },
+  "conditional_gate": {
+    "management_technical_yield_clears_game_changer_bar": false,
+    "customer_valid_uploads_between_10_and_34": false,
+    "reason": "Access-gated concepts and projected records do not satisfy the finish line."
+  },
+  "verified_portfolio_improvement": {
+    "verified_comparison_dishes": 0,
+    "national_coverage_percentage_points": 0,
+    "valid_customer_uploads": 0
+  },
+  "accepted_strengths": [
+    "A corrected active baseline frame and failure-mechanism calibration.",
+    "High selected Management item-to-photo alignment in bounded Pacific/Temecula packets.",
+    "Exact local runtime-adapter parity across 5204 sanitized contracts.",
+    "Concrete DoorDash and Tattle access questions that can be evaluated by business controllers."
+  ],
+  "preserved_opportunities": [
+    "DoorDash bespoke schema, footprint, rights, refresh, and economics packet.",
+    "Tattle controller schema, exact order-line binding, photo export, rights, deletion, yield, and economics packet.",
+    "Merchant-authorized first-party menu/photo paths."
+  ],
+  "cycle10_warranted": false,
+  "cycle10_reason": "The remaining unknowns require new permission, a verified sender, or controller-supplied data; no bounded decision-changing uncertainty remains executable under current authorization.",
+  "early_stop_applied": true,
+  "money_cost_usd": 0,
+  "safety": {
+    "new_source_work": false,
+    "external_calls": 0,
+    "outreach_messages": 0,
+    "production_or_main_changes": false,
+    "live_treatment": false
+  },
+  "confidence": {
+    "decision_under_current_finish_line": "high",
+    "verified_baseline_and_zero_measured_improvement": "high",
+    "selected_packet_item_alignment": "high",
+    "national_yield_rights_and_customer_conversion": "none"
+  }
+}

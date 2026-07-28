@@ -2,27 +2,36 @@
 
 ## Verdict
 
-**Needs a decision**
+**No-Go / Redirect**
 
 ## Current Phase
 
-Kyle authorized no more than five additional major main-thread/DataLab cycles,
-with an early stop when the grand experiment reaches a defensible conclusion.
-DataLab does not see five mandatory cycles. Cycle 6 measurement readiness
-failed and closed DL-007. Cycle 7's stored-evidence preflight hit its stop
-condition. Cycle 8 is complete and access-blocked because no
-controller-authorized Tattle packet or verified SeeFood sender exists. Cycle 9
-is selected for the final portfolio synthesis and has not started. Cycle 10
-remains unallocated reserve only.
+The bounded grand experiment is complete. Cycle 9 applied the preregistered
+finish-line rules to accepted results from DL-001, DL-002, DL-013,
+DL-007/Cycle 6, DL-014/Cycle 7, and DL-012/Cycle 8.
 
-The finish line is fixed in `GRAND_EXPERIMENT_FINISH_LINE.md`. A Go requires
-either a Management path projected to add at least 20 percentage points of
-national current-menu-plus-strong-photo coverage at at least 95% item precision
-with a 95% Wilson lower bound of at least 90%, or a real Customer treatment
-producing at least 35 valid uploads, at least 1.5% valid-upload conversion, the
-same precision bound, and scalable economics. A smaller 10–34-upload Customer
-result or a technically strong permission gate may support Conditional Go only
-under the exact qualifications recorded in the finish-line document.
+No Management path measured at least +20 percentage points on a locked national
+frame across two strata with qualifying precision, refresh/failure/cost
+evidence, and usable rights. The strong 100/100 and 168/168 item-alignment
+results came from selected Pacific/Temecula packets and do not measure national
+source yield. No Customer path produced a valid rights-granted upload; the
+portfolio total is zero. Neither Conditional Go case clears.
+
+Verified portfolio improvement remains **zero comparison dishes, zero national
+coverage percentage points, and zero valid Customer uploads**. Monetary cost
+was $0. The DataLab improved measurement, falsified stored coverage claims,
+demonstrated selected Management image quality, and preserved precise DoorDash
+and Tattle access briefs, but did not prove a game-changing acquisition path.
+
+Cycle 10 is **not warranted**. The remaining unknowns require permission,
+controller evidence, a verified sender, or merchant authorization—not another
+bounded experiment inside current authority. The early stop applies. Do not
+start another DataLab cycle, source test, outreach, production change, or live
+treatment.
+
+See `FINAL_EXECUTIVE_REPORT.md` for the concise handoff to Kyle and
+`experiments/DL-GRAND-004-final-portfolio-synthesis.md` for the final gate
+matrix.
 
 Cycle 6 is complete and **failed its predeclared hard exit gate**. DL-007 is
 closed as not pilot-ready with no further repair cycle. Treatment remains
@@ -98,9 +107,9 @@ external requests, and cost. Tattle remains Potentially High inferred
 technical value behind commercial/custom permission from Tattle and a
 participating controller plus Customer consent.
 
-Cycle 9 final portfolio synthesis is selected and not started. It must add no
-new source test, outreach, live retrieval, credential, production access, or
-projected coverage and must issue exactly one fixed finish-line decision.
+Cycle 9 then completed the final portfolio synthesis without source work,
+outreach, live retrieval, credentials, production access, or projected
+coverage. Its fixed finish-line decision is **No-Go / Redirect**.
 
 Before the bounded Cycle 6 reopening, DL-007 had completed its fifth authorized
 stage. Push 5 was
@@ -645,14 +654,14 @@ decision.
 Do not continue Cycle 8 or contact Tattle from DataLab. Preserve the exact
 human-authenticated request in `DEAL_BACKLOG.md`.
 
-Cycle 9 final portfolio synthesis is selected but not started. It must reconcile
-the zero verified comparison baseline, selected Management quality, failed
-DL-007 readiness gate, absent DL-014 national replay yield, and access-blocked
-DL-012 controller evidence. It adds no new source work and must issue Go,
-Conditional Go, or No-Go / Redirect under the fixed finish line.
+Close and archive the DataLab portfolio under **No-Go / Redirect**. Do not
+start Cycle 10. Preserve the measurement assets, inactive contribution
+infrastructure, and exact DoorDash/Tattle deal briefs for ordinary product or
+business decisions outside this completed program.
 
 ## Kyle Needs To Do
 
-Nothing to close Cycle 8 or select Cycle 9. Any later Tattle contact must come
-from Kyle or a verified SeeFood representative and is a preserved business
-decision, not unfinished DataLab execution.
+Nothing is required to close the portfolio. Kyle may later choose whether a
+verified SeeFood representative pursues the preserved DoorDash or Tattle
+request, but that is a new business decision—not unfinished DataLab execution
+and not Cycle 10.

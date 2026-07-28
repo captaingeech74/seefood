@@ -13,11 +13,16 @@ passed, but a marketplace-wide read grant, downstream rights, and
 representative national yield did not. The separate scraping hypothesis remains
 potentially High and unmeasured rather than rejected.
 
+Cycle 9 is complete with **No-Go / Redirect**. No tested path cleared Go or
+Conditional Go. Cycle 10 is not warranted under the early-stop rule. The
+remaining rows are a closed research backlog to preserve or monitor, not an
+active experiment queue.
+
 ## Active Experiment
 
 | ID | Question | Bound | Status |
 |---|---|---|---|
-| Cycle 9 / Final synthesis | Does the verified portfolio support Go, Conditional Go, or No-Go / Redirect under the fixed finish line? | Synthesize only completed evidence through Cycle 8; no new source experiment, outreach, live retrieval, credential, production access, paid cost, hidden-holdout unblinding, or projected coverage | Selected, not started |
+| None | The grand experiment reached its final decision. | No Cycle 10 or further DataLab work is authorized. | Closed — No-Go / Redirect |
 
 | Rank | ID | Hypothesis | Bounded evidence | Expected value | Status |
 |---|---|---|---|---|---|
@@ -28,14 +33,15 @@ potentially High and unmeasured rather than rejected.
 | Complete | DL-007 stages 1–5 | Targeted Management and Customer contribution prompts close the final comparison gap more cheaply than another automatic source. | Five bounded read-only stages; final gate required exact exporter/runtime/database parity and adversarial state-machine proof | Tested the Customer-supply frontier without enabling treatment | Revise: runtime contract-key mismatch; 0 gold, attempts, conversions, or coverage gain |
 | Complete | DL-014 | If rendered retrieval were authorized and reliable, DoorDash public-store extraction could add at least 20 percentage points of national current-menu-plus-strong-photo coverage. | Cycle 7 used only stored replays and existing sanitized evidence. A live nationally stratified 30-restaurant/300-image probe still requires either written DoorDash consent or a separate founder amendment of the current bot-control boundary; never unbounded | Highest-ranked remaining Management path, but stored evidence can measure only selected Temecula item quality, not national yield | Revise / Needs a decision: zero national replay restaurants; exact future test preserved; no more stored-only analysis |
 | Complete | DL-012 | A transaction-triggered Tattle partnership can export rights-valid Customer meal photos bound to exact order lines at nationally material unique-location yield. | Documentary gate first: controller-authorized redacted schema/rights packet; only if it passes, at least 1,000 aggregate already-delivered prompts plus 35 blinded historical photo records across at least 10 locations, including multi-item orders; no DataLab outreach or SMS | Highest-potential complementary Customer channel; exact binding, rights, real yield, and economics could change the final portfolio decision | Revise / Needs a decision / access-blocked: no controller packet, verified sender, 1,000-prompt aggregate, 35-photo fixture, rights, or measured yield |
-| 4 | DL-004 | Existing unmatched Customer/Unknown photos contain recoverable strong item matches using preserved menu evidence rather than label containment alone. | Maximum 100 existing photos; one bounded read per already-recorded public or authorized locator; no replacement-URL discovery or material paid quota; blind Guardian audit | Direct comparison-dish leverage against the bottleneck Gemini did not solve | Deprioritized: Stage 2 found no accessible recorded Customer locator |
-| 5 | DL-008 | Tripadvisor Terra review-linked photos, captions or review text can produce strong Customer-to-menu matches at nationally meaningful scale. | Contract/schema review first; only if Kyle or the main thread separately authorizes access, analyze a supplied nationally stratified fixture capped at 30 restaurants and 150 review-photo records, including a Temecula validation slice; blind item/provenance audit; no overage | Potentially High Customer-photo corpus; published default terms currently block SeeFood's intended use | Quarantined unless a negotiated Order grants explicit rights; DataLab cannot start service |
-| 6 | DL-003 | Flipdish's documented merchant-authorized menu path produces exact item-linked Management images and useful freshness signals beyond the frozen stack. | One access path; public docs and local schema fixture first; only with permission, 3 development merchants, one current menu each, maximum 30 item images; Guardian hidden holdout | Best evidenced newer provider path; Management-side leverage | Awaiting merchant permission |
-| 7 | DL-009 | A time-limited GloriaFood merchant rescue preserves exact item-linked Management images before service ends on March 31, 2027. | Identify one consenting existing merchant through the main thread; one menu request or merchant export; no outreach by lab; no customer/order data; maximum 500 items | Urgent preservation opportunity, but Management-only | Awaiting merchant permission |
-| 8 | DL-010 | Google Business Profile FoodMenus returns item-level `mediaKeys` often enough to justify an approved merchant connector. | Documentation/schema fixture first; only with API approval and merchant OAuth, 3 locations and maximum 100 menu items; no writes | High-quality Management linkage if merchants actually populate the field | Awaiting API/merchant permission |
-| 9 | DL-011 | Square Catalog's documented `image_ids` and related objects translate cleanly into a SeeFood Management-item fixture. | Local synthetic schema fixture first; live step only after baseline, merchant OAuth, and separate authorization; 3 merchants, maximum 100 items and 30 images | De-risks a documented Management connector without implying real coverage | Local fixture remains authorized |
-| 10 | DL-005 | Confirmed chain templates can upgrade many locations without inventing location availability. | One chain; 10 geographically varied development locations; explicit exception audit | High location leverage | Awaiting next cycle |
-| 11 | DL-006 | Common Crawl or deeper first-party site extraction adds current menu and Management-photo coverage beyond the live website path. | Maximum 20 visible development restaurants and 5 archive records per domain | Long-tail leverage | Awaiting next cycle |
+| Complete | Cycle 9 / Final synthesis | Does the verified portfolio support Go, Conditional Go, or No-Go / Redirect under the fixed finish line? | Completed evidence through Cycle 8 only; no new source work, external calls, outreach, production/main activity, treatment, or projected coverage | Close the portfolio with one defensible decision | No-Go / Redirect; Cycle 10 not warranted |
+| Archived | DL-004 | Existing unmatched Customer/Unknown photos contain recoverable strong item matches using preserved menu evidence rather than label containment alone. | Maximum 100 existing photos; one bounded read per already-recorded public or authorized locator; no replacement-URL discovery or material paid quota; blind Guardian audit | Direct comparison-dish leverage against the bottleneck Gemini did not solve | Closed with portfolio: Stage 2 found no accessible recorded Customer locator |
+| Archived | DL-008 | Tripadvisor Terra review-linked photos, captions or review text can produce strong Customer-to-menu matches at nationally meaningful scale. | Contract/schema review first; only if Kyle or the main thread separately authorizes access, analyze a supplied nationally stratified fixture capped at 30 restaurants and 150 review-photo records, including a Temecula validation slice; blind item/provenance audit; no overage | Potentially High Customer-photo corpus; published default terms currently block SeeFood's intended use | Closed with portfolio; preserve only if a negotiated Order grants explicit rights |
+| Archived | DL-003 | Flipdish's documented merchant-authorized menu path produces exact item-linked Management images and useful freshness signals beyond the frozen stack. | One access path; public docs and local schema fixture first; only with permission, 3 development merchants, one current menu each, maximum 30 item images; Guardian hidden holdout | Best evidenced newer provider path; Management-side leverage | Preserve for ordinary merchant-authorized product work |
+| Archived | DL-009 | A time-limited GloriaFood merchant rescue preserves exact item-linked Management images before service ends on March 31, 2027. | Identify one consenting existing merchant through the main thread; one menu request or merchant export; no outreach by lab; no customer/order data; maximum 500 items | Urgent preservation opportunity, but Management-only | Preserve for ordinary merchant-authorized product work |
+| Archived | DL-010 | Google Business Profile FoodMenus returns item-level `mediaKeys` often enough to justify an approved merchant connector. | Documentation/schema fixture first; only with API approval and merchant OAuth, 3 locations and maximum 100 menu items; no writes | High-quality Management linkage if merchants actually populate the field | Preserve for ordinary merchant-authorized product work |
+| Archived | DL-011 | Square Catalog's documented `image_ids` and related objects translate cleanly into a SeeFood Management-item fixture. | Local synthetic schema fixture first; live step only after baseline, merchant OAuth, and separate authorization; 3 merchants, maximum 100 items and 30 images | De-risks a documented Management connector without implying real coverage | Closed with portfolio; preserve documented capability |
+| Archived | DL-005 | Confirmed chain templates can upgrade many locations without inventing location availability. | One chain; 10 geographically varied development locations; explicit exception audit | High location leverage | Closed with portfolio; preserve concept |
+| Archived | DL-006 | Common Crawl or deeper first-party site extraction adds current menu and Management-photo coverage beyond the live website path. | Maximum 20 visible development restaurants and 5 archive records per domain | Long-tail leverage | Closed with portfolio; preserve concept |
 
 The Lead may reorder this list only after recording the measured reason.
 Cycle 7 exhausted DL-014's authorized stored-evidence step. The selected
@@ -51,10 +57,10 @@ export, SeeFood rights, deletion, 1,000-prompt/35-photo evidence, valid-upload
 conversion, or national unique-location yield. DL-012 is access-blocked rather
 than technically rejected.
 
-Cycle 9 final portfolio synthesis is now the exact selection and has not
-started. Do not insert another evidence cycle merely because budget remains.
-The synthesis must preserve the DoorDash and Tattle permission/deal paths
-without counting either as coverage.
+Cycle 9 final portfolio synthesis is complete. It preserved the DoorDash and
+Tattle permission/deal paths without counting either as coverage. No Go or
+Conditional Go gate cleared, so the final verdict is **No-Go / Redirect**.
+Do not insert Cycle 10 or another evidence cycle merely because budget remains.
 
 DL-002 makes raw Customer-photo recovery less attractive as the immediate next
 step because all 100 Customer evidence photos in the packet lacked an

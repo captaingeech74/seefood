@@ -18,13 +18,15 @@ The grand experiment has established four facts:
    found no controller packet, verified SeeFood sender, exact photo-line
    binding, photo export/rights/deletion proof, or real yield evidence.
 
-This is promising evidence, not yet a defensible go or no-go conclusion.
+Cycle 9 independently combined the accepted portfolio against the fixed gates.
+No Management path measured national technical yield, refresh economics, and
+usable rights; no Customer path produced a valid upload. The final decision is
+**No-Go / Redirect**.
 
 ## Remaining Decision Budget
 
 Kyle authorized at most five additional major main-thread/DataLab cycles.
-DataLab does **not** currently see five mandatory evidence cycles. Cycle 6 is
-complete; the remaining likely path is:
+DataLab did not require all five cycles. The bounded program is complete:
 
 1. **Cycle 6 — complete, failed:** parity passed, but the exact retry and
    terminal state-machine evidence gate did not. DL-007 is closed.
@@ -34,12 +36,12 @@ complete; the remaining likely path is:
 3. **Cycle 8 — complete, access-blocked:** no controller-authorized Tattle
    packet or verified SeeFood sender exists. Public capability evidence did not
    satisfy any binding, rights, deletion, or real-yield gate.
-4. **Cycle 9 — selected, not started:** issue a Go, Conditional Go, or No-Go /
-   Redirect decision from completed evidence only.
+4. **Cycle 9 — complete:** accepted evidence failed both Go paths and both
+   Conditional Go cases. Final verdict: **No-Go / Redirect**.
 
-Cycle 10 is unallocated reserve. Use it only if Cycles 7 or 8 expose one
-specific, bounded uncertainty capable of changing the final decision. Do not
-invent work to consume it.
+Cycle 10 is **not warranted**. Cycles 7 and 8 exposed access/controller
+decisions rather than a bounded uncertainty executable under current
+authorization. The early stop applies; do not start further DataLab work.
 
 ## Early Stops
 
