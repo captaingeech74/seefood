@@ -1,0 +1,65 @@
+{
+  "experiment_id": "DL-007",
+  "stage": 5,
+  "reviewer_roles": [
+    "DataLab Lead",
+    "Benchmark Guardian",
+    "Adversarial Verifier"
+  ],
+  "decision": "Revise and close five-cycle run",
+  "verdict": "Promising but unproven",
+  "exit_gate_passed": false,
+  "integrity": {
+    "sha256sums_hash": "251aa26687a9d18a187e5d602626ab1a396db82e291869c156f694bee0f55fe1",
+    "all_listed_hashes_passed": true,
+    "exporter_commit": "16608802c1a6b40ed1515f81c4356fdbea24785e",
+    "read_only_repeatable_read_and_rollback_evidence": true,
+    "hidden_holdout_accessed": false
+  },
+  "reproduced": {
+    "roster_rows": 5204,
+    "restaurants": 71,
+    "behavioral_candidates_in_database_contract": 4004,
+    "behavioral_candidate_restaurants": 57,
+    "gold_candidates": 0,
+    "serialized_contract_mismatches": 0,
+    "semantic_gate_and_mismatches": 0,
+    "selector_reconciliation_rows": 0,
+    "contribution_attempts": 0,
+    "contribution_receipts": 0
+  },
+  "accepted_improvements": [
+    "Database functions now own named behavioral and Management-photo gate evidence.",
+    "Every attached Management photo is evaluated and eligible photos rank before failing photos.",
+    "Successful menu and photo snapshots are bound to entity and source.",
+    "Independent Management provenance, usefulness, display-rights, and near-duplicate review states are required.",
+    "Existing Management rows were not bulk-approved; zero rows currently pass gold.",
+    "Server-screened public traffic is named eligible_external without claiming verified human traffic.",
+    "Treatment and conversion/coverage claims remain disabled."
+  ],
+  "blocking_findings": [
+    "Runtime reads contract.behavior, but the database contract returns contract.behavioral. Runtime therefore rejects every target while the database/exporter report 4004 behavioral candidates.",
+    "The parity export aliases the same database value as both contract and direct_contract, so its 5204 equalities do not test runtime interpretation and could not detect the runtime key defect.",
+    "Non-OK upload responses do not clear the client's cached terminal attempt ID, so a user retry can reuse the closed attempt.",
+    "The retry fixture merely inserts two chosen UUID rows and does not exercise the route or client retry behavior.",
+    "No concurrent terminal-review test is present.",
+    "Full-binding replay tests alter only restaurant and menu item, not every binding field.",
+    "Gold-failure tests do not assert the absence of verified_comparison_created receipts.",
+    "The every-gate matrix omits direct tests for distinctFromCustomer and lacksVerifiedCustomerSameDish.",
+    "The supplied adversarial JSON contains summary labels, not test names and captured assertions.",
+    "The selector reconciliation is empty and reports no explicit old/new population totals or delta.",
+    "The 3912-to-3881 drift file repeats a narrative timing explanation without aggregate gate-state evidence."
+  ],
+  "independent_checks": {
+    "tests": "80 passed in a disposable checkout",
+    "typecheck": "passed with locked dependencies",
+    "production_build": "passed with inert placeholder environment values",
+    "separate_evaluators_agree": true
+  },
+  "coverage_improvement": 0,
+  "money_cost_usd": 0,
+  "production_impact_by_datalab": "none",
+  "treatment_authorized": false,
+  "live_pilot_authorized": false,
+  "push_6_requested": false
+}

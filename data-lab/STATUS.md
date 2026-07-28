@@ -6,6 +6,40 @@
 
 ## Current Phase
 
+DL-007 has completed its fifth and final authorized cycle. Push 5 is
+`Revise / run closed`; treatment remains disabled and no Push 6 is requested.
+
+The Stage 5 bundle is internally clean: 5,204 canonical roster rows across 71
+restaurants, 4,004 database behavioral candidates across 57 restaurants, zero
+gold candidates, zero attempts, and zero receipts. All hashes, read-only
+snapshot evidence, and 5,204 serialized contract comparisons passed.
+
+The implementation materially improved the architecture. Database functions
+now own named behavioral and Management-photo gates, evaluate all attached
+Management photos, bind source snapshots to entity/source, require independent
+provenance/usefulness/display-rights/near-duplicate reviews, and leave all
+existing rows unapproved. Server-screened public traffic is honestly named
+`eligible_external`, not verified human traffic.
+
+The exit gate nevertheless fails. The database returns `contract.behavioral`
+while the live runtime reads `contract.behavior`. Runtime therefore rejects
+every prompt target while the database/exporter report 4,004. The parity file
+could not detect this because it compares one SQL value with an alias of
+itself.
+
+The retry path and adversarial evidence also remain incomplete: non-OK upload
+responses retain a closed attempt ID; the retry fixture only inserts two chosen
+IDs; concurrent terminal review is not tested; binding mutations cover only
+restaurant/menu; failed-gold event absence is not asserted; and the supplied
+test file contains summary labels rather than captured assertions. The empty
+selector reconciliation gives no population-delta proof.
+
+DL-007 closes **Promising but unproven**. It demonstrated a high-quality
+selected Management-photo/item packet and a plausible first-party contribution
+strategy, but it produced zero real contributions, zero gold candidates, zero
+new comparison dishes, and no valid conversion result. No live pilot is
+authorized.
+
 DL-007 Stage 4 independently verified a clean read-only bundle of 5,048 dish
 rows, 4,004 claimed behavioral candidates across 57 restaurants, zero gold
 candidates, and zero real attempts or receipts. The treatment remains disabled.
