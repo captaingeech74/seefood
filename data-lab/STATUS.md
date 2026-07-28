@@ -2,13 +2,13 @@
 
 ## Verdict
 
-**Promising but unproven**
+**Needs a decision**
 
 ## Current Phase
 
-DL-001 completed a valid calibration. DL-002 Stage 1 is accepted and Stage 2 is
-next. The forced-read-only bundle passed its hashes, redaction, transaction,
-stable-ID, and boundary checks.
+DL-001 completed a valid calibration. DL-002 is complete with a `Revise`
+decision. It establishes the first frozen claimed-versus-verified baseline,
+but it does not create or improve coverage.
 
 The frozen Temecula development cohort contains 396 independently reviewed
 active provider identities. It excludes 241 unknown-status identities and one
@@ -18,10 +18,11 @@ records, 48 were likely genuine provider omissions/status candidates, 20 were
 already provider-represented, eight were likely ineligible, and 24 remained
 unresolved.
 
-The Guardian froze 120 hidden national records plus 12 direct replacements.
-Every hard geography, market, business-form, status, and brand rule passes.
-No clear national identity or seed is committed or available to the evidence
-exporter; only registered public-ID hashes may be used for Stage 2.
+The active content denominator is 504: 396 Temecula plus 108 hidden national
+restaurants. Twelve national closure/move/replacement sentinels are separate.
+The exporter incorrectly used 516; DataLab corrected the denominator without
+unblinding the holdout. Sentinel accuracy is not assessable because Stage 2
+omitted their status evidence.
 
 Founder priority correction: website strength, exact cuisine balance,
 food-truck/nontraditional subtypes, ghost-kitchen classification, and restaurant
@@ -29,9 +30,32 @@ opening date/recency are optional context, not benchmark quotas or stop
 conditions. The benchmark and DL-002 handoff now apply that rule to every
 worker and reviewer.
 
-No coverage improved in Stage 1. It established trustworthy measurement
-cohorts; it did not create a menu, photo, strong match, or new production
-record.
+The corrected claimed ladder is 150 restaurants with at least one stored
+useful-photo signal, 84 with a current menu, 64 with seven current-menu
+attachment candidates, 60 meeting the 20% attachment threshold, 46 meeting the
+50% threshold, and six restaurants containing 21 claimed comparison dishes.
+The Guardian verified zero comparison dishes. All 45 Customer references used
+by those claims were unavailable, Customer provenance was unverified, and all
+73 claim-photo rights statuses were unreviewed.
+
+Across 214 rendered Management evidence photos, 175 item matches passed and 39
+failed: 81.78% precision with a 95% Wilson interval of 76.06%–86.37%, below the
+95% promotion gate. Management provenance passed 214/214. The national active
+holdout had zero production matches and therefore zero claimed content coverage
+beyond identity.
+
+The pooled score hides an important source split. DoorDash supplied 168/168
+exact Management item matches and 164 useful images in this selected evidence
+packet. Schema.org supplied only 7 exact matches, 39 rejects, and 6
+unverifiable records. This does not measure DoorDash's national location yield
+or establish usage rights, but it raises the technical potential of an
+authorized DoorDash data path materially.
+
+On founder instruction, Benchmark Specification 0.2 now allows bounded image
+reads from public or already-authorized recorded locators. The 214 Stage 2
+reads are valid audit evidence. Authentication bypass, rate-limit evasion,
+unbounded crawling, material paid quota, PII collection, and production writes
+remain prohibited.
 
 ## Current Goal
 
@@ -246,22 +270,68 @@ establishment IDs remain for internal reconciliation. These are not restaurant
 or coverage counts. The layer includes multiple permits per establishment and
 many non-restaurant facility types.
 
+DL-002 then completed both handoff stages. Stage 2 matched every registered
+cohort hash without exposing a national identity, reproduced the production
+metric exactly for 393 mapped Temecula entities, and supplied 320 bounded photo
+records. DataLab corrected two exporter errors:
+
+- the active denominator is 504, not 516, because 12 national closure
+  sentinels are scored separately; and
+- the benchmark's useful-photo rung is at least one useful photo, while the
+  exporter reported a seven-photo product threshold.
+
+The corrected claimed ladder is:
+
+- identified: 504/504;
+- at least one stored useful-photo signal: 150/504;
+- known current menu: 84/504;
+- seven current-menu attachment candidates: 64/504;
+- 20% current-menu attachment candidates: 60/504;
+- 50% current-menu attachment candidates: 46/504; and
+- claimed comparison-ready: 6/504 restaurants containing 21 dishes.
+
+The Benchmark Guardian verified 0/21 comparison dishes. It retained all 21 as
+unverifiable because every Customer reference was unavailable. The Adversarial
+Verifier independently identified six of those as duplicate-reject candidates
+from stored cross-author perceptual hashes and left 15 unverifiable. Both
+evaluators agree the verified comparison-ready baseline is zero.
+
+The Guardian inspected all 214 rendered Management records: 175 exact item
+matches, 39 rejects, 171 useful nonduplicate food images, and 214/214 verified
+Management provenance. Item-match precision was 81.78% with a 76.06%–86.37%
+Wilson interval, below the promotion gate. All 100 declared Customer evidence
+records were unavailable, and all 320 rights statuses were unreviewed. The 25
+rich-unpaired controls produced no verified false negative; 17 were
+unverifiable and eight had no Customer candidate. No national controls existed
+because no national selected record matched production.
+
+Source-separated results were sharply different: DoorDash passed 168/168 item
+matches and 164/168 usefulness checks; schema.org passed 7/46 rendered item
+matches and 7/46 usefulness checks. The evidence packet was selected for
+claims and rich controls, not for estimating source coverage. DoorDash quality
+is therefore real in the packet, while national yield and rights remain
+unmeasured.
+
+DL-002 closes as **Revise / baseline established**. It found large whitespace,
+not a coverage improvement.
+
 ## Confidence
 
-High that the corrected export reproduces production V2 semantics. High that
-all four sampled current claims lack at least one gold requirement. High that
-the Customer-provenance evidence supplied is insufficient. High that the
-county layer is a reproducible independent candidate/status frame; medium on
-its completeness and freshness because no service-level promise is published.
-Low confidence in the total number of verified comparisons because only four
-of six claims were sampled and the full Temecula census is not yet frozen.
+High in the frozen cohorts, read-only snapshot, production parity, corrected
+denominator, current-menu count, and zero verified comparisons. High that the
+existing Customer evidence is insufficient. High in Management provenance;
+high in the measured 81.78% Management item-match precision for the 214
+rendered evidence records. Low confidence in the true Customer-photo and
+comparison count beyond the verified floor of zero because no Customer image
+was accessible. Status-sentinel accuracy is unknown because Stage 2 omitted
+the required status evidence.
 
 ## Cost
 
-$0. Local bundle validation, independent blind review, and bounded official
-Census/county public-data snapshots only. The DataLab made no production read
-or write, paid provider call, model call, account, vendor contact, crawl, or
-paid-quota use.
+$0. Local validation and blind review plus 214 bounded reads from already
+recorded source-image locators. No production write, paid provider call,
+material paid quota, account, vendor contact, unbounded crawl, deployment,
+infrastructure change, push, or merge.
 
 ## Production Impact
 
@@ -270,14 +340,14 @@ merges.
 
 ## Next Action
 
-Resume DL-002 Stage 1 from `DL002_INPUT_HANDOFF.md`. Reconcile SeeFood/Google,
-OSM, and Overture. Use the county permits only as an omission/status challenge:
-review up to 100 stable-ranked plausible provider-unmatched rows rather than
-classifying all 822 permits. Have the Guardian privately prove the 120-record
-national hard quotas plus 12 alternates from the versioned national frame. Do
-not start a source experiment until both cohorts and the baseline hash are
-frozen.
+Make the founder go/no-go call. The evidence supports one more bounded
+game-changer qualification phase, not a large integration build. A retained
+Management source or portfolio must plausibly add at least 20 percentage points
+of national current-menu-plus-strong-Management-photo coverage. A retained
+Customer path must produce accessible, rights-valid, exact-item contributions
+across multiple national strata rather than merely doubling a zero baseline.
 
 ## Kyle Needs To Do
 
-Nothing. DataLab has the required Stage 1 input.
+Decide whether to authorize that bounded qualification phase. No vendor
+outreach, paid service, or implementation should begin before the decision.

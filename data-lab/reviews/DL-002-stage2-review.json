@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-07-27",
+  "decision": "revise",
+  "policyVersion": "benchmark-0.2-bounded-external-image-reads",
+  "guardian": {
+    "decision": "revise",
+    "hiddenDetailedReviewSha256": "117523ff21aa2faf358a31597482930f4f2035e7f487e13515342a2c3099452c",
+    "activeDenominator": {
+      "temecula": 396,
+      "national": 108,
+      "total": 504,
+      "statusSentinelsSeparate": 12
+    },
+    "statusSentinels": {
+      "assessable": 0,
+      "unverifiable": 12
+    },
+    "comparisons": {
+      "claimedDishes": 21,
+      "claimedRestaurants": 6,
+      "verifiedDishes": 0,
+      "verifiedRestaurants": 0,
+      "unverifiableDishes": 21
+    },
+    "evidence": {
+      "records": 320,
+      "rendered": 214,
+      "missingUnverifiable": 106,
+      "itemMatch": {
+        "exact": 175,
+        "strong": 0,
+        "weak": 0,
+        "reject": 39,
+        "unverifiable": 106,
+        "pointPercentage": 81.78,
+        "wilson95LowerPercentage": 76.06,
+        "wilson95UpperPercentage": 86.37
+      },
+      "usefulFood": 171,
+      "provenance": {
+        "Management": 214,
+        "Customer": 0,
+        "Unknown": 106
+      },
+      "managementProvenance": {
+        "pointPercentage": 100,
+        "wilson95LowerPercentage": 98.24,
+        "wilson95UpperPercentage": 100
+      },
+      "customerProvenancePrecision": "not_meaningful_zero_accessible_customer_photos",
+      "sourceBreakdown": {
+        "doordash": {
+          "total": 168,
+          "exactItemMatch": 168,
+          "usefulFood": 164,
+          "ManagementProvenance": 168
+        },
+        "schema_org": {
+          "total": 52,
+          "rendered": 46,
+          "exactItemMatch": 7,
+          "rejectItemMatch": 39,
+          "unverifiable": 6,
+          "usefulFood": 7,
+          "ManagementProvenance": 46
+        },
+        "google": {
+          "total": 100,
+          "rendered": 0,
+          "unverifiable": 100,
+          "verifiedCustomerProvenance": 0
+        }
+      },
+      "rightsUnreviewed": 320,
+      "exactRedundantRecordFailures": 1,
+      "nearDuplicateRedundantRecordFailures": 7
+    },
+    "falseNegativeControls": {
+      "temeculaAudited": 25,
+      "nationalAudited": 0,
+      "verified": 0,
+      "unverifiableForMissingCustomer": 17,
+      "withoutCustomerCandidate": 8
+    }
+  },
+  "adversarialVerifier": {
+    "decision": "revise",
+    "verifiedComparisonDishes": 0,
+    "duplicateRejectCandidates": [
+      "G011",
+      "G012",
+      "G015",
+      "G017",
+      "G018",
+      "G020"
+    ],
+    "unverifiableClaims": [
+      "G001",
+      "G002",
+      "G003",
+      "G004",
+      "G005",
+      "G006",
+      "G007",
+      "G008",
+      "G009",
+      "G010",
+      "G013",
+      "G014",
+      "G016",
+      "G019",
+      "G021"
+    ],
+    "crossPacketExactDuplicateEvidenceIds": [
+      "IMG0032",
+      "IMG0292"
+    ]
+  },
+  "evaluatorDisagreement": "Both evaluators found zero verified comparisons. The Guardian retained all 21 claims as unverifiable because no Customer image was accessible. The Adversarial Verifier treated six as reject candidates because stored cross-author perceptual hashes were identical or near-identical. The baseline records this disagreement rather than overstating certainty.",
+  "acceptedAggregateCorrections": {
+    "identifiedActiveRestaurants": 504,
+    "statusSentinelsSeparate": 12,
+    "atLeastOneClaimedUsefulPhoto": 150,
+    "knownCurrentMenu": 84,
+    "aboveFoldCurrentMenuAttachmentCandidates": 64,
+    "twentyPercentCurrentMenuAttachmentCandidates": 60,
+    "fiftyPercentCurrentMenuAttachmentCandidates": 46,
+    "claimedComparisonReadyRestaurants": 6,
+    "verifiedComparisonReadyRestaurants": 0
+  }
+}

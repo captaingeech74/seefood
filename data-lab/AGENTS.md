@@ -48,6 +48,13 @@ Use `raw/`, `artifacts/`, and `tmp/` for generated data. These paths are ignored
 Never commit credentials, session data, personal data, or large downloaded
 corpora.
 
+Do not impose a blanket ban on external image downloads. Bounded reads from
+public or already-authorized recorded image locators are permitted when the
+active experiment fixes a request/image cap, avoids material paid quota,
+records failures and cost, and keeps the bytes under ignored lab paths. This
+permission never authorizes authentication bypass, rate-limit evasion,
+unbounded crawling, private-data access, or production writes.
+
 Communicate with Kyle in plain language. The weekly report must say whether the
 lab is bearing fruit, what improved, confidence, cost, next action, and what he
 needs to do.

@@ -13,6 +13,57 @@ overstated multiple photo and coverage claims. DL-DR-001 and DL-DR-002 retained
 only the evidence-supported opportunities below. Kyle and the main SeeFood
 thread decide whether an entry ever becomes outreach-ready.
 
+## DoorDash — Read-Only Menu And Management-Photo Data Path
+
+**Readiness:** Highest-priority Management opportunity after DL-002, but not
+ready for outreach without Kyle's approval.
+
+**Technical value:** Potentially High and now partly measured. In the selected
+DL-002 evidence packet, all 168 rendered DoorDash records were exact item
+matches, 164 were useful food images, and Management provenance passed 168/168.
+The packet was selected around claims and rich controls, so it proves payload
+quality rather than national location yield. Every rights status remained
+unreviewed.
+
+**Controller:** DoorDash partnerships or platform/data licensing, plus
+participating merchants where merchant authorization or image rights require
+it. The exact current decision-maker and eligible program must be confirmed.
+
+**Exact documentary ask:** A redacted schema and terms packet for a read-only
+restaurant/menu catalog path containing stable location, menu, item, image,
+availability, source-observation, and deletion identifiers. Request rights to
+retain approved menu/photo records, match images to items, display them with
+attribution, combine Management photos with separately rights-cleared Customer
+photos, and propagate removal.
+
+**Smallest pilot after the documentary gate:** At most 30 restaurants and 300
+item images across multiple hidden national market-size/division strata plus a
+Temecula validation slice. No order, customer, courier, payment, or personal
+data. One initial read and one bounded repeat.
+
+**Success:** A credible route to at least a 20-percentage-point national gain in
+current-menu-plus-strong-Management-photo coverage; at least 95% item-match
+precision with a Wilson lower bound of at least 90%; at least 95% retained
+records on repeat; zero wrong-restaurant links; explicit display, retention,
+combination, and deletion rights; and acceptable unique-location economics.
+
+**Value exchange:** SeeFood could provide item-level visual discovery and route
+qualified users to merchant-approved DoorDash destinations. No traffic,
+revenue, ranking, attribution, or exclusivity promise is authorized.
+
+**Stop conditions:** No allowed discovery/display use, no combination with
+separately licensed Customer content, no stable item-image binding, no
+nationally broad eligible footprint, or economics incompatible with the
+incremental restaurant value.
+
+**Pricing and delivery:** Unknown. Prefer a $0, read-only evaluation fixture or
+sandbox with no minimum commitment. Only Kyle or the main thread may authorize
+outreach, contract work, credentials, or spending.
+
+**Fallback:** Toast, Flipdish, Google Business Profile, Square, or first-party
+merchant capture. Public extraction is not a commercial fallback unless its
+access and downstream rights are separately established.
+
 ## Tattle — Transaction-Triggered Customer Photo Partnership
 
 **Readiness:** Highest-priority Customer opportunity, but still behind a
@@ -292,6 +343,7 @@ recording the loss of structured modifier and image linkage.
 
 | Source | Why retained | Why not ready |
 |---|---|---|
+| DoorDash | DL-002 measured 168/168 exact Management item matches and 164/168 useful images in its selected evidence packet; the platform has national technical reach | National eligible-location yield, discovery/display/combination rights, delivery path, refresh, and economics are unverified |
 | Tattle | Current docs establish transaction context, ordered-item feedback, optional meal-photo upload, API/export capability, and claimed 15,000+ location reach | Exact photo-to-order-line binding, photo export schema, controller/Customer rights, photo yield, Management overlap, and unique-location coverage are private and unmeasured |
 | Ovation | Current docs establish 50+ SMS integrations and questions targeted to what a guest ordered | No public meal-photo upload, media export, stable order-line schema, exact footprint, or third-party reuse rights |
 | Tripadvisor Terra | Current docs describe restaurant reviews with photos, review text, and reviewer details; legacy partner feeds show caption and review-ID fields that may aid matching | Published Master Terms appear incompatible with SeeFood matching and pairing absent explicit written exceptions. Treat as unusable unless an Order permits algorithmic dish matching, combination with Management content, selective display, retention, derived labels, and model use, plus acceptable national depth and economics. |

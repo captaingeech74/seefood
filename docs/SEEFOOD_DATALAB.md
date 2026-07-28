@@ -181,6 +181,16 @@ Raw samples and generated artifacts belong under ignored `data-lab/raw/`,
 `data-lab/artifacts/`, or `data-lab/tmp/`. Small reproducible fixtures may be
 committed only after secrets and personal data are removed.
 
+Bounded external image reads are allowed during registered discovery,
+validation, and evidence audits. The lab may download images from public or
+already-authorized recorded locators when the experiment fixes the maximum
+request and image count in advance, stores the bytes only in ignored lab
+paths, records request/failure/cost behavior, and avoids material paid quota.
+The lab may not defeat authentication, evade access controls, rotate identities
+to bypass limits, or turn a bounded probe into a crawl. A downloaded image is
+evidence to evaluate; it is not coverage until identity, usefulness, item
+match, provenance, rights, and duplicate gates pass.
+
 ## Cadence And Reporting
 
 Run one bounded experiment on Monday, Wednesday, and Friday nights. Produce one

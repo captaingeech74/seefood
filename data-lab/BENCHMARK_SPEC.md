@@ -2,10 +2,12 @@
 
 ## Status
 
-Version 0.1, established by experiment DL-000 on 2026-07-23. The cohort
-selection rules are fixed. DL-001 calibrates the metric on a small sample; the
-actual Temecula and national manifests will be frozen in DL-002 before any
-connector is tuned.
+Version 0.2. Version 0.1 was established by experiment DL-000 on 2026-07-23.
+On 2026-07-27 the founder removed the blanket external-image-download
+prohibition. Cohort selection and quality gates remain fixed; only the
+evidence-read policy changed. DL-002 has now frozen the cohorts and established
+the baseline; later experiments must not change these rules to improve a
+result.
 
 ## Decision This Benchmark Supports
 
@@ -306,12 +308,17 @@ DL-002 will:
    bytes, current-menu snapshot, source page/record evidence, provenance
    evidence, and hashes needed for each audited claim, with contributor IDs and
    other personal data removed.
-6. Make no app-route calls, external source calls, image downloads, or writes.
+6. Make no mutation-capable app-route calls or writes. Bounded image reads from
+   public or already-authorized recorded locators are allowed under the
+   registered request/image cap. Record the read mechanism, failures, bytes,
+   runtime, and cost; do not discover unrelated URLs, evade controls, or
+   consume material paid quota.
 
-If the local evidence bundle lacks an image, menu observation, or author
-evidence, mark that claim `unverifiable`; do not fetch the missing evidence.
-`Claimed` and `verified` counts remain separate even when this leaves the
-verified baseline incomplete.
+If the local evidence bundle lacks an already-recorded public or authorized
+image locator, menu observation, or author evidence, mark that claim
+`unverifiable`. A failed locator may not trigger replacement-URL discovery or
+roster expansion. `Claimed` and `verified` counts remain separate even when
+this leaves the verified baseline incomplete.
 
 The legacy `scripts/benchmark.mjs` is prohibited in the lab against production:
 it calls `/api/dishes`, and a cache miss persists results to Supabase.

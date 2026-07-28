@@ -23,7 +23,10 @@ pending. DL-002 itself is complete only after both stages pass.
 
 Do not give the DataLab production credentials. Do not write production data,
 call mutation-capable application routes, deploy, change infrastructure,
-consume paid API quota, contact a vendor, or fetch missing images.
+consume material paid API quota, or contact a vendor. Bounded image reads from
+already-recorded public or authorized locators are allowed for the registered
+evidence packet; do not discover unrelated image URLs or bypass access
+controls.
 
 Database work must run in a transaction whose captured transcript proves:
 
@@ -201,10 +204,13 @@ For each audited claim include:
 - stored and newly computed byte/perceptual hashes; and
 - opaque, independently shuffled Guardian IDs.
 
-Do not download missing evidence. Mark it `unverifiable`. Remove EXIF, XMP,
-ICC, faces where not needed, contributor IDs, usernames, names, emails, phone
-numbers, and free text that can identify a person. Preserve only the minimum
-source/author proof needed for audit.
+The exporter may make at most one bounded read attempt per already-recorded
+public or authorized image locator within the 1,500-photo packet cap. Record
+the mechanism and failure class. Do not search for replacement URLs or expand
+the entity/photo roster when a locator fails; mark that evidence
+`unverifiable`. Remove EXIF, XMP, ICC, faces where not needed, contributor IDs,
+usernames, names, emails, phone numbers, and free text that can identify a
+person. Preserve only the minimum source/author proof needed for audit.
 
 Also include a reproducible sample of up to 25 apparently rich-but-unpaired
 entities from each cohort so the Guardian can check false negatives. The total

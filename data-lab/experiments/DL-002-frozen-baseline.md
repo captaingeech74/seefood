@@ -77,7 +77,7 @@ requirement to export evidence for records that do not yet exist as a cohort.
 
 ## Result
 
-Stage 1 is accepted. Stage 2 evidence and baseline metrics remain pending.
+DL-002 is complete with a `Revise / baseline established` decision.
 
 The corrected read-only bundle passed every mechanical input gate:
 
@@ -116,32 +116,121 @@ contains no unknown hard assignment. The seed and clear identities remain
 ignored and private. `NATIONAL_HOLDOUT_LOCK.md` records the aggregate design,
 portable recipe, and cryptographic commitments without unblinding it.
 
+Stage 2 passed its mechanical controls:
+
+- every one of 228 registered file hashes matched;
+- the production transaction was `REPEATABLE READ READ ONLY`, had
+  `transaction_read_only=on`, recorded unchanged WAL positions, and rolled
+  back;
+- production SQL and the independent recomputation matched exactly for all
+  seven legacy fields across 393 uniquely mapped production entities;
+- all 396 Temecula, 120 national selected, and 12 national alternate hashes
+  matched the frozen cohorts with zero overlap or clear national leakage; and
+- 320 bounded evidence records stayed under the registered 1,500-photo and
+  150-entity caps.
+
+Benchmark Specification version 0.2 records a founder policy correction:
+bounded image reads from public or already-authorized recorded locators are
+allowed. Stage 2's 214 recorded-locator reads are valid evidence. The
+prohibitions on access-control bypass, rate-limit evasion, unbounded crawling,
+material paid quota, private data, and production writes remain.
+
+The exporter required two metric corrections. It used 516 as the denominator,
+but the registered active content denominator is 504: 396 Temecula plus 108
+national open/orderable restaurants. Twelve national closure/move/replacement
+sentinels are separate and never improve content coverage. It also reported
+the production seven-photo threshold as the useful-photo rung, which requires
+only one useful photo.
+
+The corrected claimed ladder is:
+
+| Rung | Count | Active percentage |
+|---|---:|---:|
+| Identified | 504 | 100% |
+| At least one stored useful-photo signal | 150 | 29.76% |
+| Known current menu | 84 | 16.67% |
+| Seven current-menu attachment candidates | 64 | 12.70% |
+| 20% current-menu attachment candidates | 60 | 11.90% |
+| 50% current-menu attachment candidates | 46 | 9.13% |
+| Claimed comparison-ready | 6 | 1.19% |
+| Verified comparison-ready | 0 | 0% |
+
+The attachment and usefulness rungs remain claimed rather than visually
+verified across the full cohort. The strategic Management-side overlap is also
+small: 78/504 have a current menu plus one declared Management photo, and
+68/504 have a current menu plus one declared matched Management photo. None of
+the 108 national active holdout records matched production, so every national
+content rung after identity is zero.
+
+The Guardian audited all 320 evidence records:
+
+- 214 rendered Management records and 106 unavailable records;
+- 175 exact item matches, 39 rejects, and no strong or weak grades;
+- 171 useful nonduplicate food images;
+- Management provenance 214/214, with a 95% Wilson interval of
+  98.24%–100%; and
+- item-match precision 175/214 = 81.78%, with a 95% Wilson interval of
+  76.06%–86.37%, below the promotion gate.
+
+The pooled result is not a fair description of each source:
+
+- DoorDash: 168/168 exact item matches, 164/168 useful food images, and 168/168
+  Management provenance; and
+- schema.org: 7/46 rendered exact item matches, 39/46 rejects, and only 7/46
+  useful food images, with another 6 records unavailable.
+
+The packet was selected around claims and rich controls, so these numbers prove
+payload quality within the packet but do not estimate national location yield.
+Every rights status remained unreviewed. DoorDash therefore becomes a
+high-value permission/deal opportunity, not an authorized implementation
+recommendation.
+
+All 100 declared Customer evidence photos were unavailable. Every one of the
+45 Customer references used by the 21 claimed comparison dishes was therefore
+unverifiable; Customer provenance precision could not be calculated. All 320
+rights statuses were `unreviewed`. The Guardian verified zero of 21 claims and
+retained all as unverifiable. The Adversarial Verifier agreed on zero verified,
+identified six duplicate-reject candidates from stored cross-author perceptual
+hashes, and left 15 unverifiable. The disagreement is preserved rather than
+collapsed into false certainty.
+
+The 25 rich-unpaired Temecula controls produced no verified false negative:
+17 remained unverifiable for missing Customer evidence and eight had no
+Customer candidate. No national controls were available because none of the
+national selected records matched production. Stage 2 also omitted product
+status evidence for all 12 national sentinels, so status accuracy is
+unverifiable.
+
 No coverage metric improved. No restaurant, raw record, or image is counted as
 new menu, Management-photo, Customer-photo, or comparison coverage.
 
 ## Decision
 
-**Continue to DL-002 Stage 2.**
+**Revise / baseline established.**
 
-The main SeeFood thread should export Stage 2 evidence for only the 120 selected
-and 12 alternate public-ID hashes in the Guardian's ignored handoff. The clear
-holdout manifest must remain unavailable to the exporter and the Lead until
-the Guardian freezes blind evidence decisions.
+The baseline is sufficient for the founder decision because every claim was
+audited and missing evidence remained unverifiable. It is not a verified
+visual baseline for upper photo rungs, and it does not support promotion of an
+existing source.
 
-Do not start DL-004, DL-007, DL-012, or a Management connector until Stage 2
-establishes the claimed-versus-verified baseline.
+The measured whitespace justifies one more bounded game-changer qualification
+phase. It does not justify a large connector build, commercial commitment, or
+transaction-triggered integration without source-specific national reach,
+quality, rights, and contribution-yield evidence.
 
 ## Cost And Impact
 
-$0 incremental money. Stage 1 used the already prepared bounded read-only
-bundle and local Node scripts. There was no production write, paid provider
-query, model call, paid quota, account, crawl, outreach, deployment,
-infrastructure change, push, or merge.
+$0 incremental money. Stage 2 made 214 bounded reads from already-recorded
+source-image locators under the registered cap. There was no production write,
+paid provider query, material paid quota, account, outreach, unbounded crawl,
+deployment, infrastructure change, push, or merge.
 
 ## Next Action
 
-The main SeeFood thread should generate the exact Stage 2 sanitized evidence
-bundle in `DL002_INPUT_HANDOFF.md`, using only
-`raw/holdout/national-v1-stage2-hashes.json` for national selection. The
-Guardian remains the only role allowed to inspect the hidden national IDs
-before blind evaluation is complete.
+Kyle and the DataLab should make the go/no-go decision together. If the answer
+is go, authorize only a bounded national qualification phase. Require a
+Management source or portfolio to show a credible route to at least a
+20-percentage-point national current-menu-plus-strong-Management-photo gain.
+Require a Customer path to show accessible, rights-valid, exact-item
+contributions across multiple national strata. Do not use a trivial doubling
+from the verified zero comparison baseline as the Customer game-changer bar.

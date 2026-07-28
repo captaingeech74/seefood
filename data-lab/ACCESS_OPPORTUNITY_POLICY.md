@@ -96,6 +96,9 @@ Using public and already-authorized evidence, the lab may:
 - review official documentation, public client behavior, terms, pricing,
   partner programs, patents, talks, job postings, and credible technical
   reporting;
+- make bounded image reads from public or already-authorized recorded locators
+  when an active experiment fixes the request/image cap, keeps bytes in ignored
+  lab storage, and records failures, runtime, and cost;
 - model value from defensible public samples while labeling the estimate; and
 - design a permission-gated validation without executing it.
 
