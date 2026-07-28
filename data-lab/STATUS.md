@@ -6,6 +6,36 @@
 
 ## Current Phase
 
+Kyle authorized no more than five additional major main-thread/DataLab cycles,
+with an early stop when the grand experiment reaches a defensible conclusion.
+DataLab does not see five mandatory cycles. The concrete plan is Cycle 6
+measurement readiness, Cycle 7 for the highest remaining authorized real
+evidence, conditional Cycle 8 for complementary evidence only if it can change
+the decision, and Cycle 9 final portfolio synthesis. Cycle 10 is reserve only
+and must resolve one specific decision-changing uncertainty.
+
+The finish line is now fixed in `GRAND_EXPERIMENT_FINISH_LINE.md`. A Go requires
+either a Management path projected to add at least 20 percentage points of
+national current-menu-plus-strong-photo coverage at at least 95% item precision
+with a 95% Wilson lower bound of at least 90%, or a real Customer treatment
+producing at least 35 valid uploads, at least 1.5% valid-upload conversion, the
+same precision bound, and scalable economics. A smaller 10–34-upload Customer
+result or a technically strong permission gate may support Conditional Go only
+under the exact qualifications recorded in the finish-line document.
+
+Cycle 6 reopens DL-007 once because its remaining defects are concrete,
+repairable, and block the fastest decision-relevant test: actual Customer
+behavior. Tattle/Ovation, DoorDash national yield, and merchant APIs remain
+high-potential, but their next meaningful steps require separate live-source,
+controller, or merchant authorization. Synthetic work would not change the
+decision.
+
+The bounded main-thread handoff is `CYCLE6_MAIN_HANDOFF.md`. It requires true
+database-to-live-runtime parity, retry rotation, assertion-level adversarial
+tests, and explicit reconciliation evidence. Treatment remains disabled.
+Failure closes DL-007 without another repair cycle; success only permits
+consideration of a separately authorized Cycle 7. Cycle 7 has not started.
+
 DL-007 has completed its fifth and final authorized cycle. Push 5 is
 `Revise / run closed`; treatment remains disabled and no Push 6 is requested.
 
