@@ -8,8 +8,12 @@
 
 DL-001 completed a valid calibration. DL-002 is active. Its official Temecula
 boundary and independent Riverside County permit candidate/status frame are
-frozen. The provider union, restaurant eligibility review, and hidden national
-holdout still require a sanitized read-only handoff.
+frozen. The sanitized Stage 1 read-only handoff is now present at
+`raw/baseline/DL-002/main-thread-stage1/`. Its manifest, mirror, redaction
+scans, and forced-read-only transaction proof pass. It contains 796 SeeFood,
+312 OpenStreetMap, and 425 Overture Temecula rows plus 1,727 Guardian-only
+national candidates. Restaurant reconciliation and the hidden national
+holdout remain DataLab work.
 
 Founder priority correction: website strength, exact cuisine balance,
 food-truck/nontraditional subtypes, ghost-kitchen classification, and restaurant
@@ -264,4 +268,4 @@ frozen.
 
 ## Kyle Needs To Do
 
-Share `DL002_INPUT_HANDOFF.md` with the main SeeFood developer.
+Nothing. DataLab has the required Stage 1 input.
