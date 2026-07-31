@@ -1955,3 +1955,33 @@ restaurant websites for acquisition. Whether Overture, OSM, a commercial
 roster, or another source should be expanded or promoted is intentionally left
 to DataLab 2.0's acquisition experiment. Production records this capability but
 does not pre-empt Atlas's source-strategy decision.
+
+## Complete DataLab 2.0 and adopt its acquisition ranking (July 31, 2026)
+
+Atlas completed the six-cycle acquisition lab at isolated branch commit
+`9dcc691`. All 33 lab tests pass and every cycle's committed metrics reproduce
+from ignored raw evidence. The lab made no production write or deployment.
+
+The selected architecture is one SeeFood-owned, source-neutral identity graph
+seeded by monthly Overture Places releases. New records and mutations pass
+deterministic name, location, address, phone, and website gates; ambiguities,
+omissions, status changes, website conflicts, and duplicate merges begin in
+review. A bounded website collector may fetch one homepage, follow at most one
+strict menu/order link, and parse schema.org or client-visible JSON. Generic
+page imagery is not dish-photo evidence.
+
+Delivery platforms remain valuable but are not a browser-farm strategy.
+DoorDash public state sitemaps produced 328 conservative provider matches among
+1,238 sampled restaurant identities, while all 12 fresh store requests were
+blocked. Fresh Grubhub searches rendered 12/12 but yielded no strict target and
+location match. Separate July pilots still prove high conditional item/photo
+yield for both sources. Therefore DoorDash is the first sanctioned-feed
+negotiation and Grubhub the second; ChowNow warrants only a bounded exploratory
+sample. OSM is a review signal, not a second backbone, and a paid commercial
+roster is deferred.
+
+Automatic publication requires a larger labeled rollout near 99% restaurant
+identity precision and 95% item linkage precision. Imports remain idempotent,
+provenance-preserving, source-scoped, and reversible; failed or blocked fetches
+never imply closure or deletion. The durable record and exact provider asks are
+in `docs/DATALAB_V2_FINAL.md`.

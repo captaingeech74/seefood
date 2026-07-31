@@ -137,15 +137,17 @@ DataLab 1.0 is closed and frozen at commit
 in `docs/DATALAB_V1_ARCHIVE.md`, but its control files, governance model, and
 experiment queue are not active requirements.
 
-DataLab 2.0 is the active acquisition research program. It begins with one
-SeeFood-owned restaurant identity graph and determines the smallest effective
-combination of external sources that should feed it. No external source is
-presumed to be authoritative. Sources must earn a role by confidently adding or
-correcting restaurants, closures, websites, menus, or item photos. Technical
-value is measured separately from production permission or agreement readiness.
-See `docs/SEEFOOD_DATALAB_V2.md`.
+DataLab 2.0 is complete at isolated branch commit `9dcc691`. It selected a
+SeeFood-owned, source-neutral identity graph seeded monthly by Overture, with
+deterministic review gates and a bounded one-hop website menu collector. It
+recommends negotiating sanctioned DoorDash access first and Grubhub second,
+while dropping national delivery-browser automation and generic website-photo
+scraping. See `docs/DATALAB_V2_FINAL.md` for measured denominators, production
+gates, and the ranked backlog; `docs/SEEFOOD_DATALAB_V2.md` remains the archived
+operating design.
 
-The isolation rules below continue to apply to DataLab 2.0.
+The isolation rules below apply to the completed DataLab 2.0 record and to any
+future acquisition lab spun out from it.
 
 SeeFood DataLab is a bounded research project in its own Codex thread, branch,
 and worktree. It may inspect the system but may not write production data,
