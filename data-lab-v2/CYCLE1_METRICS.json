@@ -1,0 +1,99 @@
+{
+  "collection": {
+    "cached_web_checks": 135,
+    "hard_operation_limit_seconds": 120,
+    "maximum_observed_website_elapsed_seconds": 30.01,
+    "new_osm_sample": "unavailable: primary 504; one alternate timed out at 90s; stopped",
+    "overture_download_bytes": 41204809,
+    "overture_release": "2026-07-22.0",
+    "overture_request_limit_seconds": 90,
+    "website_request_timeout_seconds": 20
+  },
+  "duplicate_candidates": {
+    "candidate_clusters": 17,
+    "candidate_excess_records": 17,
+    "denominator": 1238,
+    "rule": "exact normalized name connected within 30m; candidates only"
+  },
+  "fields": {
+    "address": 1238,
+    "operating_status": 948,
+    "phone": 1180,
+    "phone_without_website": 127,
+    "website": 1088,
+    "website_without_phone": 35
+  },
+  "identity_accuracy_selected": {
+    "contradicted": 10,
+    "corroborated": 44,
+    "decisive_denominator": 54,
+    "not_decisive": 66,
+    "selected_records": 120
+  },
+  "operating_status_selected": {
+    "denominator": 120,
+    "open_contradicted_by_public_evidence": 4,
+    "open_not_contradicted_or_not_verified": 78,
+    "permanently_closed_corroborated": 1,
+    "provider_open": 82,
+    "provider_permanently_closed": 1,
+    "provider_unknown": 37
+  },
+  "osm_omission_candidates": {
+    "denominator": 15,
+    "high_confidence_omissions": 4,
+    "inconclusive_or_stale_candidates": 4,
+    "matcher_false_negatives": 7
+  },
+  "sample": {
+    "all_overture_places": 22611,
+    "by_market": {
+      "albuquerque_nm": {
+        "all_places": 4019,
+        "restaurants": 256
+      },
+      "boone_nc": {
+        "all_places": 1881,
+        "restaurants": 122
+      },
+      "jackson_ms": {
+        "all_places": 2393,
+        "restaurants": 113
+      },
+      "portland_me": {
+        "all_places": 4501,
+        "restaurants": 310
+      },
+      "spokane_wa": {
+        "all_places": 5592,
+        "restaurants": 269
+      },
+      "wichita_ks": {
+        "all_places": 4225,
+        "restaurants": 168
+      }
+    },
+    "design": "purposive six-market bounded boxes; counts are not national rates",
+    "markets": [
+      "portland_me",
+      "boone_nc",
+      "jackson_ms",
+      "wichita_ks",
+      "albuquerque_nm",
+      "spokane_wa"
+    ],
+    "overture_restaurants": 1238
+  },
+  "website_accuracy_selected": {
+    "identity_contradicted": 10,
+    "identity_inconclusive": 15,
+    "local_identity_corroborating": 42,
+    "reachable_denominator": 69,
+    "third_party_identity_corroborating": 2
+  },
+  "website_reachability_selected": {
+    "denominator": 120,
+    "http_reachable": 69,
+    "unreachable_blocked_or_error": 51
+  }
+}
