@@ -23,6 +23,10 @@ logs/
 data-lab/artifacts/
 data-lab/raw/
 data-lab/tmp/
+data-lab-v2/raw/
+data-lab-v2/shadow/
+data-lab-v2/artifacts/
+data-lab-v2/tmp/
 
 # Kyle's own fixture photos (personal files, not app source)
 fixture-photos/inbox/*
