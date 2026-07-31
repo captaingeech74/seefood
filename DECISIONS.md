@@ -1914,10 +1914,12 @@ rule consumed effort without adding national data. Those operating rules are
 retired rather than revised.
 
 DataLab 2.0 starts clean in a separate branch and worktree. Its first objective
-is one trustworthy national restaurant backbone with stable identity, location,
-website, contact, provider, status, and observation fields. Supplemental sources
-exist to add or correct restaurants and acquire current menus and useful item
-photos. Technical acquisition value and production/legal readiness are scored
-separately; an agreement question may change production readiness but does not
-prevent a bounded public-data technical test. Production remains isolated and
-unchanged until the main lead deliberately integrates a recommendation.
+is one SeeFood-owned national restaurant identity graph with stable identity,
+location, website, contact, provider, status, and observation fields. It must
+compare a broad open seed, a commercial seed, and a minimal complementary-source
+strategy rather than presuming one external source is authoritative. Every
+source must earn its role through measurable additions, corrections, menus, or
+useful item photos. Technical acquisition value and production/legal readiness
+are scored separately; an agreement question may change production readiness
+but does not prevent a bounded public-data technical test. Production remains
+isolated and unchanged until the main lead deliberately integrates a recommendation.

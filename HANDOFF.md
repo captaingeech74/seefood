@@ -119,8 +119,10 @@ in `docs/DATALAB_V1_ARCHIVE.md`, but its control files, governance model, and
 experiment queue are not active requirements.
 
 DataLab 2.0 is the active acquisition research program. It begins with one
-national restaurant backbone, then uses supplemental sources for confident
-additions, corrections, closures, websites, menus, and item photos. Technical
+SeeFood-owned restaurant identity graph and determines the smallest effective
+combination of external sources that should feed it. No external source is
+presumed to be authoritative. Sources must earn a role by confidently adding or
+correcting restaurants, closures, websites, menus, or item photos. Technical
 value is measured separately from production permission or agreement readiness.
 See `docs/SEEFOOD_DATALAB_V2.md`.
 

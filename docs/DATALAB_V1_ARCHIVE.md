@@ -25,8 +25,9 @@ operating manual for future acquisition work.
 
 ## High-Value Recommendations Worth Keeping
 
-1. Build a national restaurant identity backbone before optimizing exotic
-   sources or comparison-photo coverage.
+1. Build one SeeFood-owned national restaurant identity graph before optimizing
+   exotic sources or comparison-photo coverage; do not presume a single
+   external roster is authoritative.
 2. Preserve source IDs, websites, coordinates, address, phone, operating status,
    and observation dates so later enrichments can be reconciled safely.
 3. Use supplemental sources for measurable additions, corrections, closures,
@@ -46,4 +47,3 @@ rights gate for technical tests, exhaustive proof packets, fixed geographic
 quotas, or requirement to repair production instrumentation before trying a
 source. The old `data-lab/` directory is frozen. Nothing in it authorizes or
 constrains DataLab 2.0 unless a new document explicitly adopts it.
-
