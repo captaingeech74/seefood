@@ -1,0 +1,13 @@
+{
+  "description": "Selected review of fetched evidence; hashes only. no_menu_corroborated means the bounded fetch did not expose a usable menu, not that the restaurant has no menu.",
+  "rows": [
+    {"target_hash": "02454737a37f6ba086fe", "menu_label": "no_menu_corroborated"},
+    {"target_hash": "033cd5b47ac96ee1f7be", "menu_label": "no_menu_corroborated"},
+    {"target_hash": "28cbf283508789a55e63", "menu_label": "corroborated"},
+    {"target_hash": "3232affbd6d76dda90e5", "menu_label": "no_menu_corroborated"},
+    {"target_hash": "323446b1ff63fd06578f", "menu_label": "corroborated"},
+    {"target_hash": "32b5df997f9f1a89069e", "menu_label": "corroborated"},
+    {"target_hash": "54b9d78ebda47d3ab9b4", "menu_label": "corroborated"},
+    {"target_hash": "56c086ac3f422545cea1", "menu_label": "no_menu_corroborated"}
+  ]
+}

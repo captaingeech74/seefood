@@ -1,0 +1,509 @@
+{
+  "collection": {
+    "blocked": 4,
+    "clearly_relevant_menu_order_links": 9,
+    "downloaded_bytes": 9512380,
+    "early_broad_link_candidates_excluded_from_yield": 5,
+    "followed_links": 14,
+    "homepages": 24,
+    "item_photo_attempts": 0,
+    "maximum_request_elapsed_seconds": 2.652,
+    "network_or_http_failures": 10,
+    "one_attempt_per_url": true,
+    "request_cap": 60,
+    "request_elapsed_seconds": 23.456,
+    "requests": 38,
+    "timeout_seconds": 30
+  },
+  "review": {
+    "fixture_rows": 8,
+    "menu_corroborated": 4,
+    "no_menu_corroborated": 4
+  },
+  "sample": {
+    "chains": 11,
+    "design": "deterministic purposive Cycle 2 accepted/quarantined websites; two per region x DoorDash matched/unmatched stratum; chain balance where possible; not a national rate",
+    "identity_accepted": 12,
+    "identity_quarantined": 12,
+    "independents": 13,
+    "regions": [
+      "albuquerque_nm",
+      "boone_nc",
+      "jackson_ms",
+      "portland_me",
+      "spokane_wa",
+      "wichita_ks"
+    ],
+    "restaurants": 24
+  },
+  "sanitized_rows": [
+    {
+      "chain": false,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "spokane_wa",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "02454737a37f6ba086fe"
+    },
+    {
+      "chain": true,
+      "dd_matched": false,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "jackson_ms",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "033cd5b47ac96ee1f7be"
+    },
+    {
+      "chain": true,
+      "dd_matched": false,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "accept",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "albuquerque_nm",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "0f120dc134e3eeaad46f"
+    },
+    {
+      "chain": false,
+      "dd_matched": false,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "spokane_wa",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "19b5ced4168c3289020a"
+    },
+    {
+      "chain": true,
+      "dd_matched": false,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [
+        "toast"
+      ],
+      "provider_link_followed": true,
+      "region": "spokane_wa",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "19cda118762ab91e7909"
+    },
+    {
+      "chain": true,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": true,
+      "provider": [
+        "chownow"
+      ],
+      "provider_link_followed": true,
+      "region": "wichita_ks",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "1f62c3d73ee5c3e616b8"
+    },
+    {
+      "chain": false,
+      "dd_matched": false,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "accept",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": true,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "portland_me",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "28cbf283508789a55e63"
+    },
+    {
+      "chain": false,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [
+        "toast"
+      ],
+      "provider_link_followed": true,
+      "region": "jackson_ms",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "3111525c1a9fe9fa4b9c"
+    },
+    {
+      "chain": false,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "portland_me",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "3232affbd6d76dda90e5"
+    },
+    {
+      "chain": false,
+      "dd_matched": false,
+      "duplicate_item_inflation": 2,
+      "identity_gate": "accept",
+      "items": 37,
+      "items_with_linked_photos": 0,
+      "menu_found": true,
+      "provider": [
+        "chownow"
+      ],
+      "provider_link_followed": false,
+      "region": "wichita_ks",
+      "schema_items": 37,
+      "structured_menu_found": true,
+      "target_hash": "323446b1ff63fd06578f"
+    },
+    {
+      "chain": true,
+      "dd_matched": false,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": true,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "boone_nc",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "32b5df997f9f1a89069e"
+    },
+    {
+      "chain": false,
+      "dd_matched": false,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "boone_nc",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "334c0bb0025e930a59c4"
+    },
+    {
+      "chain": true,
+      "dd_matched": false,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "accept",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": true,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "portland_me",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "40728daebc031ba35118"
+    },
+    {
+      "chain": true,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "accept",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "boone_nc",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "426cbd57308ec75f6368"
+    },
+    {
+      "chain": true,
+      "dd_matched": false,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "accept",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": true,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "wichita_ks",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "54b9d78ebda47d3ab9b4"
+    },
+    {
+      "chain": false,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "spokane_wa",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "56c086ac3f422545cea1"
+    },
+    {
+      "chain": true,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "accept",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [
+        "toast"
+      ],
+      "provider_link_followed": false,
+      "region": "portland_me",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "58fe9930fb9047dc3655"
+    },
+    {
+      "chain": false,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "accept",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [
+        "toast"
+      ],
+      "provider_link_followed": false,
+      "region": "boone_nc",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "6b92747c7a9120ccb896"
+    },
+    {
+      "chain": true,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": true,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "albuquerque_nm",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "7100cbd1e0e8c0354eea"
+    },
+    {
+      "chain": false,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "accept",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": true,
+      "provider": [
+        "square"
+      ],
+      "provider_link_followed": false,
+      "region": "albuquerque_nm",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "78660ccfb62c67e059ee"
+    },
+    {
+      "chain": false,
+      "dd_matched": false,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "accept",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [
+        "square"
+      ],
+      "provider_link_followed": false,
+      "region": "albuquerque_nm",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "a6bc65bacc4f856d69d4"
+    },
+    {
+      "chain": false,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "quarantine",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": true,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "jackson_ms",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "c98fd0728019699f7dab"
+    },
+    {
+      "chain": true,
+      "dd_matched": true,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "accept",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [],
+      "provider_link_followed": false,
+      "region": "wichita_ks",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "ee4899d31bb8e544f757"
+    },
+    {
+      "chain": false,
+      "dd_matched": false,
+      "duplicate_item_inflation": 0,
+      "identity_gate": "accept",
+      "items": 0,
+      "items_with_linked_photos": 0,
+      "menu_found": false,
+      "provider": [
+        "spothopper"
+      ],
+      "provider_link_followed": false,
+      "region": "jackson_ms",
+      "schema_items": 0,
+      "structured_menu_found": false,
+      "target_hash": "f839b7b194ab5888df01"
+    }
+  ],
+  "yield": {
+    "by_doordash_identity": {
+      "matched": {
+        "duplicate_item_inflation": 0,
+        "items": 0,
+        "items_with_linked_photos": 0,
+        "menus": 4,
+        "restaurants": 12,
+        "structured_menus": 0
+      },
+      "unmatched": {
+        "duplicate_item_inflation": 2,
+        "items": 37,
+        "items_with_linked_photos": 0,
+        "menus": 5,
+        "restaurants": 12,
+        "structured_menus": 1
+      }
+    },
+    "by_identity_gate": {
+      "accepted": {
+        "duplicate_item_inflation": 2,
+        "items": 37,
+        "items_with_linked_photos": 0,
+        "menus": 5,
+        "restaurants": 12,
+        "structured_menus": 1
+      },
+      "quarantined": {
+        "duplicate_item_inflation": 0,
+        "items": 0,
+        "items_with_linked_photos": 0,
+        "menus": 4,
+        "restaurants": 12,
+        "structured_menus": 0
+      }
+    },
+    "downloaded_photo_duplicate_inflation": 0,
+    "downloaded_valid_photos": 0,
+    "incremental_over_doordash": {
+      "item_photos_among_unmatched": 0,
+      "restaurants_with_menu_among_unmatched": 5
+    },
+    "overall": {
+      "duplicate_item_inflation": 2,
+      "items": 37,
+      "items_with_linked_photos": 0,
+      "menus": 9,
+      "restaurants": 24,
+      "structured_menus": 1
+    },
+    "provider_links_followed": 3,
+    "provider_yield": {
+      "chownow": {
+        "duplicate_item_inflation": 2,
+        "items": 37,
+        "items_with_linked_photos": 0,
+        "menus": 2,
+        "restaurants": 2,
+        "structured_menus": 1
+      },
+      "spothopper": {
+        "duplicate_item_inflation": 0,
+        "items": 0,
+        "items_with_linked_photos": 0,
+        "menus": 0,
+        "restaurants": 1,
+        "structured_menus": 0
+      },
+      "square": {
+        "duplicate_item_inflation": 0,
+        "items": 0,
+        "items_with_linked_photos": 0,
+        "menus": 1,
+        "restaurants": 2,
+        "structured_menus": 0
+      },
+      "toast": {
+        "duplicate_item_inflation": 0,
+        "items": 0,
+        "items_with_linked_photos": 0,
+        "menus": 0,
+        "restaurants": 4,
+        "structured_menus": 0
+      }
+    },
+    "schema_org_items": 37,
+    "unique_downloaded_photo_content": 0,
+    "unique_linked_photo_urls": 0
+  }
+}
