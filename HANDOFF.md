@@ -111,7 +111,20 @@ useful; no source should silently overwrite another source's evidence.
   delivery/redemption still require production layers beyond the current sample.
 - R2 custom-domain configuration is planned but not yet complete.
 
-## Separate DataLab
+## DataLab 2.0 and the Archived Lab
+
+DataLab 1.0 is closed and frozen at commit
+`dd56efd62b0675054cb1b8dc1cbbc74625a57279`. Its useful conclusions are retained
+in `docs/DATALAB_V1_ARCHIVE.md`, but its control files, governance model, and
+experiment queue are not active requirements.
+
+DataLab 2.0 is the active acquisition research program. It begins with one
+national restaurant backbone, then uses supplemental sources for confident
+additions, corrections, closures, websites, menus, and item photos. Technical
+value is measured separately from production permission or agreement readiness.
+See `docs/SEEFOOD_DATALAB_V2.md`.
+
+The isolation rules below continue to apply to DataLab 2.0.
 
 SeeFood DataLab is a bounded research project in its own Codex thread, branch,
 and worktree. It may inspect the system but may not write production data,
@@ -126,6 +139,9 @@ For production-backed experiments, generate a bounded sanitized bundle from the
 normal `main` checkout and mirror only that ignored bundle into the lab's
 `data-lab/raw/` path. Never copy credentials or grant live production access.
 See `docs/DATALAB_READ_ONLY_EXPORT.md`.
+
+Everything below this paragraph documents completed DataLab 1.0 work and is
+retained only as historical context.
 
 DL-001 bundles live locally in both checkouts at
 `data-lab/raw/baseline/DL-001/`. The accepted contract requires exact

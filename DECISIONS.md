@@ -1903,3 +1903,21 @@ attempt for idempotent replay. Local preparation failures, malformed responses,
 and every non-OK upload response retire the cached attempt so a user retry gets
 a new UUID. Treatment remains disabled until DataLab independently reproduces
 the complete Cycle 6 parity and adversarial evidence.
+
+## Archive DataLab 1.0 and replace it with an acquisition-first lab (July 31, 2026)
+
+DataLab 1.0 is complete and frozen at commit
+`dd56efd62b0675054cb1b8dc1cbbc74625a57279`. It improved measurement and exposed
+inflated comparison claims, but its comparison-first north star, mandatory
+review choreography, bundle-heavy governance, and rights-before-technical-test
+rule consumed effort without adding national data. Those operating rules are
+retired rather than revised.
+
+DataLab 2.0 starts clean in a separate branch and worktree. Its first objective
+is one trustworthy national restaurant backbone with stable identity, location,
+website, contact, provider, status, and observation fields. Supplemental sources
+exist to add or correct restaurants and acquire current menus and useful item
+photos. Technical acquisition value and production/legal readiness are scored
+separately; an agreement question may change production readiness but does not
+prevent a bounded public-data technical test. Production remains isolated and
+unchanged until the main lead deliberately integrates a recommendation.

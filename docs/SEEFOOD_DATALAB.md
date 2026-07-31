@@ -1,5 +1,10 @@
 # SeeFood DataLab
 
+> **Archived July 31, 2026.** This is the retired DataLab 1.0 operating model.
+> Do not use it to direct new experiments. See `DATALAB_V1_ARCHIVE.md` for the
+> retained lessons and `SEEFOOD_DATALAB_V2.md` for the active acquisition-first
+> program.
+
 ## Purpose
 
 SeeFood DataLab is a significant but isolated side project whose job is to find
