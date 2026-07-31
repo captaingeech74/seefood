@@ -2,29 +2,29 @@
 
 ## State
 
-**Complete — Cycles 0–4; stop before Cycle 5**
+**Final — Cycles 0–5 complete**
 
-Cycle 4's deterministic 24-restaurant website sample found 9 accessible menu
-surfaces, but only one structured menu: 37 unique schema.org items and no linked
-dish photos. Five of the menus and all 37 items were on DoorDash-sitemap-
-unmatched identities. ChowNow was the only recurring platform with structured
-yield, while Toast was blocked or static-empty. See `CYCLE_4_RESULT.md`; none of
-these selected results is a national rate.
+Cycle 5 ran 12 sequential public Grubhub SPA searches across the six Cycle 1
+markets. All rendered successfully and exposed restaurant candidates, but none
+passed strict target name, city, and street-number identity matching. No store
+or photo request was made. Fresh menu/photo yield was zero; the separate July
+two-restaurant evidence remains 325 items and 149 byte-unique photos. See
+`CYCLE_5_RESULT.md`; neither selected result is a national rate.
 
 ## Current Decision
 
-Implement with review the small website connector mix: one homepage, one strict
-menu/order link, and schema.org/client-visible JSON parsing. Do not prioritize
-website photo downloading from this evidence. ChowNow is the best observed
-named connector but needs a larger sanctioned sample or agreement before a
-standalone build. Continue the Cycle 3 DoorDash negotiation separately.
+Implement the Overture-seeded SeeFood identity graph, deterministic review
+gates, and bounded website menu connector. Negotiate DoorDash first and
+Grubhub second for sanctioned location/menu/photo feeds; pursue ChowNow only as
+a bounded exploratory sample. Drop national delivery-browser automation and
+broad website-photo scraping. See `FINAL_RECOMMENDATIONS.md` and
+`PRODUCTION_BACKLOG.md`.
 
 ## Production Impact
 
 None. This lab used no production credentials, writes, paid calls, or deploys.
 
-## Next Report
+## Finish
 
-Cycle 5 should test only the highest-value unresolved channel, then publish the
-final ranked source plan and concrete production backlog. Stop here until that
-cycle is authorized.
+DataLab 2.0 is complete. Production integration belongs to the main team under
+normal review, rights assessment, rollout metrics, rollback, and monitoring.

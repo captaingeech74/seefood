@@ -1,0 +1,17 @@
+{
+  "fixture_kind": "selected hash-only identity review; source names, addresses, and URLs excluded",
+  "rows": [
+    {"target_hash": "02454737a37f6ba086fe", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection"},
+    {"target_hash": "033cd5b47ac96ee1f7be", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection"},
+    {"target_hash": "0f120dc134e3eeaad46f", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection"},
+    {"target_hash": "19cda118762ab91e7909", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection"},
+    {"target_hash": "1f62c3d73ee5c3e616b8", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection"},
+    {"target_hash": "28cbf283508789a55e63", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection"},
+    {"target_hash": "323446b1ff63fd06578f", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection"},
+    {"target_hash": "334c0bb0025e930a59c4", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection"},
+    {"target_hash": "426cbd57308ec75f6368", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection"},
+    {"target_hash": "58fe9930fb9047dc3655", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection"},
+    {"target_hash": "78660ccfb62c67e059ee", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection"},
+    {"target_hash": "c98fd0728019699f7dab", "evaluated_disposition": "no_strict_location_match", "review_label": "appropriate_rejection_wrong_location"}
+  ]
+}
