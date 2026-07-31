@@ -1,0 +1,162 @@
+{
+  "collection": {
+    "cached_web_pages": 135,
+    "new_network_pages": 0
+  },
+  "duplicate_candidates": {
+    "ambiguous_clusters": 1,
+    "candidate_clusters": 17,
+    "candidate_excess_records": 17,
+    "denominator": 1238,
+    "resolved_clusters": 16
+  },
+  "identity_linkage": {
+    "all_unresolved_dispositions": {
+      "match": 232,
+      "quarantine_ambiguous": 25,
+      "unresolved": 362
+    },
+    "cycle0_unresolved_denominator": 619,
+    "reviewed_false_links": 0,
+    "reviewed_false_negative_denominator": 7,
+    "reviewed_false_negatives_recovered": 7,
+    "reviewed_high_confidence_omissions_retained": 4,
+    "reviewed_omission_denominator": 4
+  },
+  "operating_status": {
+    "automatic_state_changes": 0,
+    "deterministic_review_triggers": 8,
+    "review_triggers_from_human_evidence": 5,
+    "rule": "HTTP success is never status proof; only explicit closure text on an accepted identity may auto-close",
+    "selected_denominator": 120
+  },
+  "reviewed_outcomes": {
+    "1d0e329940dcc7e9503de62302e75c44dc0893adcd2b23d80b21422b1dbb8829": {
+      "correct": true,
+      "disposition": "match",
+      "features": {
+        "address_equal": true,
+        "distance_m": 6.1,
+        "distinctive_name_overlap": true,
+        "domain_equal": true,
+        "eligible": true,
+        "name_similarity": 0.6897,
+        "phone_equal": false,
+        "score": 10.3591
+      }
+    },
+    "25e8f140c94e374f44b89f3e07189aec787f83ad7ab52af867775c47a422a8d5": {
+      "correct": true,
+      "disposition": "match",
+      "features": {
+        "address_equal": true,
+        "distance_m": 1.3,
+        "distinctive_name_overlap": true,
+        "domain_equal": true,
+        "eligible": true,
+        "name_similarity": 0.7742,
+        "phone_equal": true,
+        "score": 15.544
+      }
+    },
+    "318a95f9b7b7fdbdd52fca020878c10c8d47f693fca349c14fdf5f4353c79521": {
+      "correct": true,
+      "disposition": "unresolved",
+      "features": null
+    },
+    "35fe47d6b8bb6fb1446499aa0f02c3eec1150a4e8cfb437a7d5063725a9e5a32": {
+      "correct": true,
+      "disposition": "match",
+      "features": {
+        "address_equal": true,
+        "distance_m": 2.5,
+        "distinctive_name_overlap": true,
+        "domain_equal": true,
+        "eligible": true,
+        "name_similarity": 0.8947,
+        "phone_equal": true,
+        "score": 15.7812
+      }
+    },
+    "54435fa4c9c4e4b903944d17f662663aca3abe1d182b4b3b384cda5a0c8eb15a": {
+      "correct": true,
+      "disposition": "match",
+      "features": {
+        "address_equal": true,
+        "distance_m": 12.2,
+        "distinctive_name_overlap": true,
+        "domain_equal": true,
+        "eligible": true,
+        "name_similarity": 0.8718,
+        "phone_equal": true,
+        "score": 15.7028
+      }
+    },
+    "6dbedbde4f58411e16fa21eae06c35b0ceea76f049e93f9d02508dd3ab6d12fb": {
+      "correct": true,
+      "disposition": "match",
+      "features": {
+        "address_equal": false,
+        "distance_m": 4.4,
+        "distinctive_name_overlap": true,
+        "domain_equal": true,
+        "eligible": true,
+        "name_similarity": 0.7568,
+        "phone_equal": false,
+        "score": 7.4987
+      }
+    },
+    "7425584efb778e2f1d5d6f49cbe70ee325b9eb4127d508dd4314a3f35a6af7da": {
+      "correct": true,
+      "disposition": "match",
+      "features": {
+        "address_equal": true,
+        "distance_m": 17.5,
+        "distinctive_name_overlap": true,
+        "domain_equal": false,
+        "eligible": true,
+        "name_similarity": 0.3721,
+        "phone_equal": false,
+        "score": 4.6858
+      }
+    },
+    "92e108532c0d84d8c38d2b99c60a7f8245879754802332f2540a3cabe607aa19": {
+      "correct": true,
+      "disposition": "unresolved",
+      "features": null
+    },
+    "b7103ef570c5e61c9f761081b3d5f8ab20d8b8bb809a0232e4c0a3bde4549ddf": {
+      "correct": true,
+      "disposition": "unresolved",
+      "features": null
+    },
+    "ba50cc97e769a74f970685911414f2096ffdd2d279c02765eea36abca8fe5b00": {
+      "correct": true,
+      "disposition": "unresolved",
+      "features": null
+    },
+    "d1f90bc6c3207a148a77a61fb7c54d81e49bc54d07be9f153e502e6bbd429d56": {
+      "correct": true,
+      "disposition": "match",
+      "features": {
+        "address_equal": true,
+        "distance_m": 7.7,
+        "distinctive_name_overlap": true,
+        "domain_equal": true,
+        "eligible": true,
+        "name_similarity": 0.875,
+        "phone_equal": true,
+        "score": 15.7244
+      }
+    }
+  },
+  "sample_limits": "selected Cycle 0/1 fixtures and purposive boxes; no national rate",
+  "website_associations": {
+    "accept": 25,
+    "quarantine": 80,
+    "reject": 15,
+    "reviewed_contradiction_denominator": 10,
+    "reviewed_contradictions_false_accepted": 0,
+    "selected_denominator": 120
+  }
+}

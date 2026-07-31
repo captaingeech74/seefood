@@ -2,21 +2,23 @@
 
 ## State
 
-**Complete — Cycles 0–1; stop before Cycle 2**
+**Complete — Cycles 0–2; stop before Cycle 3**
 
-Cycle 0 selected Overture Places as the broad-open monthly seed for a
-SeeFood-owned, source-neutral identity graph. Cycle 1 kept that decision but
-found enough selected identity, website, status, and duplicate warning signals
-to rule out automatic publishing. OSM remains a review-gated omission signal,
-not a second backbone. See `CYCLE_1_RESULT.md` for the separate denominators and
-purposive-sample limitations.
+Cycle 0 selected Overture Places as the broad-open monthly seed. Cycle 1 kept
+that decision but ruled out automatic publishing. Cycle 2 added a deterministic
+domain/phone/address/name/location linker and website/status gates: it recovered
+7/7 reviewed matcher misses, retained 4/4 reviewed omissions, and made 0 false
+links in that selected fixture. OSM remains a review-gated signal, not a second
+backbone. See `CYCLE_2_RESULT.md`; none of these selected results is a national
+rate.
 
 ## Current Decision
 
-Implement the Overture shadow feed with quarantine/review for initial records,
-website conflicts, status changes, duplicate candidates, and OSM omissions.
-Preserve supplier identities and observations so entities survive supplier
-changes. Cycle 1 does not support a national precision or recall estimate.
+Implement the Cycle 2 linker and validators in the Overture shadow feed, with
+review for the 232 full-sample link candidates, 25 ambiguous links, omissions,
+website rejections, duplicate merges, and status changes. The selected evidence
+supports the method but not automatic national publication or a national
+precision/recall estimate.
 
 ## Production Impact
 
@@ -24,6 +26,5 @@ None. This lab used no production credentials, writes, paid calls, or deploys.
 
 ## Next Report
 
-Cycle 2 should test scalable identity enrichment and better matching, especially
-website validation, status evidence, and the 7/15 selected OSM candidates that
-were matcher false negatives. Stop here until that cycle is authorized.
+Cycle 3 should measure bounded DoorDash national yield using the enriched
+identity graph. Stop here until that cycle is authorized.

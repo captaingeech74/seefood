@@ -1,0 +1,17 @@
+{
+  "description": "Human-reviewed Cycle 1 omission sample. Values are salted hashes, not provider IDs; expected targets exist only for reviewed matcher false negatives.",
+  "omission_candidates": {
+    "1d0e329940dcc7e9503de62302e75c44dc0893adcd2b23d80b21422b1dbb8829": {"review_label": "matcher_false_negative", "expected_overture_hash": "087dce9c2de23afa6c6544c1889453a4eaf1796d26f7bb07bc4e15d0ffed68bd"},
+    "25e8f140c94e374f44b89f3e07189aec787f83ad7ab52af867775c47a422a8d5": {"review_label": "matcher_false_negative", "expected_overture_hash": "dc18a94a483fb71be7e392ad7f53bf0ea809a9a15e14b1017f489b8ae5d44f5e"},
+    "35fe47d6b8bb6fb1446499aa0f02c3eec1150a4e8cfb437a7d5063725a9e5a32": {"review_label": "matcher_false_negative", "expected_overture_hash": "48279e2b29e60765f61dfec3825da42c3f468f2a5c481bc62cf1075c7f5d16c1"},
+    "54435fa4c9c4e4b903944d17f662663aca3abe1d182b4b3b384cda5a0c8eb15a": {"review_label": "matcher_false_negative", "expected_overture_hash": "f83113fd4089df6054442145166c828f569f5382d06cbbcb385cc4e41b5b02af"},
+    "6dbedbde4f58411e16fa21eae06c35b0ceea76f049e93f9d02508dd3ab6d12fb": {"review_label": "matcher_false_negative", "expected_overture_hash": "f0630988faee85b889ff304f53423f2022edbd935b3d4a0d1c5a3fd756fa924c"},
+    "7425584efb778e2f1d5d6f49cbe70ee325b9eb4127d508dd4314a3f35a6af7da": {"review_label": "matcher_false_negative", "expected_overture_hash": "1ed6ddff1ec0286320cdf9149b37a640fa5b734ef55a28102aaf891c1145f5c9"},
+    "d1f90bc6c3207a148a77a61fb7c54d81e49bc54d07be9f153e502e6bbd429d56": {"review_label": "matcher_false_negative", "expected_overture_hash": "42eea378a358bee0098c6eea7ebf75d5a1f4e791ddd208acdda0fcfbb0f152fd"},
+    "318a95f9b7b7fdbdd52fca020878c10c8d47f693fca349c14fdf5f4353c79521": {"review_label": "high_confidence_omission"},
+    "92e108532c0d84d8c38d2b99c60a7f8245879754802332f2540a3cabe607aa19": {"review_label": "high_confidence_omission"},
+    "b7103ef570c5e61c9f761081b3d5f8ab20d8b8bb809a0232e4c0a3bde4549ddf": {"review_label": "high_confidence_omission"},
+    "ba50cc97e769a74f970685911414f2096ffdd2d279c02765eea36abca8fe5b00": {"review_label": "high_confidence_omission"}
+  },
+  "sample_kind": "selected 11 of the 15 Cycle 1 omission candidates; not a national estimate"
+}
