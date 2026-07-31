@@ -8,10 +8,12 @@ before acting.
 ## Mission Above Process
 
 Discover which data enhancements SeeFood should add immediately. Establish one
-strong national restaurant backbone first; then find high-confidence additions,
-corrections, closures, websites/provider identities, current menus, and useful
-item photos. Build real bounded collectors and measure actual output. Do not
-recreate DataLab 1.0's bureaucracy.
+SeeFood-owned national identity graph and determine the smallest effective
+combination of sources that should feed it; no external roster is presumed to
+be authoritative. Then find high-confidence additions, corrections, closures,
+websites/provider identities, current menus, and useful item photos. Build real
+bounded collectors and measure actual output. Do not recreate DataLab 1.0's
+bureaucracy.
 
 ## Independence and Isolation
 
@@ -42,6 +44,11 @@ blocked source as a practical limitation and move on.
 
 - Spend most effort acquiring and analyzing real data. Keep process documents
   short; one result page per major cycle is enough.
+- Search and inspect surgically. Do not dump large repository files or repeat
+  already-read context. Cache source data and reuse it across analyses.
+- Acquire aggressively through respectful bounded concurrency, but honor source
+  rate limits and stop on explicit blocks. Scale a collector only after a small
+  sample proves that the source is useful.
 - Run no more than six major cycles without returning a final ranked plan.
 - Every cycle must answer a decision that could change what SeeFood builds.
 - Stop a weak source quickly. Do not demand proof of every possible edge case.
@@ -66,4 +73,3 @@ review, Negotiate, Continue once, or Drop.
 When an opportunity needs an agreement, identify the organization, desired
 fields/access method, refresh cadence, production rights needed, and why the
 measured value justifies asking.
-

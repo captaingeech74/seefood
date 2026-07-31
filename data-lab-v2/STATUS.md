@@ -10,8 +10,8 @@ to 2.0.
 
 ## Current Decision
 
-Select one national restaurant anchor roster and build the smallest real loader
-needed to compare it against credible alternatives.
+Select the simplest reliable national backbone strategy—single seed or minimal
+combination—and build the smallest real loaders needed to compare it.
 
 ## Production Impact
 
@@ -19,6 +19,6 @@ None. This lab has no production credentials or write/deploy authority.
 
 ## Next Report
 
-Cycle 0 must name the chosen backbone, show measured reasons, provide the local
-loader/schema, and identify the single next enrichment test.
-
+Cycle 0 must name the chosen source strategy, show measured reasons and source
+incrementality, provide the local loader/schema, and identify the single next
+enrichment test.

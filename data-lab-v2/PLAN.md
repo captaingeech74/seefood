@@ -1,15 +1,18 @@
 # DataLab 2.0 Initial Plan
 
-## Cycle 0 — Pick the Backbone
+## Cycle 0 — Pick the Backbone Strategy
 
-Compare a small field of nationally scalable roster candidates using current
-official information and real samples. Evaluate coverage, restaurant precision,
-stable IDs, address/coordinates, websites, phone, status, freshness, access,
-cost, and update mechanics. Choose one anchor by the end of the cycle. Overture
-is the starting favorite, not the guaranteed answer.
+Compare three nationally scalable operating models using current official
+information and real samples: one broad open seed, one commercial seed, and a
+minimal complementary-source combination. Evaluate coverage, restaurant
+precision, stable IDs, address/coordinates, websites, phone, status, freshness,
+access, cost, update mechanics, and incremental value between sources. Choose
+the simplest effective model by the end of the cycle. No external source is the
+guaranteed answer.
 
-Deliver a normalized identity schema and a working bounded loader into a local
-shadow database.
+Deliver a source-neutral identity schema and working bounded loaders into a
+local shadow database. Preserve all source identities and observations so the
+internal entity can survive a supplier change.
 
 ## Cycle 1 — National Reality Check
 
@@ -40,4 +43,3 @@ provider-specific connector gives the largest incremental lift.
 Use the preceding evidence to test only the highest-value unresolved channel or
 integration. Then publish the ranked source plan and concrete main-team backlog.
 Stop.
-
