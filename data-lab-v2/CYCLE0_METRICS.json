@@ -1,0 +1,102 @@
+{
+  "areas": {
+    "ames_ia": {
+      "accepted_overlap": 26,
+      "ambiguous_osm_records": 4,
+      "fsq_lineage_proxy": 23,
+      "match_methods": {
+        "exact_name_within_100m": 22,
+        "name_similarity_0.92_within_50m": 4
+      },
+      "osm_restaurants": 47,
+      "osm_unresolved_increment": 21,
+      "overture_restaurants": 125
+    },
+    "manhattan_ny": {
+      "accepted_overlap": 713,
+      "ambiguous_osm_records": 41,
+      "fsq_lineage_proxy": 2155,
+      "match_methods": {
+        "exact_name_within_100m": 685,
+        "name_similarity_0.92_within_50m": 28
+      },
+      "osm_restaurants": 1282,
+      "osm_unresolved_increment": 569,
+      "overture_restaurants": 5483
+    },
+    "temecula_ca": {
+      "accepted_overlap": 13,
+      "ambiguous_osm_records": 0,
+      "fsq_lineage_proxy": 26,
+      "match_methods": {
+        "exact_name_within_100m": 12,
+        "name_similarity_0.92_within_50m": 1
+      },
+      "osm_restaurants": 42,
+      "osm_unresolved_increment": 29,
+      "overture_restaurants": 124
+    }
+  },
+  "models": {
+    "broad_open_overture": {
+      "fields": {
+        "address": 5732,
+        "operating_status": 4483,
+        "phone": 5410,
+        "website": 5333
+      },
+      "records": 5732
+    },
+    "commercial_fsq_lineage_upper_bound": {
+      "fields": {
+        "address": 2204,
+        "operating_status": 1783,
+        "phone": 2122,
+        "website": 2186
+      },
+      "records": 2204
+    },
+    "minimal_overture_plus_osm": {
+      "accepted_overlap": 752,
+      "ambiguous_osm_records": 45,
+      "combined_field_upper_bound": {
+        "address": 6164,
+        "operating_status": 4483,
+        "phone": 5754,
+        "website": 5705
+      },
+      "matched_record_incremental_fields_from_osm": {
+        "cuisine": 649,
+        "opening_hours": 477,
+        "phone": 6,
+        "website": 9
+      },
+      "osm_fields": {
+        "address": 985,
+        "operating_status": 0,
+        "phone": 838,
+        "website": 911
+      },
+      "osm_unresolved_increment": 619,
+      "records_upper_bound": 6351,
+      "unresolved_candidate_fields": {
+        "address": 432,
+        "operating_status": 0,
+        "phone": 338,
+        "website": 363
+      }
+    }
+  },
+  "raw_acquisition_denominator": {
+    "osm_restaurants": 1371,
+    "overture_all_places": 73598,
+    "overture_restaurants": 5732
+  },
+  "sample_kind": "selected bounding boxes",
+  "shadow": {
+    "accepted_cross_source_links": 752,
+    "entities": 6351,
+    "foreign_key_errors": 0,
+    "source_records": 7103
+  }
+}

@@ -2,23 +2,25 @@
 
 ## State
 
-**Ready — Cycle 0**
+**Complete — Cycle 0; stop before Cycle 1**
 
-The isolated worktree and operating contract are established. DataLab 1.0 is
-archived and supplies lessons only. No acquisition work has yet been credited
-to 2.0.
+Cycle 0 selected Overture Places as the broad-open monthly seed for a
+SeeFood-owned, source-neutral identity graph. The commercial-seed proxy did not
+justify an agreement, and OSM remains a review-gated complement rather than a
+second backbone. See `CYCLE_0_RESULT.md` for denominators and limitations.
 
 ## Current Decision
 
-Select the simplest reliable national backbone strategy—single seed or minimal
-combination—and build the smallest real loaders needed to compare it.
+Implement the Overture shadow feed first. Preserve supplier identities and
+observations so entities survive supplier changes. Do not publish automatically
+until Cycle 1 measures national precision and freshness.
 
 ## Production Impact
 
-None. This lab has no production credentials or write/deploy authority.
+None. This lab used no production credentials, writes, paid calls, or deploys.
 
 ## Next Report
 
-Cycle 0 must name the chosen source strategy, show measured reasons and source
-incrementality, provide the local loader/schema, and identify the single next
-enrichment test.
+Cycle 1 should run a stratified national Overture reality check across regions,
+community sizes, chains, and independents, including identity errors, closures,
+website validity, and omissions. Stop here until that cycle is authorized.

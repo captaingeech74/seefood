@@ -1,0 +1,666 @@
+{
+  "description": "Sanitized selected Cycle 0 matcher benchmark; hashes are not provider IDs.",
+  "rows": [
+    {
+      "distance_m": 2.7,
+      "expected": "match",
+      "left_id_hash": "83ee32497bbd114a",
+      "method": "name_similarity_0.92_within_50m",
+      "name_fingerprint_equal": false,
+      "right_id_hash": "7c19f86e552ddded",
+      "selected_area": "ames_ia",
+      "similarity": 0.9677
+    },
+    {
+      "distance_m": 6.3,
+      "expected": "match",
+      "left_id_hash": "36fea0d5647093f0",
+      "method": "name_similarity_0.92_within_50m",
+      "name_fingerprint_equal": false,
+      "right_id_hash": "0d78d05ce1322501",
+      "selected_area": "ames_ia",
+      "similarity": 0.9412
+    },
+    {
+      "distance_m": 17.0,
+      "expected": "match",
+      "left_id_hash": "975e30d5ab32b7de",
+      "method": "name_similarity_0.92_within_50m",
+      "name_fingerprint_equal": false,
+      "right_id_hash": "0268daae9a8b26d9",
+      "selected_area": "ames_ia",
+      "similarity": 0.9474
+    },
+    {
+      "distance_m": 2.3,
+      "expected": "match",
+      "left_id_hash": "b33da5ebe864e20d",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "b1eed17171724efd",
+      "selected_area": "ames_ia",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 2.4,
+      "expected": "match",
+      "left_id_hash": "87762bdf7c1d700a",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "a7a1c32b9526ef4e",
+      "selected_area": "ames_ia",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 2.5,
+      "expected": "match",
+      "left_id_hash": "99e95442442a916c",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "60198cc4a015b9a0",
+      "selected_area": "ames_ia",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 2.8,
+      "expected": "match",
+      "left_id_hash": "427adfe9cc852366",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "d9bfe405dad19604",
+      "selected_area": "ames_ia",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 2.9,
+      "expected": "match",
+      "left_id_hash": "5eb36d1cb4dff618",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "c70a792202b2bf74",
+      "selected_area": "ames_ia",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 4.1,
+      "expected": "match",
+      "left_id_hash": "f2775de848cb59a9",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "d2449730ce2263fe",
+      "selected_area": "ames_ia",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 4.9,
+      "expected": "match",
+      "left_id_hash": "e87b4236bdf7f464",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "267b0bd2d065a186",
+      "selected_area": "ames_ia",
+      "similarity": 1.0
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "17c14dbf91b99a21",
+      "selected_area": "ames_ia"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": false,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "1a7ef022aaccfde2",
+      "selected_area": "ames_ia"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "5a0369c43a8d8969",
+      "selected_area": "ames_ia"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "5a50e01307b11650",
+      "selected_area": "ames_ia"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "6ab2bfa0b3e3daf0",
+      "selected_area": "ames_ia"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "6d0a51e07e00aa3d",
+      "selected_area": "ames_ia"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "6d213541cf237eee",
+      "selected_area": "ames_ia"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": false,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "6d9cebf1142eaf17",
+      "selected_area": "ames_ia"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "7852153c0b608708",
+      "selected_area": "ames_ia"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": false,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "7985db474c99bbad",
+      "selected_area": "ames_ia"
+    },
+    {
+      "distance_m": 0.4,
+      "expected": "match",
+      "left_id_hash": "0ccbbc0fd7a98dc8",
+      "method": "name_similarity_0.92_within_50m",
+      "name_fingerprint_equal": false,
+      "right_id_hash": "0e3c11cc5c7f8f7c",
+      "selected_area": "manhattan_ny",
+      "similarity": 0.9231
+    },
+    {
+      "distance_m": 2.1,
+      "expected": "match",
+      "left_id_hash": "a8b312042e78d48a",
+      "method": "name_similarity_0.92_within_50m",
+      "name_fingerprint_equal": false,
+      "right_id_hash": "e98afc7d391283dc",
+      "selected_area": "manhattan_ny",
+      "similarity": 0.92
+    },
+    {
+      "distance_m": 2.2,
+      "expected": "match",
+      "left_id_hash": "a26906d7575730e6",
+      "method": "name_similarity_0.92_within_50m",
+      "name_fingerprint_equal": false,
+      "right_id_hash": "8076e5b3a1e11bfb",
+      "selected_area": "manhattan_ny",
+      "similarity": 0.9655
+    },
+    {
+      "distance_m": 0.0,
+      "expected": "match",
+      "left_id_hash": "c79ccaa0f0ecc3bb",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "02aefc8b48646d2d",
+      "selected_area": "manhattan_ny",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 0.0,
+      "expected": "match",
+      "left_id_hash": "7ecea3f68a7aa4b0",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "09864edae6aa1617",
+      "selected_area": "manhattan_ny",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 0.0,
+      "expected": "match",
+      "left_id_hash": "d12a0b929dc6e649",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "b7c4cff78429725e",
+      "selected_area": "manhattan_ny",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 0.1,
+      "expected": "match",
+      "left_id_hash": "ee4034bed40fbfad",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "feb0e2630d61bba3",
+      "selected_area": "manhattan_ny",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 0.2,
+      "expected": "match",
+      "left_id_hash": "70212d1f8ce8ffb2",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "4cae1705e19f3caa",
+      "selected_area": "manhattan_ny",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 0.2,
+      "expected": "match",
+      "left_id_hash": "39c49e765313b72b",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "2221ec0faa40baf9",
+      "selected_area": "manhattan_ny",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 0.3,
+      "expected": "match",
+      "left_id_hash": "ede5b340ff21eed5",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "f4caa2b9c8ea7f86",
+      "selected_area": "manhattan_ny",
+      "similarity": 1.0
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "0073925341699546",
+      "selected_area": "manhattan_ny"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "007a133de858376c",
+      "selected_area": "manhattan_ny"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "018e817d34c0160a",
+      "selected_area": "manhattan_ny"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "0257e8274fd3e69c",
+      "selected_area": "manhattan_ny"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": false,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "0367742381d2acba",
+      "selected_area": "manhattan_ny"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": false,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "03f408f894e77d54",
+      "selected_area": "manhattan_ny"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": false,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "0470b2404405d0ce",
+      "selected_area": "manhattan_ny"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": false,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "04d7556fbb25cfd4",
+      "selected_area": "manhattan_ny"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "04ff76a01ae0aab3",
+      "selected_area": "manhattan_ny"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "0503a4367b4c7644",
+      "selected_area": "manhattan_ny"
+    },
+    {
+      "distance_m": 5.0,
+      "expected": "match",
+      "left_id_hash": "879fff1cda5183de",
+      "method": "name_similarity_0.92_within_50m",
+      "name_fingerprint_equal": false,
+      "right_id_hash": "bdc7c8d743b0f6cd",
+      "selected_area": "temecula_ca",
+      "similarity": 0.9231
+    },
+    {
+      "distance_m": 3.8,
+      "expected": "match",
+      "left_id_hash": "294f43653064ac61",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "4f8a8f4a86c98f1f",
+      "selected_area": "temecula_ca",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 4.6,
+      "expected": "match",
+      "left_id_hash": "2763a0db25029408",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "b3b166c40ae67df0",
+      "selected_area": "temecula_ca",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 4.6,
+      "expected": "match",
+      "left_id_hash": "bedfda494b2e28af",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "756dede125c241d8",
+      "selected_area": "temecula_ca",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 5.5,
+      "expected": "match",
+      "left_id_hash": "5fed69c5cb48be93",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "69368176e742c3a7",
+      "selected_area": "temecula_ca",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 8.4,
+      "expected": "match",
+      "left_id_hash": "dc6a521b7033b43e",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "9c3c8f29ed375cfd",
+      "selected_area": "temecula_ca",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 10.3,
+      "expected": "match",
+      "left_id_hash": "46e5e57d15772e15",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "6c6a9961012af2de",
+      "selected_area": "temecula_ca",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 13.1,
+      "expected": "match",
+      "left_id_hash": "4332d7dd358ca331",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "fd1ae01a2e93a87b",
+      "selected_area": "temecula_ca",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 13.9,
+      "expected": "match",
+      "left_id_hash": "aad04bafe1421699",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "3f1a7b0df35c5b0d",
+      "selected_area": "temecula_ca",
+      "similarity": 1.0
+    },
+    {
+      "distance_m": 16.3,
+      "expected": "match",
+      "left_id_hash": "80c7caf02a4d6210",
+      "method": "exact_name_within_100m",
+      "name_fingerprint_equal": true,
+      "right_id_hash": "c7a869117eefc197",
+      "selected_area": "temecula_ca",
+      "similarity": 1.0
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "0504a9009988e08f",
+      "selected_area": "temecula_ca"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": false,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "091cff022c178165",
+      "selected_area": "temecula_ca"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": false,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "14772ed824cbbce1",
+      "selected_area": "temecula_ca"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "2a9eb84459d0da49",
+      "selected_area": "temecula_ca"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": false,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "2ab8f51dcbf73cfb",
+      "selected_area": "temecula_ca"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": false,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "2dec768e34f27f54",
+      "selected_area": "temecula_ca"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": false,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "4206440d440a793b",
+      "selected_area": "temecula_ca"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": false,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "4d31fb6e56ee5941",
+      "selected_area": "temecula_ca"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": true,
+        "operating_status": false,
+        "phone": true,
+        "website": true
+      },
+      "has_name": true,
+      "left_id_hash": "4e35296088505c8d",
+      "selected_area": "temecula_ca"
+    },
+    {
+      "expected": "unresolved",
+      "field_presence": {
+        "address": false,
+        "operating_status": false,
+        "phone": false,
+        "website": false
+      },
+      "has_name": true,
+      "left_id_hash": "6b7332c717a187e7",
+      "selected_area": "temecula_ca"
+    }
+  ],
+  "sample_kind": "selected; 10 accepted and 10 unresolved per area"
+}
