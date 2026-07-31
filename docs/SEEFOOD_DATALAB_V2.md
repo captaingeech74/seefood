@@ -12,13 +12,16 @@ mission; they are not the product.
 
 ## Simplest National Strategy
 
-Choose one trustworthy national anchor roster quickly. Prefer the roster with
-the best combination of coverage, stable identifiers, coordinates, addresses,
-websites, phones, categories, operating status, update cadence, and usable
-access. Overture is the leading starting hypothesis, not a preselected winner.
+Build one SeeFood-owned restaurant identity graph, not one-source dependency.
+Quickly compare three operating models: a broad open roster as the seed, a
+commercial roster as the seed, and a deliberately minimal combination of
+complementary sources. Select the simplest model that materially improves
+coverage, freshness, useful fields, and correction ability at acceptable cost.
+No external roster is presumed to be authoritative; Overture is only one
+starting candidate.
 
-Build one restaurant identity graph around that anchor. Use other sources only
-to make high-confidence improvements:
+An external source earns and retains a role only when it makes high-confidence
+improvements:
 
 1. add a missing restaurant;
 2. correct, merge, move, or close an existing restaurant;
@@ -73,8 +76,9 @@ tests, rollback, and monitoring.
 
 ## Initial Program and Finish Line
 
-1. Compare a few plausible national rosters and choose one anchor.
-2. Evaluate it on a practical national sample spanning chains, independents,
+1. Compare a few plausible national roster strategies and choose the simplest
+   effective source combination for one internal identity graph.
+2. Evaluate that strategy on a practical national sample spanning chains, independents,
    metros, smaller communities, and multiple regions.
 3. Test enrichment for websites, provider identities, closures, and omissions.
 4. Measure national DoorDash menu/photo yield.
@@ -91,4 +95,3 @@ method, a basic error audit, a cost/refresh estimate, and known failure modes.
 Automated production publishing should target at least 99% restaurant identity
 precision and 95% item linkage precision; lower-confidence data may be retained
 for quarantine or review rather than discarded.
-
