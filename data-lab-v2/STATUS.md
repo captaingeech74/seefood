@@ -2,23 +2,21 @@
 
 ## State
 
-**Complete — Cycles 0–2; stop before Cycle 3**
+**Complete — Cycles 0–3; stop before Cycle 4**
 
-Cycle 0 selected Overture Places as the broad-open monthly seed. Cycle 1 kept
-that decision but ruled out automatic publishing. Cycle 2 added a deterministic
-domain/phone/address/name/location linker and website/status gates: it recovered
-7/7 reviewed matcher misses, retained 4/4 reviewed omissions, and made 0 false
-links in that selected fixture. OSM remains a review-gated signal, not a second
-backbone. See `CYCLE_2_RESULT.md`; none of these selected results is a national
-rate.
+Cycle 3 found 328 unique DoorDash sitemap matches, 91 ambiguities, and 819
+rejections among 1,238 Overture restaurants in six purposive state boxes. A
+selected review caught three weak-overlap false matches before the final rule.
+All 12 final stratified store requests were explicitly blocked, while separate
+July evidence documents substantial existing menu/photo yield. See
+`CYCLE_3_RESULT.md`; none of these selected results is a national rate.
 
 ## Current Decision
 
-Implement the Cycle 2 linker and validators in the Overture shadow feed, with
-review for the 232 full-sample link candidates, 25 ambiguous links, omissions,
-website rejections, duplicate merges, and status changes. The selected evidence
-supports the method but not automatic national publication or a national
-precision/recall estimate.
+Negotiate sanctioned DoorDash store/menu/photo access and production rights.
+Use the public state sitemaps only as a review-gated provider-identity signal;
+do not scale direct cloud page fetching. Keep the Cycle 2 identity and website
+gates in the Overture shadow feed.
 
 ## Production Impact
 
@@ -26,5 +24,6 @@ None. This lab used no production credentials, writes, paid calls, or deploys.
 
 ## Next Report
 
-Cycle 3 should measure bounded DoorDash national yield using the enriched
-identity graph. Stop here until that cycle is authorized.
+Cycle 4 should measure restaurant-owned websites and recurring ordering
+platforms, including their incremental menu/photo lift over DoorDash evidence.
+Stop here until that cycle is authorized.

@@ -1,0 +1,214 @@
+{
+  "discovery": {
+    "ambiguous": 91,
+    "ambiguous_chains": 45,
+    "ambiguous_independents": 46,
+    "by_region": {
+      "albuquerque_nm": {
+        "ambiguous": 27,
+        "eligible_overture_restaurants": 256,
+        "matched": 51,
+        "rejected": 178,
+        "sitemap_store_urls": 4043
+      },
+      "boone_nc": {
+        "ambiguous": 2,
+        "eligible_overture_restaurants": 122,
+        "matched": 52,
+        "rejected": 68,
+        "sitemap_store_urls": 23513
+      },
+      "jackson_ms": {
+        "ambiguous": 10,
+        "eligible_overture_restaurants": 113,
+        "matched": 30,
+        "rejected": 73,
+        "sitemap_store_urls": 5847
+      },
+      "portland_me": {
+        "ambiguous": 5,
+        "eligible_overture_restaurants": 310,
+        "matched": 83,
+        "rejected": 222,
+        "sitemap_store_urls": 2235
+      },
+      "spokane_wa": {
+        "ambiguous": 34,
+        "eligible_overture_restaurants": 269,
+        "matched": 74,
+        "rejected": 161,
+        "sitemap_store_urls": 20724
+      },
+      "wichita_ks": {
+        "ambiguous": 13,
+        "eligible_overture_restaurants": 168,
+        "matched": 38,
+        "rejected": 117,
+        "sitemap_store_urls": 5464
+      }
+    },
+    "eligible_chains": 307,
+    "eligible_independents": 931,
+    "eligible_overture_restaurants": 1238,
+    "matched": 328,
+    "matched_chains": 110,
+    "matched_independents": 218,
+    "rejected": 819,
+    "rejected_chains": 152,
+    "rejected_independents": 667
+  },
+  "overlap_refresh": "not measured: one live/cached observation per target; no repeated-run refresh claim",
+  "prior_july_evidence_not_this_sample": {
+    "accepted_two_restaurant_pilot_items": 314,
+    "accepted_two_restaurant_pilot_new_byte_unique_photos": 148,
+    "current_active_items": 7422,
+    "historical_attempts": 737,
+    "historical_attempts_with_items": 353,
+    "historical_items": 37080,
+    "historical_photo_candidates": 26345,
+    "restaurants_with_active_items": 69,
+    "restaurants_with_unique_active_photos": 66,
+    "source": "read-only July 2026 HANDOFF.md and DECISIONS.md; not remeasured or national",
+    "source_provenanced_unique_active_photos": 4719
+  },
+  "runtime": {
+    "operation_timeout_seconds": 30,
+    "sitemap_bytes": 10742582,
+    "sitemap_download_elapsed_not_retained": "all six were downloaded live once; cache reuse replaced first-pass timings",
+    "sitemap_downloads_in_final_cached_pass": 0,
+    "sitemap_files_used": 6,
+    "store_page_seconds": 1.642
+  },
+  "sample": {
+    "design": "purposive deterministic six-box, six-state sample; not a national probability sample",
+    "overture_release": "2026-07-22.0",
+    "regions": [
+      "portland_me",
+      "boone_nc",
+      "jackson_ms",
+      "wichita_ks",
+      "albuquerque_nm",
+      "spokane_wa"
+    ]
+  },
+  "sanitized_attempts": [
+    {
+      "chain": false,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "albuquerque_nm",
+      "target_hash": "07be94a5ca5bc3c0d89d"
+    },
+    {
+      "chain": true,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "albuquerque_nm",
+      "target_hash": "0d186697d8152c3aa477"
+    },
+    {
+      "chain": false,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "boone_nc",
+      "target_hash": "02b0c0d7d535e41ee369"
+    },
+    {
+      "chain": true,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "boone_nc",
+      "target_hash": "09557b5ee4b4b9355151"
+    },
+    {
+      "chain": false,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "jackson_ms",
+      "target_hash": "26be563a4fe28d6e12b8"
+    },
+    {
+      "chain": true,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "jackson_ms",
+      "target_hash": "4f06a44689e80aa6e8ab"
+    },
+    {
+      "chain": false,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "portland_me",
+      "target_hash": "04496bddabe0be40a29e"
+    },
+    {
+      "chain": true,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "portland_me",
+      "target_hash": "12c13520adb1a8b2f67f"
+    },
+    {
+      "chain": false,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "spokane_wa",
+      "target_hash": "001a478f6a4c5361c92d"
+    },
+    {
+      "chain": true,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "spokane_wa",
+      "target_hash": "0ced1d875040c275dabf"
+    },
+    {
+      "chain": false,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "wichita_ks",
+      "target_hash": "0db234e3e5df79aebec3"
+    },
+    {
+      "chain": true,
+      "items": 0,
+      "outcome": "explicit_block",
+      "region": "wichita_ks",
+      "target_hash": "04b1427a707beceed024"
+    }
+  ],
+  "selected_human_review": {
+    "appropriate_quarantine": 6,
+    "identity_corroborated": 6,
+    "prior_false_match_prevented": 3,
+    "selected_denominator": 20,
+    "unresolved_not_adjudicated": 5
+  },
+  "store_collection": {
+    "actual_unique_targets_attempted_total": 15,
+    "all_attempt_failure_classes": {
+      "explicit_block": 15
+    },
+    "attempted": 12,
+    "chain_attempts": 6,
+    "earlier_targets_rejected_after_selected_review": 3,
+    "failure_classes": {
+      "explicit_block": 12
+    },
+    "independent_attempts": 6,
+    "maximum_attempts": 48,
+    "menus": 0,
+    "planned_safe_unique_matches": 12,
+    "successful_store_fetches": 0
+  },
+  "yield": {
+    "downloaded_photo_attempts": 0,
+    "duplicate_item_inflation": 0,
+    "items": 0,
+    "items_with_photos": 0,
+    "menu_photo_links": 0,
+    "unique_item_records": 0,
+    "unique_photo_content_hashes": 0,
+    "unique_photo_urls": 0
+  }
+}
