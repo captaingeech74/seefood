@@ -63,6 +63,7 @@ const ZERO_METRICS = {
   twentyPercentMenuPhotoCoverage: 0,
   fiftyPercentMenuPhotoCoverage: 0,
   comparisonCoverage: 0,
+  claimedComparisonCoverage: 0,
   visits: 0,
   visitors: 0,
   newVisitors: 0,

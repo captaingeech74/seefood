@@ -1,6 +1,6 @@
 # SeeFood Senior Lead Handoff
 
-Updated July 27, 2026. This is the current operational snapshot for the active
+Updated July 31, 2026. This is the current operational snapshot for the active
 general-development lead. It is intentionally concise; durable product and
 architecture decisions belong in `DECISIONS.md` and the focused documents under
 `docs/`.
@@ -25,7 +25,8 @@ MSAs, and finally all 387 MSAs.
 - Baseline handoff commit for the current lead: `857242f`.
 - Stack: Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Supabase
   Postgres, Cloudflare R2, Google Maps, Sharp, and Vitest.
-- Verification baseline: 62 tests passing after the corrected DL-001 exporter.
+- Verification baseline: 96 tests passing after the DataLab 1.0 production
+  carry-forward.
 - DoorDash and Grubhub are enabled automatic acquisition sources. DoorDash
   discovery is city-bounded and ambiguity-safe; Grubhub now supplies a
   delivery location, reads its current first-party menu responses, and
@@ -43,6 +44,24 @@ MSAs, and finally all 387 MSAs.
 - Active acquired photos now use exact image bytes, not changing source URLs,
   as their durable identity. Perceptual hashes are audit-only. All observed
   origins and menu-item associations remain in dedicated provenance tables.
+- V2 coverage now reports independently verified comparisons separately from
+  mechanically claimed comparisons. A comparison counts as verified only while
+  its terminal review, Customer photo, menu evidence, entity, and qualifying
+  Management counterpart all remain current.
+- Source runs and snapshots retain compact attempt evidence: requested provider
+  URL, response hash, failure stage, discovery counts, byte-verification counts,
+  and the exact resulting snapshot. Raw provider page bodies are not retained.
+- Restaurant/provider website photos follow a food-first rule: reject non-food,
+  prominent-text, promotional, and duplicate images; keep genuine food. If the
+  food is useful but the supplied dish label is doubtful, retain the photo while
+  detaching that unsafe dish claim instead of throwing the image away.
+- Merchant ingestion has one provider-neutral reconciliation path for Google
+  Business Profile, Square, Toast, Clover, and Flipdish payloads. Provider
+  adapters normalize into the same provenance-preserving corpus pipeline.
+- The existing Overture importer already preserves provider identity and feeds
+  discovered restaurant websites into the crawl queue. DataLab 2.0 (Atlas) owns
+  the decision about expanding or promoting Overture or complementary roster
+  sources; production should not pre-empt that experiment.
 
 ## Read Order
 

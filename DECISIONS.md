@@ -1923,3 +1923,35 @@ useful item photos. Technical acquisition value and production/legal readiness
 are scored separately; an agreement question may change production readiness
 but does not prevent a bounded public-data technical test. Production remains
 isolated and unchanged until the main lead deliberately integrates a recommendation.
+
+## Carry DataLab 1.0's proven lessons into production (July 31, 2026)
+
+The useful engineering lessons from DataLab 1.0 survive its retired governance
+model. Production coverage reports independently verified comparisons as the
+headline measure and exposes mechanically claimed comparisons separately for
+diagnosis. A comparison remains verified only while its terminal review,
+Customer photo, menu evidence, entity, and independently qualified Management
+counterpart are all current.
+
+Acquisition attempts retain compact, reproducible evidence: provider URL,
+response hash, failure stage, discovery totals, byte-verification totals, and
+the exact source snapshot produced. Raw provider page bodies are not stored.
+This makes an empty or failed crawl distinguishable from a source with no menu
+without expanding the database into a page archive.
+
+For pre-labeled restaurant and provider website images, the product favors real
+food coverage. Non-food images, prominent-text graphics, promotional assets,
+and duplicates are rejected. A useful food photo with an uncertain or incorrect
+dish label is retained without that unsafe menu-item attachment; uncertainty in
+matching must not destroy otherwise useful restaurant evidence.
+
+Merchant integrations use one provider-neutral import and reconciliation core.
+Google Business Profile, Square, Toast, Clover, Flipdish, and future adapters
+normalize into the same provenance-preserving corpus rather than creating
+provider-specific storage paths.
+
+Overture discoveries already preserve external identity and queue discovered
+restaurant websites for acquisition. Whether Overture, OSM, a commercial
+roster, or another source should be expanded or promoted is intentionally left
+to DataLab 2.0's acquisition experiment. Production records this capability but
+does not pre-empt Atlas's source-strategy decision.

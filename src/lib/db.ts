@@ -4,6 +4,7 @@
  * store the 24h in-memory cache used to be a throwaway substitute for.
  */
 import { createClient } from "@supabase/supabase-js";
+import { createHash } from "node:crypto";
 import { DishPhoto, MenuItemData, Restaurant } from "./types";
 import { dedupeToPrimary } from "./dishGrouping";
 import type { AnalyticsEventName } from "./analytics";
@@ -18,6 +19,7 @@ import {
   terminalContributionReview,
 } from "./contributionFunnel";
 import { interpretContributionGoldContract } from "./contributionContract.mjs";
+import { normalizeMerchantItems, type MerchantProvider } from "./merchantProviders";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -563,6 +565,7 @@ export interface CoverageReadinessMetrics {
   twentyPercentMenuPhotoCoverage: number;
   fiftyPercentMenuPhotoCoverage: number;
   comparisonCoverage: number;
+  claimedComparisonCoverage: number;
   visits: number;
   visitors: number;
   newVisitors: number;
@@ -580,7 +583,7 @@ export async function getCoverageReadinessMetrics(input: {
   radiusKm?: number;
   since: string;
 }): Promise<CoverageReadinessMetrics> {
-  const { data, error } = await supabase.rpc("coverage_v2_metrics", {
+  const { data, error } = await supabase.rpc("coverage_v2_verified_metrics", {
     p_min_lat: input.minLat ?? null,
     p_max_lat: input.maxLat ?? null,
     p_min_lng: input.minLng ?? null,
@@ -1665,6 +1668,9 @@ async function finishSourceSnapshot(input: {
   photoCount: number;
   ok: boolean;
   error?: string;
+  evidenceHash?: string;
+  failureStage?: string;
+  metadata?: Record<string, unknown>;
 }): Promise<void> {
   const now = new Date().toISOString();
   const { data: previous } = await supabase
@@ -1691,6 +1697,9 @@ async function finishSourceSnapshot(input: {
       retained_item_count: retainedItems ?? 0,
       retained_photo_count: retainedPhotos ?? 0,
       error_detail: input.error ?? null,
+      evidence_hash: input.evidenceHash ?? null,
+      failure_stage: input.failureStage ?? null,
+      metadata: input.metadata ?? {},
     }).eq("id", input.snapshotId),
     supabase.from("source_states").upsert({
       entity_id: input.entityId,
@@ -2384,12 +2393,24 @@ async function reconcileSourceBatch(
   source: string,
   items: MenuItemData[],
   photos: DishPhoto[]
-): Promise<void> {
-  if (!(await isSourceEnabled(source))) return;
+): Promise<string | null> {
+  if (!(await isSourceEnabled(source))) return null;
   const snapshot = await beginSourceSnapshot(placeId, source);
-  if (!snapshot) return;
+  if (!snapshot) return null;
   try {
     const sourceItems = items.map((item) => ({ ...item, source: (item.source ?? source) as MenuItemData["source"] }));
+    const evidenceHash = createHash("sha256").update(JSON.stringify({
+      items: sourceItems.map((item) => ({
+        name: normalizeDishName(item.name),
+        description: item.description ?? null,
+        imageUrl: item.imageUrl ?? null,
+      })).sort((a, b) => a.name.localeCompare(b.name)),
+      photos: photos.map((photo) => ({
+        originUrl: photo.url,
+        contentHash: photo.contentHash ?? null,
+        dishName: photo.dishName ?? null,
+      })).sort((a, b) => a.originUrl.localeCompare(b.originUrl)),
+    })).digest("hex");
     const nameToId = await saveMenuItems(placeId, sourceItems, { snapshotId: snapshot.id });
     await syncBrandTemplate(placeId, sourceItems);
     await savePhotos(placeId, photos.map((p) => ({
@@ -2425,7 +2446,14 @@ async function reconcileSourceBatch(
       itemCount: sourceItems.length,
       photoCount: photos.length,
       ok: true,
+      evidenceHash,
+      metadata: {
+        normalizedItemCount: sourceItems.length,
+        normalizedPhotoCount: photos.length,
+        byteVerifiedPhotoCount: photos.filter((photo) => photo.contentHash).length,
+      },
     });
+    return snapshot.id;
   } catch (error) {
     await finishSourceSnapshot({
       snapshotId: snapshot.id,
@@ -2436,6 +2464,7 @@ async function reconcileSourceBatch(
       photoCount: photos.length,
       ok: false,
       error: String(error),
+      failureStage: "persistence",
     });
     throw error;
   }
@@ -2445,7 +2474,7 @@ export async function persistSourceMenuItems(
   placeId: string,
   source: "doordash" | "grubhub",
   items: MenuItemData[]
-): Promise<void> {
+): Promise<string | null> {
   const photos: DishPhoto[] = items.filter((item) => item.imageUrl).map((item, index) => ({
     id: `${source}-${placeId}-${index}`,
     url: item.imageUrl!,
@@ -2464,7 +2493,65 @@ export async function persistSourceMenuItems(
     contentHash: item.contentHash,
     perceptualHash: item.perceptualHash,
   }));
-  await reconcileSourceBatch(placeId, source, items, photos);
+  return reconcileSourceBatch(placeId, source, items, photos);
+}
+
+/**
+ * Provider-neutral merchant import core. OAuth/callback routes remain provider
+ * specific, but every authorized payload enters the corpus through the same
+ * snapshot, provenance, dedupe, and menu/photo reconciliation path.
+ */
+export async function importMerchantProviderPayload(input: {
+  connectionId: string;
+  placeId: string;
+  provider: MerchantProvider;
+  payload: unknown;
+}): Promise<{ itemCount: number; photoCount: number; snapshotId: string | null }> {
+  const items = normalizeMerchantItems(input.provider, input.payload);
+  const source = input.provider === "google_business" ? "merchant" : input.provider;
+  const { data: run, error: runError } = await supabase
+    .from("merchant_import_runs")
+    .insert({ connection_id: input.connectionId, status: "running" })
+    .select("id")
+    .single();
+  if (runError || !run) throw runError ?? new Error("merchant import run could not start");
+
+  const photos: DishPhoto[] = items.flatMap((item, index) => item.imageUrl ? [{
+    id: `${source}-${input.placeId}-${index}`,
+    url: item.imageUrl,
+    dishName: item.name,
+    dishDescription: item.description ?? null,
+    isMenuMatch: true,
+    source,
+    attribution: "owner" as const,
+    tier: 1 as const,
+    width: 800,
+    height: 600,
+    loveCount: 0,
+    primaryVotes: 0,
+    photoAuthorType: "management" as const,
+    trustLabel: "management_photo" as const,
+  }] : []);
+
+  try {
+    const snapshotId = await reconcileSourceBatch(input.placeId, source, items, photos);
+    await supabase.from("merchant_import_runs").update({
+      status: "succeeded",
+      item_count: items.length,
+      photo_count: photos.length,
+      completed_at: new Date().toISOString(),
+    }).eq("id", run.id);
+    return { itemCount: items.length, photoCount: photos.length, snapshotId };
+  } catch (error) {
+    await supabase.from("merchant_import_runs").update({
+      status: "failed",
+      item_count: items.length,
+      photo_count: photos.length,
+      error: String(error),
+      completed_at: new Date().toISOString(),
+    }).eq("id", run.id);
+    throw error;
+  }
 }
 
 /**
@@ -2573,6 +2660,11 @@ export async function logSourceRun(run: {
   photoCount: number;
   latencyMs: number;
   error?: string;
+  sourceSnapshotId?: string | null;
+  providerUrl?: string | null;
+  responseHash?: string | null;
+  failureStage?: string | null;
+  metadata?: Record<string, unknown>;
 }): Promise<void> {
   const { error } = await supabase.from("source_runs").insert({
     restaurant_id: run.placeId,
@@ -2582,6 +2674,11 @@ export async function logSourceRun(run: {
     photo_count: run.photoCount,
     latency_ms: run.latencyMs,
     error: run.error ?? null,
+    source_snapshot_id: run.sourceSnapshotId ?? null,
+    provider_url: run.providerUrl ?? null,
+    response_hash: run.responseHash ?? null,
+    failure_stage: run.failureStage ?? null,
+    metadata: run.metadata ?? {},
   });
   if (error) console.error("[corpus] logSourceRun failed:", error.message);
 }

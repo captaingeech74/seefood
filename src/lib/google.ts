@@ -708,6 +708,9 @@ function resolveGeminiEntry(
 
 interface PreLabeledQualityResult {
   isValidImage: boolean;
+  isFoodPhoto: boolean;
+  matchesLabeledDish: boolean;
+  hasProminentText: boolean;
   isPromotional: boolean;
   duplicateOfIndex: number | null; // index within `photos` of an earlier duplicate, or null
   photoQualityScore: number;
@@ -721,6 +724,9 @@ async function assessPreLabeledPhotos(
 ): Promise<PreLabeledQualityResult[]> {
   const fallback: PreLabeledQualityResult = {
     isValidImage: true,
+    isFoodPhoto: true,
+    matchesLabeledDish: true,
+    hasProminentText: false,
     isPromotional: false,
     duplicateOfIndex: null,
     photoQualityScore: 70,
@@ -741,14 +747,20 @@ async function assessPreLabeledPhotos(
 
   const promptIntro = `You are reviewing ${validIndices.length} photos "${restaurantName}" itself uploaded to its ordering menu, numbered in order (Photo 1, Photo 2, ...). Each is already labeled with a real dish name from the menu — you do NOT need to identify the dish.
 
-For EACH photo, decide "isPromotional": true ONLY if the image is clearly a marketing graphic rather than a photo of the actual served dish — e.g. it has visible overlaid text, prices, or logos, is a collage of multiple unrelated dishes arranged for advertising, or is obviously a stock/template graphic. A single real plated dish, drink, or dessert is NEVER promotional, even if professionally lit or styled — when in doubt, set isPromotional to false. Wrongly letting an ad through is far better than wrongly hiding a real food photo.
+For EACH photo, decide:
+- "isFoodPhoto": true when the main subject is real prepared food, a plated dish, drink, or dessert from the restaurant. Professional styling is still a food photo.
+- "matchesLabeledDish": true when the visible food is reasonably consistent with its supplied menu-item label. Ordinary presentation variation is fine; flag only a meaningful mismatch.
+- "hasProminentText": true when text, prices, a logo, menu wording, or promotional copy is a major part of the image. A tiny watermark is not prominent text.
+- "isPromotional": true when the image is primarily an advertisement, menu graphic, logo/template, or multi-product promotional collage rather than a useful photograph of food.
+
+When uncertain whether a real food photograph is an exact dish match, keep isFoodPhoto true and set matchesLabeledDish false. SeeFood will retain it as a general restaurant food photo without attaching it to the wrong dish.
 
 Also decide "duplicateOfPhotoNumber": if this photo is a near-identical or duplicate shot of an EARLIER photo in this set (the same physical dish/plate/moment — not just a similar dish), return that earlier photo's number; otherwise null.
 
 Set "photoQualityScore" from 0 to 100 based on sharpness, lighting, composition, clear visibility of the dish, and how appetizing the actual food looks.
 
 Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one per photo in order, no markdown fences, no explanation:
-[{"isPromotional": boolean, "photoQualityScore": number, "duplicateOfPhotoNumber": number|null}, ...]`;
+[{"isFoodPhoto": boolean, "matchesLabeledDish": boolean, "hasProminentText": boolean, "isPromotional": boolean, "photoQualityScore": number, "duplicateOfPhotoNumber": number|null}, ...]`;
 
   const parts: unknown[] = [{ text: promptIntro }];
   validIndices.forEach((idx, n) => {
@@ -787,7 +799,7 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
       const json = await res.json();
       const rawText: string = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
 
-      let parsed: Array<{ isPromotional?: boolean; photoQualityScore?: number; duplicateOfPhotoNumber?: number | null }>;
+      let parsed: Array<{ isFoodPhoto?: boolean; matchesLabeledDish?: boolean; hasProminentText?: boolean; isPromotional?: boolean; photoQualityScore?: number; duplicateOfPhotoNumber?: number | null }>;
       try {
         parsed = JSON.parse(rawText);
         if (!Array.isArray(parsed)) throw new Error("not an array");
@@ -808,6 +820,9 @@ Respond with ONLY a JSON array with exactly ${validIndices.length} entries, one 
             : null);
         out[originalIdx] = {
           isValidImage: true,
+          isFoodPhoto: entry?.isFoodPhoto !== false,
+          matchesLabeledDish: entry?.matchesLabeledDish !== false,
+          hasProminentText: entry?.hasProminentText === true,
           isPromotional: !!entry?.isPromotional,
           duplicateOfIndex: dupOriginalIdx,
           photoQualityScore: Math.min(100, Math.max(0, Number(entry?.photoQualityScore) || 70)),
@@ -1312,14 +1327,18 @@ export async function finalizeWithGemini(
   const PRE_LABELED_SCORE = 60;
   const scoredPreLabeled = preLabeledPhotos
     .map((photo, i) => ({ photo, quality: preLabeledQuality[i] }))
-    .filter(({ quality }) => quality?.isValidImage && !quality.isPromotional && quality.duplicateOfIndex === null)
+    .filter(({ quality }) => quality?.isValidImage && quality.isFoodPhoto && !quality.hasProminentText && !quality.isPromotional && quality.duplicateOfIndex === null)
     .map(({ photo, quality }) => {
+      const safelyLabeled = quality?.matchesLabeledDish !== false;
       const signaled = withPhotoSignals({
         ...photo,
+        dishName: safelyLabeled ? photo.dishName : null,
+        dishDescription: safelyLabeled ? photo.dishDescription : null,
+        isMenuMatch: safelyLabeled ? photo.isMenuMatch : false,
         tier: scoreToTier(PRE_LABELED_SCORE),
         photoQualityScore: quality?.photoQualityScore ?? defaultPhotoQuality(photo),
-        dishPopularityScore: computeDishPopularityScore(photo.dishName, popularDishes),
-        isHeroCandidate: !!photo.dishName && (quality?.photoQualityScore ?? 70) >= 55,
+        dishPopularityScore: computeDishPopularityScore(safelyLabeled ? photo.dishName : null, popularDishes),
+        isHeroCandidate: safelyLabeled && !!photo.dishName && (quality?.photoQualityScore ?? 70) >= 55,
         isStorefront: false,
         isMenuPhoto: false,
         contentHash: quality?.contentHash ?? null,

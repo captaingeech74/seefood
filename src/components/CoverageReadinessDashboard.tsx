@@ -21,6 +21,7 @@ interface CoverageReadinessResponse {
   twentyPercentMenuPhotoCoverage: number;
   fiftyPercentMenuPhotoCoverage: number;
   comparisonCoverage: number;
+  claimedComparisonCoverage: number;
   visits: number;
   visitors: number;
   newVisitors: number;
@@ -35,7 +36,7 @@ const FUNNEL = [
   ["basicMenuPhotoCoverage", "Menu-matched photos"],
   ["twentyPercentMenuPhotoCoverage", "20% coverage"],
   ["fiftyPercentMenuPhotoCoverage", "50% coverage"],
-  ["comparisonCoverage", "1+ comparison dish"],
+  ["comparisonCoverage", "1+ verified comparison"],
 ] as const;
 
 const SCOPES: Array<{ value: CoverageScope; label: string }> = [

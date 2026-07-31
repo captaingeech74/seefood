@@ -29,6 +29,7 @@
  */
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
+import { createHash } from "crypto";
 
 // Load .env.local into process.env BEFORE importing anything that reads env
 // vars at module-load time (google.ts, db.ts, storage.ts all do). Next.js does
@@ -53,6 +54,19 @@ interface CrawlTarget {
   lat: number;
   lng: number;
   address?: string;
+}
+
+interface SourceCrawlResult {
+  items: import("../src/lib/types").MenuItemData[];
+  providerUrl?: string;
+  responseHash?: string;
+  failureStage?: "discovery" | "fetch" | "parse" | "image_verification";
+  error?: string;
+  metadata?: Record<string, unknown>;
+}
+
+function responseHash(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 const RATE_LIMIT_MS = 60_000; // ~1 restaurant/min, polite default
@@ -207,8 +221,9 @@ async function main() {
   const DOORDASH_STATE = "ca";
   const DOORDASH_CITY = "temecula";
 
-  async function crawlDoorDash(target: CrawlTarget): Promise<MenuItemData[]> {
+  async function crawlDoorDash(target: CrawlTarget): Promise<SourceCrawlResult> {
     let storeUrl = await getDoorDashStoreUrl(target.placeId).catch(() => null);
+    let sitemapUrlCount = 0;
     if (storeUrl && !findDoorDashStoreUrlInSitemap([storeUrl], target.name, DOORDASH_CITY)) {
       console.log(`  [doordash] rejecting stale cached URL that no longer matches "${target.name}"`);
       await saveDoorDashStoreUrl(target.placeId, null).catch(() => {});
@@ -221,6 +236,7 @@ async function main() {
         console.log(`  [doordash] sitemap load failed: ${e}`);
         return [] as string[];
       });
+      sitemapUrlCount = sitemapUrls.length;
       console.log(`  [doordash] sitemap loaded: ${sitemapUrls.length} CA store URLs`);
       storeUrl = findDoorDashStoreUrlInSitemap(sitemapUrls, target.name, DOORDASH_CITY);
 
@@ -229,14 +245,22 @@ async function main() {
         await saveDoorDashStoreUrl(target.placeId, storeUrl).catch(() => {});
       } else {
         console.log(`  [doordash] not found in sitemap for "${target.name}" — no interactive-search fallback yet`);
-        return [];
+        return {
+          items: [],
+          failureStage: "discovery",
+          error: "restaurant_not_found_in_sitemap",
+          metadata: { state: DOORDASH_STATE, city: DOORDASH_CITY, sitemapUrlCount },
+        };
       }
     }
 
     const storeResult = pythonFetch(storeUrl, { render: true, referer: "https://www.doordash.com/" });
     if (!storeResult.ok || !storeResult.html) {
       console.log(`  [doordash] store page fetch failed: ${storeResult.error ?? storeResult.status}`);
-      return [];
+      return {
+        items: [], providerUrl: storeUrl, failureStage: "fetch",
+        error: storeResult.error ?? `http_${storeResult.status}`,
+      };
     }
 
     // DoorDash store pages now ship menu data as Next.js App Router RSC
@@ -258,7 +282,14 @@ async function main() {
     } else {
       console.log(`  [doordash] ${items.length} items from ${storeUrl}`);
     }
-    return items.map((i) => ({ ...i, source: "doordash" as const }));
+    return {
+      items: items.map((i) => ({ ...i, source: "doordash" as const })),
+      providerUrl: storeUrl,
+      responseHash: responseHash(storeResult.html),
+      failureStage: items.length === 0 ? "parse" : undefined,
+      error: items.length === 0 ? "menu_payload_empty" : undefined,
+      metadata: { responseBytes: Buffer.byteLength(storeResult.html), sitemapUrlCount },
+    };
   }
 
   // Grubhub root cause (confirmed live, see DECISIONS.md): zero bot protection,
@@ -268,7 +299,7 @@ async function main() {
   // DoorDash, Grubhub needs no anti-bot bypass at all, just real JS execution
   // — Camoufox (a real browser) should handle this more reliably than tuning
   // Scrapfly's render wait blindly. First live test of this path.
-  async function crawlGrubhub(target: CrawlTarget): Promise<MenuItemData[]> {
+  async function crawlGrubhub(target: CrawlTarget): Promise<SourceCrawlResult> {
     const searchUrl = `https://www.grubhub.com/search?queryText=${encodeURIComponent(target.name)}&latitude=${target.lat}&longitude=${target.lng}&orderMethod=delivery`;
     const searchResult = pythonFetch(searchUrl, {
       render: true,
@@ -279,7 +310,10 @@ async function main() {
       grubhubSearchLocation: "Temecula, CA",
     });
     console.log(`  [grubhub] search → status=${searchResult.status} ok=${searchResult.ok}` + (!searchResult.ok ? ` error=${searchResult.error ?? "n/a"}` : ""));
-    if (!searchResult.ok || !searchResult.html) return [];
+    if (!searchResult.ok || !searchResult.html) return {
+      items: [], providerUrl: searchUrl, failureStage: "discovery",
+      error: searchResult.error ?? `http_${searchResult.status}`,
+    };
 
     const storeUrl = parseGrubhubSearchUrl(searchResult.html, target.name);
     if (!storeUrl) {
@@ -287,7 +321,10 @@ async function main() {
       console.log(
         `  [grubhub] no matching restaurant found for "${target.name}" — html_length=${searchResult.html.length} restaurant_links_on_page=${restaurantLinkCount}`
       );
-      return [];
+      return {
+        items: [], providerUrl: searchUrl, responseHash: responseHash(searchResult.html),
+        failureStage: "discovery", error: "restaurant_not_found_in_search",
+      };
     }
     console.log(`  [grubhub] found: ${storeUrl}`);
 
@@ -300,7 +337,10 @@ async function main() {
     });
     if (!storeResult.ok || !storeResult.html) {
       console.log(`  [grubhub] store page fetch failed: ${storeResult.error ?? storeResult.status}`);
-      return [];
+      return {
+        items: [], providerUrl: storeUrl, failureStage: "fetch",
+        error: storeResult.error ?? `http_${storeResult.status}`,
+      };
     }
 
     const extracted: MenuItemData[] = [];
@@ -314,7 +354,18 @@ async function main() {
     console.log(
       `  [grubhub] ${items.length} items, ${items.filter((item) => item.imageUrl).length} photo candidates from ${storeUrl}`
     );
-    return items.map((i) => ({ ...i, source: "grubhub" as const }));
+    return {
+      items: items.map((i) => ({ ...i, source: "grubhub" as const })),
+      providerUrl: storeUrl,
+      responseHash: responseHash(JSON.stringify(storeResult.payloads ?? []) + storeResult.html),
+      failureStage: items.length === 0 ? "parse" : undefined,
+      error: items.length === 0 ? "menu_payload_empty" : undefined,
+      metadata: {
+        searchResponseHash: responseHash(searchResult.html),
+        responseBytes: Buffer.byteLength(storeResult.html),
+        capturedPayloads: storeResult.payloads?.length ?? 0,
+      },
+    };
   }
 
   async function crawlOne(
@@ -344,19 +395,19 @@ async function main() {
       console.log(`  [pipeline] ${photos.length} photos, ${menuItems.length} menu items`);
     }
 
-    async function crawlAndPersist(source: "doordash" | "grubhub", crawlFn: () => Promise<MenuItemData[]>) {
+    async function crawlAndPersist(source: "doordash" | "grubhub", crawlFn: () => Promise<SourceCrawlResult>) {
       if (!(await isSourceEnabled(source))) {
         console.log(`  [${source}] paused in source registry — skipping`);
         return [];
       }
       const sourceStart = Date.now();
-      const items = await crawlFn();
-      const verifiedItems = await verifyMenuItemPhotos(items);
+      const result = await crawlFn();
+      const verifiedItems = await verifyMenuItemPhotos(result.items);
       // An empty browser result can mean a transient page failure, not a real
       // empty menu. Never let an uncertain miss retire previously good data.
-      if (verifiedItems.length > 0) {
-        await persistSourceMenuItems(target.placeId, source, verifiedItems);
-      }
+      const sourceSnapshotId = verifiedItems.length > 0
+        ? await persistSourceMenuItems(target.placeId, source, verifiedItems)
+        : null;
       await logSourceRun({
         placeId: target.placeId,
         source,
@@ -364,6 +415,21 @@ async function main() {
         itemCount: verifiedItems.length,
         photoCount: verifiedItems.filter((i) => i.contentHash).length,
         latencyMs: Date.now() - sourceStart,
+        error: result.error,
+        sourceSnapshotId,
+        providerUrl: result.providerUrl,
+        responseHash: result.responseHash,
+        failureStage: result.failureStage ?? (
+          result.items.some((item) => item.imageUrl) && !verifiedItems.some((item) => item.contentHash)
+            ? "image_verification"
+            : null
+        ),
+        metadata: {
+          ...result.metadata,
+          discoveredItems: result.items.length,
+          discoveredPhotoUrls: result.items.filter((item) => item.imageUrl).length,
+          byteVerifiedPhotos: verifiedItems.filter((item) => item.contentHash).length,
+        },
       }).catch(() => {});
 
       return verifiedItems;
