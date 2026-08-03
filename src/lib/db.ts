@@ -5,7 +5,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
-import { DishPhoto, MenuItemData, Restaurant } from "./types";
+import { DataSource, DishPhoto, MenuItemData, Restaurant } from "./types";
 import { dedupeToPrimary } from "./dishGrouping";
 import type { AnalyticsEventName } from "./analytics";
 import type { WebsiteExtractResult } from "./menuSources";
@@ -2472,7 +2472,7 @@ async function reconcileSourceBatch(
 
 export async function persistSourceMenuItems(
   placeId: string,
-  source: "doordash" | "grubhub",
+  source: DataSource,
   items: MenuItemData[]
 ): Promise<string | null> {
   const photos: DishPhoto[] = items.filter((item) => item.imageUrl).map((item, index) => ({

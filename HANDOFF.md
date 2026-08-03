@@ -65,8 +65,11 @@ MSAs, and finally all 387 MSAs.
   `docs/NATIONAL_ACQUISITION_BACKBONE.md`.
 - The bounded website worker is HTTP-first with Chromium/public-JSON fallback,
   per-domain serialization, retries, and explicit blocked outcomes. Initial
-  Temecula proof staged 134 menu items and 78 attached photo URLs across five
-  entities. Generic site imagery is not accepted as named dish evidence.
+  Temecula proof staged 536 menu items and 78 attached photo URLs across seven
+  entities after the first sit-down-priority pass; two product-attached groups
+  promoted 57 items and eight
+  byte-verified photos. Generic site imagery is not accepted as named dish
+  evidence.
 
 ## Read Order
 

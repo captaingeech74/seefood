@@ -62,8 +62,13 @@ sanctioned feed remains the durable scale option.
 - San Diego Metro: 8,777 candidates, 7,185 website observations, and 14
   ambiguous proposals quarantined. Batch
   `677d34fb-05e8-4113-a678-42bbdd8646cc`.
-- Initial Temecula website proof: 134 structured item observations and 78
-  attached photo URLs across five entities.
+- Initial Temecula website proof: 536 structured item observations and 78
+  attached photo URLs across seven entities after the first sit-down-priority
+  pass. Two Google-attached restaurant
+  groups were immediately promotion-safe, adding 57 current menu items and
+  eight byte-verified photos to the customer corpus. Unattached Overture-only
+  observations remain staged rather than being forced onto a possibly wrong
+  product restaurant.
 
 Candidate counts measure discovery, not published restaurants. Identity and
 website review remain required before customer-visible promotion.

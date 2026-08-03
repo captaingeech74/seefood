@@ -11,6 +11,7 @@
     "crawl": "tsx scripts/crawl.ts",
     "acquisition:overture": "tsx scripts/sync-overture.ts",
     "acquisition:websites": "tsx scripts/crawl-websites.ts",
+    "acquisition:promote-websites": "tsx scripts/promote-website-observations.ts",
     "acquisition:rollback": "tsx scripts/rollback-acquisition-batch.ts",
     "photo-dedupe": "tsx scripts/photo-dedupe.ts",
     "photo-quarantine": "node scripts/quarantine-reactivated-photos.mjs",

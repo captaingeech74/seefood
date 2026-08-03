@@ -191,12 +191,15 @@ begin
       and j.source='live'
     order by
       case
+        when lower(e.name) ~ '(mcdonald|subway|starbucks|taco bell|wendy|chick-fil-a|it.?s just wings)' then 3
+        when lower(e.name) ~ '(bistro|brasserie|steak|seafood|sushi|italian|mexican|restaurant|grill|tavern|dining)' then 0
+        else 1
+      end,
+      case
         when w.domain ~ '(restaurantji|restaurantguru|gastrobars|cafes-city|mapquest|yelp|tripadvisor|yellowpages|foursquare|menupix|sirved|business\.site)$' then 3
         when w.domain ~ '(toasttab|menufy|chownow|olo|popmenu|bentobox|spothopper|slicelife|flipdish|clover|square)\.' then 0
         else 1
       end,
-      case when lower(e.name) ~ '(bistro|brasserie|steak|seafood|sushi|italian|mexican|restaurant|grill|tavern|dining)' then 0 else 1 end,
-      case when lower(e.name) ~ '(mcdonald|subway|starbucks|taco bell|wendy|chick-fil-a|it.?s just wings)' then 2 else 0 end,
       j.priority, j.created_at
     for update skip locked
     limit greatest(1, least(p_limit, 250))
