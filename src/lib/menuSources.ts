@@ -18,7 +18,7 @@
  *   - google.ts → restaurant's own website (Place Details `website` field)
  */
 
-import { MenuItemData } from "./types";
+import { DataSource, MenuItemData } from "./types";
 import { hasScrapflyBudget } from "./scrapflyUsage";
 import * as cheerio from "cheerio";
 
@@ -117,6 +117,11 @@ async function extractFromPage(url: string, html: string): Promise<PageSignals> 
   // structured extraction came up empty.
   const rawResult = parseSchemaOrgMenuItems(html);
   if (rawResult.length > 0) itemBatches.push(rawResult);
+  const visibleResult = parseVisibleMenuItems(html).map((item) => {
+    if (!item.imageUrl) return item;
+    try { return { ...item, imageUrl: new URL(item.imageUrl, url).href }; } catch { return { ...item, imageUrl: undefined }; }
+  });
+  if (visibleResult.length > 0) itemBatches.push(visibleResult);
   let renderedAssets = { photoUrls: [] as string[], pdfUrls: [] as string[], pageUrls: [] as string[] };
   if (renderedHtml) {
     const renderedResult = parseSchemaOrgMenuItems(renderedHtml);
@@ -132,6 +137,31 @@ async function extractFromPage(url: string, html: string): Promise<PageSignals> 
     platforms: unique(platforms),
     discoveredPages: unique([...rawAssets.pageUrls, ...renderedAssets.pageUrls]),
   };
+}
+
+/** Conservative DOM fallback for menu cards that have a name plus a price. */
+export function parseVisibleMenuItems(html: string): MenuItemData[] {
+  const $ = cheerio.load(html);
+  const results: MenuItemData[] = [];
+  const cards = [
+    "[itemtype*='MenuItem']", "[data-testid*='menu-item']", "[data-test*='menu-item']",
+    ".menu-item", ".menu_item", ".menuItem", "li[class*='menu-item']", "article[class*='menu']",
+  ].join(",");
+  $(cards).slice(0, 800).each((_, element) => {
+    const card = $(element);
+    const text = card.text().replace(/\s+/g, " ").trim();
+    const priceMatch = text.match(/(?:\$|USD\s*)\s*(\d{1,4}(?:\.\d{2})?)/i);
+    const name = card.find("[itemprop='name'],[class*='name'],h2,h3,h4,strong").first().text().replace(/\s+/g," ").trim();
+    if (!name || name.length < 3 || name.length > 100 || (!priceMatch && !card.is("[itemtype*='MenuItem']"))) return;
+    const description = card.find("[itemprop='description'],[class*='description'],p").first().text().replace(/\s+/g," ").trim();
+    const image = card.find("img").first().attr("src") ?? card.find("img").first().attr("data-src");
+    const item: MenuItemData = { name, source: "schema_org" };
+    if (description && description !== name && description.length <= 500) item.description = description;
+    if (priceMatch) item.price = Number(priceMatch[1]);
+    if (image) item.imageUrl = image;
+    results.push(item);
+  });
+  return deduplicateMenuItems(results);
 }
 
 export async function fetchMenuFromUrl(url: string): Promise<WebsiteExtractResult> {
@@ -166,6 +196,36 @@ export async function fetchMenuFromUrl(url: string): Promise<WebsiteExtractResul
   }
 
   return results.length > 0 ? mergeWebsiteResults(results) : EMPTY_WEBSITE_RESULT;
+}
+
+/** National acquisition profile: one homepage and its strongest menu link. */
+export async function fetchBoundedMenuFromUrl(
+  url: string,
+  fetchPage: (url: string) => Promise<string> = async (pageUrl) => {
+    const response = await fetch(pageUrl, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(12_000),
+      headers: {
+        "User-Agent": "SeeFoodBot/1.0 (+https://seefood-rho.vercel.app)",
+        Accept: "text/html,application/xhtml+xml",
+      },
+    });
+    if (!response.ok) throw Object.assign(new Error(`http_${response.status}`), { status: response.status });
+    return response.text();
+  }
+): Promise<WebsiteExtractResult> {
+  const homepage = await extractFromPage(url, await fetchPage(url));
+  const results: WebsiteExtractResult[] = [homepage];
+  const followUp = homepage.discoveredPages[0];
+  if (followUp && followUp !== url) {
+    try { results.push(await extractFromPage(followUp, await fetchPage(followUp))); } catch {}
+  }
+  const merged = mergeWebsiteResults(results);
+  return {
+    ...merged,
+    photoUrls: unique(merged.items.flatMap((item) => item.imageUrl ?? [])),
+    pagesVisited: merged.pagesVisited.slice(0, 2),
+  };
 }
 
 /** Archive-safe extraction: no JS rendering or platform API calls. */
@@ -772,7 +832,7 @@ export function extractEmbeddedJsonMenuItems(html: string, source: OrderingPlatf
   return deduplicateMenuItems(items);
 }
 
-function walkGenericMenuNode(obj: unknown, source: OrderingPlatform, out: MenuItemData[]): void {
+function walkGenericMenuNode(obj: unknown, source: DataSource, out: MenuItemData[]): void {
   if (!obj || typeof obj !== "object") return;
   if (Array.isArray(obj)) { obj.forEach((v) => walkGenericMenuNode(v, source, out)); return; }
 
@@ -797,6 +857,12 @@ function walkGenericMenuNode(obj: unknown, source: OrderingPlatform, out: MenuIt
   for (const val of Object.values(o)) {
     if (val && typeof val === "object") walkGenericMenuNode(val, source, out);
   }
+}
+
+export function parseCapturedMenuPayloads(payloads: unknown[]): MenuItemData[] {
+  const items: MenuItemData[] = [];
+  for (const payload of payloads.slice(0, 24)) walkGenericMenuNode(payload, "schema_org", items);
+  return deduplicateMenuItems(items);
 }
 
 // ── Schema.org parser ─────────────────────────────────────────────────────────

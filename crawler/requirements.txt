@@ -8,3 +8,5 @@ camoufox[geoip]>=0.4
 # binary fetch step (see pythonFetch.ts ensurePythonEnv).
 scrapling[all]>=0.2
 patchright>=1.40
+# Official Overture downloader used by the versioned metro backbone sync.
+overturemaps>=1.0.1,<2

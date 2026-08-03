@@ -1,6 +1,6 @@
 # SeeFood Senior Lead Handoff
 
-Updated July 31, 2026. This is the current operational snapshot for the active
+Updated August 3, 2026. This is the current operational snapshot for the active
 general-development lead. It is intentionally concise; durable product and
 architecture decisions belong in `DECISIONS.md` and the focused documents under
 `docs/`.
@@ -58,10 +58,15 @@ MSAs, and finally all 387 MSAs.
 - Merchant ingestion has one provider-neutral reconciliation path for Google
   Business Profile, Square, Toast, Clover, and Flipdish payloads. Provider
   adapters normalize into the same provenance-preserving corpus pipeline.
-- The existing Overture importer already preserves provider identity and feeds
-  discovered restaurant websites into the crawl queue. DataLab 2.0 (Atlas) owns
-  the decision about expanding or promoting Overture or complementary roster
-  sources; production should not pre-empt that experiment.
+- The national acquisition backbone is live in review mode on Overture release
+  `2026-07-22.0`: 443 candidates inside Temecula's official city polygon and
+  8,777 across San Diego Metro. Imports are versioned, idempotent, reversible,
+  provenance-preserving, and ambiguity-safe. See
+  `docs/NATIONAL_ACQUISITION_BACKBONE.md`.
+- The bounded website worker is HTTP-first with Chromium/public-JSON fallback,
+  per-domain serialization, retries, and explicit blocked outcomes. Initial
+  Temecula proof staged 134 menu items and 78 attached photo URLs across five
+  entities. Generic site imagery is not accepted as named dish evidence.
 
 ## Read Order
 

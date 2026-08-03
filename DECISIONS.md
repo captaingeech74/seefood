@@ -1985,3 +1985,26 @@ identity precision and 95% item linkage precision. Imports remain idempotent,
 provenance-preserving, source-scoped, and reversible; failed or blocked fetches
 never imply closure or deletion. The durable record and exact provider asks are
 in `docs/DATALAB_V2_FINAL.md`.
+
+## Adopt the versioned Overture metro backbone and assertive public web worker (August 3, 2026)
+
+Production now uses current monthly Overture Places as a broad discovery
+backbone behind SeeFood-owned entity IDs. It is not a publication authority.
+Exact provider identities refresh idempotently; new identities begin in review;
+strong multi-signal matches may attach; ambiguity is quarantined. Each batch
+records release, input and boundary hashes, observations, changes, counts, and
+rollback state. Temecula uses the official Census incorporated-place polygon;
+larger metros use configured rollout bounds.
+
+Website acquisition is HTTP-first and escalates to local Chromium for public
+JavaScript pages. One crawl may inspect the homepage, one strongest menu/order
+link, and bounded public JSON responses. It parses schema.org, known platform
+payloads, and menu-card DOM with an item/price shape. Generic page images are
+not named dishes. It retries transient failures and prioritizes likely official
+sit-down sites, but stops at login, CAPTCHA, or explicit access denial.
+
+DoorDash and Grubhub public acquisition remain enabled for bounded examples and
+opportunistic coverage. Market location is configurable and sit-down candidates
+run ahead of obvious fast-food and virtual-brand targets. A strict miss remains
+a miss. Public scraping supports demonstrations; a future sanctioned feed
+remains preferable for durable platform-scale access.

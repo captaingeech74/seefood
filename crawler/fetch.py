@@ -13,16 +13,14 @@ Output (stdout, single line of JSON):
     {"ok": false, "status": null, "error": "..."}
 
 Modes:
-    plain (default) — curl_cffi with browser TLS-fingerprint impersonation.
+    plain (default) — curl_cffi HTTP client with modern protocol support.
                        Fast, cheap, good for restaurant websites and
                        lightly-protected ordering platforms.
-    --render         — Scrapling + Camoufox (hardened anti-fingerprint
-                        Firefox). Slower, handles JS-rendered content and
-                        Cloudflare-style challenges. Use for DoorDash,
-                        Grubhub when direct fails, and Menufy JS rendering.
+    --render         — a browser renderer for public JavaScript content.
+                        Access blocks and human-verification challenges are
+                        reported as blocked; this worker does not solve them.
 
-Run from the founder's Mac on a residential IP — that's the whole point
-(datacenter IPs get blocked regardless of stealth tooling).
+This worker reports access blocks rather than attempting to solve them.
 """
 import argparse
 import json
@@ -43,17 +41,18 @@ def fetch_rendered(
     wait_selector: str = "",
     wait_ms: int = 0,
     capture_grubhub_menu: bool = False,
+    capture_menu_json: bool = False,
     grubhub_search_location: str = "",
 ) -> dict:
-    # Scrapling's StealthyFetcher drives Camoufox (hardened anti-fingerprint
-    # Firefox) to load the page like a real browser, solving basic anti-bot
-    # challenges along the way.
-    from scrapling.fetchers import StealthyFetcher
+    # Patchright/Chromium executes public client-side JavaScript. It also lets
+    # us capture the restaurant's own JSON responses before the virtualized DOM
+    # discards off-screen menu sections.
+    from patchright.sync_api import sync_playwright
 
     payloads = []
 
     def page_setup(page):
-        if not capture_grubhub_menu:
+        if not capture_grubhub_menu and not capture_menu_json:
             return
 
         def capture(response):
@@ -63,10 +62,16 @@ def fetch_rendered(
                 "api-gtm.grubhub.com/restaurants/" in response_url
                 and "/menu_items/" in response_url
             )
-            if not (is_feed or is_item_batch):
+            content_type = response.headers.get("content-type", "").lower()
+            is_menu_json = capture_menu_json and "json" in content_type and not any(hint in response_url.lower() for hint in (
+                "analytics", "account", "customer", "checkout", "payment", "tracking"
+            ))
+            if not (is_feed or is_item_batch or is_menu_json) or len(payloads) >= 24:
                 return
             try:
-                payloads.append(response.json())
+                length = int(response.headers.get("content-length") or 0)
+                if length <= 5_000_000:
+                    payloads.append(response.json())
             except Exception:
                 pass
 
@@ -92,26 +97,41 @@ def fetch_rendered(
                 page.mouse.wheel(0, 1400)
                 page.wait_for_timeout(250)
 
-    fetch_options = {
-        "timeout": timeout * 1000,
-        "headless": True,
-        "wait": wait_ms,
-    }
-    if wait_selector:
-        fetch_options["wait_selector"] = wait_selector
-    if capture_grubhub_menu:
-        fetch_options["page_setup"] = page_setup
-    if capture_grubhub_menu or grubhub_search_location:
-        fetch_options["page_action"] = page_action
-
-    page = StealthyFetcher.fetch(url, **fetch_options)
-    # final_url surfaces client-side redirects (DoorDash's router may bounce a
-    # dead search URL somewhere useful) — diagnostic value on a 404/miss.
-    final_url = getattr(page, "url", None)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+            viewport={"width": 1440, "height": 1000},
+        )
+        page = context.new_page()
+        page.set_default_timeout(timeout * 1000)
+        page_setup(page)
+        response = page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
+        if wait_ms:
+            page.wait_for_timeout(wait_ms)
+        if wait_selector:
+            try:
+                page.wait_for_selector(wait_selector, timeout=timeout * 1000)
+            except Exception:
+                pass
+        if capture_grubhub_menu or grubhub_search_location:
+            page_action(page)
+        final_url = page.url
+        html = page.content()
+        try:
+            visible_text = page.locator("body").inner_text(timeout=2_000)[:20_000]
+        except Exception:
+            visible_text = ""
+        status = response.status if response else 200
+        context.close()
+        browser.close()
+    blocked_markers = ("verify you are human", "access denied", "complete the security check", "cloudflare ray id")
+    blocked = status in (401, 403, 429) or any(marker in visible_text.lower() for marker in blocked_markers)
     return {
-        "ok": page.status < 400,
-        "status": page.status,
-        "html": page.html_content,
+        "ok": status < 400 and not blocked,
+        "status": status,
+        "html": html,
+        "error": "access_blocked" if blocked else None,
         "finalUrl": final_url if final_url and final_url != url else None,
         "payloads": payloads,
     }
@@ -126,6 +146,7 @@ def main():
     parser.add_argument("--wait-selector", default="")
     parser.add_argument("--wait-ms", type=int, default=0)
     parser.add_argument("--capture-grubhub-menu", action="store_true")
+    parser.add_argument("--capture-menu-json", action="store_true")
     parser.add_argument("--grubhub-search-location", default="")
     args = parser.parse_args()
 
@@ -137,6 +158,7 @@ def main():
                 args.wait_selector,
                 args.wait_ms,
                 args.capture_grubhub_menu,
+                args.capture_menu_json,
                 args.grubhub_search_location,
             )
         else:

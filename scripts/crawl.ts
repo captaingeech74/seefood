@@ -1,7 +1,7 @@
 #!/usr/bin/env -S npx tsx
 /**
- * Tier 1 local corpus crawler (PRD §5.2). Run on the founder's Mac — the
- * residential IP is the whole point; it beats blocks that stop cloud scrapers.
+ * Tier 1 local corpus crawler (PRD §5.2). Run locally for bounded public
+ * browser rendering that does not fit the serverless request window.
  *
  * Usage:
  *   npm run crawl -- --place ChIJ... --name "Richie's Diner" --lat 33.48 --lng -117.09
@@ -54,6 +54,8 @@ interface CrawlTarget {
   lat: number;
   lng: number;
   address?: string;
+  city?: string;
+  stateCode?: string;
 }
 
 interface SourceCrawlResult {
@@ -70,11 +72,10 @@ function responseHash(value: string): string {
 }
 
 const RATE_LIMIT_MS = 60_000; // ~1 restaurant/min, polite default
-const TEMECULA_BOUNDS = {
-  minLat: 33.43,
-  maxLat: 33.62,
-  minLng: -117.30,
-  maxLng: -117.05,
+const MARKET_PROFILES: Record<string, { city: string; stateCode: string; bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } }> = {
+  "temecula-ca": { city: "Temecula", stateCode: "ca", bounds: { minLat: 33.43, maxLat: 33.59, minLng: -117.22, maxLng: -117.06 } },
+  "san-diego-metro-ca": { city: "San Diego", stateCode: "ca", bounds: { minLat: 32.53, maxLat: 33.15, minLng: -117.35, maxLng: -116.85 } },
+  "san-diego-county-ca": { city: "San Diego", stateCode: "ca", bounds: { minLat: 32.52, maxLat: 33.51, minLng: -117.61, maxLng: -116.08 } },
 };
 
 function parseArgs(argv: string[]) {
@@ -110,11 +111,17 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
         name: String(args.name ?? args.place),
         lat: parseFloat(String(args.lat ?? "0")),
         lng: parseFloat(String(args.lng ?? "0")),
+        address: args.address ? String(args.address) : undefined,
+        city: args.city ? String(args.city) : undefined,
+        stateCode: args.state ? String(args.state).toLowerCase() : undefined,
       },
     ];
   }
 
-  if (args.zone) {
+  if (args.zone || args.market) {
+    const marketKey = String(args.market ?? (String(args.zone).toLowerCase() === "temecula" ? "temecula-ca" : args.zone));
+    const profile = MARKET_PROFILES[marketKey];
+    if (!profile) throw new Error(`Unknown market ${marketKey}. Add it to acquisition_markets and MARKET_PROFILES.`);
     const seedPath = join(__dirname, "..", "benchmark", "restaurants.json");
     const seed = JSON.parse(readFileSync(seedPath, "utf-8")) as Array<{
       name: string;
@@ -133,25 +140,28 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
     // touched by either track.
     const { getSaturationBatch } = await import("../src/lib/db");
     const limit = args.limit ? parseInt(String(args.limit), 10) : 60;
-    const bounds = String(args.zone).toLowerCase() === "temecula"
-      ? TEMECULA_BOUNDS
-      : undefined;
-    const backlog = await getSaturationBatch(limit, bounds).catch((e) => {
+    const backlog = await getSaturationBatch(limit, profile.bounds).catch((e) => {
       console.error("Failed to load corpus backlog, falling back to seed-only:", e);
       return [];
     });
 
     const seedIds = new Set(seed.map((s) => s.placeId));
-    const merged = [...seed];
+    const merged: CrawlTarget[] = marketKey === "temecula-ca" ? seed.map((item) => ({ ...item, city: profile.city, stateCode: profile.stateCode })) : [];
     for (const b of backlog) {
       if (seedIds.has(b.placeId)) continue;
-      merged.push({ name: b.name, placeId: b.placeId, lat: b.lat, lng: b.lng });
+      merged.push({ name: b.name, placeId: b.placeId, lat: b.lat, lng: b.lng, address: b.address, city: profile.city, stateCode: profile.stateCode });
     }
-    return merged;
+    const sitDownScore = (target: CrawlTarget) => {
+      const name = target.name.toLowerCase();
+      let score = /bistro|brasserie|steak|seafood|sushi|italian|mexican|restaurant|grill|tavern|dining/.test(name) ? 2 : 0;
+      if (/mcdonald|subway|starbucks|taco bell|wendy|chick-fil-a|its just wings|it's just wings/.test(name)) score -= 3;
+      return score;
+    };
+    return merged.sort((a,b) => sitDownScore(b)-sitDownScore(a) || a.name.localeCompare(b.name));
   }
 
   console.error("Usage: npm run crawl -- --place <id> --name <name> --lat <lat> --lng <lng>");
-  console.error("       npm run crawl -- --zone temecula [--refresh-stale]");
+  console.error("       npm run crawl -- --market temecula-ca|san-diego-metro-ca [--refresh-stale]");
   console.error("       npm run crawl -- --replay-doordash [--limit 250]");
   process.exit(1);
 }
@@ -214,17 +224,12 @@ async function main() {
   //      Cloudflare wall, no Camoufox needed). One state file, ~100k URLs,
   //      cached to disk for 24h. This alone resolved 4/5 known-DoorDash
   //      restaurants correctly in testing.
-  //   3. Camoufox interactive search — TODO, only needed for restaurants the
-  //      sitemap doesn't cover (e.g. states/regions not yet cached).
-  // Launch zone is Temecula, CA — hardcoded here; generalize when the crawler
-  // covers more than one state.
-  const DOORDASH_STATE = "ca";
-  const DOORDASH_CITY = "temecula";
-
   async function crawlDoorDash(target: CrawlTarget): Promise<SourceCrawlResult> {
+    const state = target.stateCode ?? "ca";
+    const city = target.city ?? "temecula";
     let storeUrl = await getDoorDashStoreUrl(target.placeId).catch(() => null);
     let sitemapUrlCount = 0;
-    if (storeUrl && !findDoorDashStoreUrlInSitemap([storeUrl], target.name, DOORDASH_CITY)) {
+    if (storeUrl && !findDoorDashStoreUrlInSitemap([storeUrl], target.name, city)) {
       console.log(`  [doordash] rejecting stale cached URL that no longer matches "${target.name}"`);
       await saveDoorDashStoreUrl(target.placeId, null).catch(() => {});
       storeUrl = null;
@@ -232,13 +237,13 @@ async function main() {
     if (storeUrl) {
       console.log(`  [doordash] using cached store URL: ${storeUrl}`);
     } else {
-      const sitemapUrls = await loadStoreSitemap(DOORDASH_STATE).catch((e) => {
+      const sitemapUrls = await loadStoreSitemap(state).catch((e) => {
         console.log(`  [doordash] sitemap load failed: ${e}`);
         return [] as string[];
       });
       sitemapUrlCount = sitemapUrls.length;
-      console.log(`  [doordash] sitemap loaded: ${sitemapUrls.length} CA store URLs`);
-      storeUrl = findDoorDashStoreUrlInSitemap(sitemapUrls, target.name, DOORDASH_CITY);
+      console.log(`  [doordash] sitemap loaded: ${sitemapUrls.length} ${state.toUpperCase()} store URLs`);
+      storeUrl = findDoorDashStoreUrlInSitemap(sitemapUrls, target.name, city);
 
       if (storeUrl) {
         console.log(`  [doordash] found via sitemap: ${storeUrl}`);
@@ -249,7 +254,7 @@ async function main() {
           items: [],
           failureStage: "discovery",
           error: "restaurant_not_found_in_sitemap",
-          metadata: { state: DOORDASH_STATE, city: DOORDASH_CITY, sitemapUrlCount },
+          metadata: { state, city, sitemapUrlCount },
         };
       }
     }
@@ -307,7 +312,7 @@ async function main() {
       timeoutSec: 75,
       waitSelector: 'a[href*="/restaurant/"]',
       waitMs: 1_000,
-      grubhubSearchLocation: "Temecula, CA",
+      grubhubSearchLocation: target.address || `${target.city ?? "Temecula"}, ${(target.stateCode ?? "ca").toUpperCase()}`,
     });
     console.log(`  [grubhub] search → status=${searchResult.status} ok=${searchResult.ok}` + (!searchResult.ok ? ` error=${searchResult.error ?? "n/a"}` : ""));
     if (!searchResult.ok || !searchResult.html) return {

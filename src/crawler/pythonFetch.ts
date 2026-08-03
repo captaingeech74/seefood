@@ -141,7 +141,7 @@ export function ensurePythonEnv(): { ready: boolean; reason?: string } {
 
 /**
  * Fetch a URL via the Python side. `render: true` uses Scrapling/Camoufox
- * (slow, handles JS + anti-bot challenges) — reserve for hard targets
+ * (slow, executes public JavaScript) — reserve for JS-rendered targets
  * (DoorDash, Grubhub fallback, Menufy JS rendering). Otherwise uses
  * curl_cffi (fast, browser TLS-fingerprint impersonation).
  */
@@ -154,6 +154,7 @@ export function pythonFetch(
     waitSelector?: string;
     waitMs?: number;
     captureGrubhubMenu?: boolean;
+    captureMenuJson?: boolean;
     grubhubSearchLocation?: string;
   } = {}
 ): PythonFetchResult {
@@ -164,6 +165,7 @@ export function pythonFetch(
   if (opts.waitSelector) args.push("--wait-selector", opts.waitSelector);
   if (opts.waitMs) args.push("--wait-ms", String(opts.waitMs));
   if (opts.captureGrubhubMenu) args.push("--capture-grubhub-menu");
+  if (opts.captureMenuJson) args.push("--capture-menu-json");
   if (opts.grubhubSearchLocation) {
     args.push("--grubhub-search-location", opts.grubhubSearchLocation);
   }
