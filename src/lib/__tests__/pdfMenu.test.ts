@@ -20,6 +20,15 @@ describe("PDF menu text parsing", () => {
   it("deduplicates repeated menu items", () => {
     expect(parseMenuText("Tacos $12.00\nTacos $12.00")).toHaveLength(1);
   });
+
+  it("rejects flattened columns, description fragments, and add-on labels", () => {
+    expect(parseMenuText(`
+      Individual 4.50 Whole 69.99
+      and sautéed seasonal vegetables 13.99
+      BEEF RIBS (3 BONES), ADD 8.00
+      NY Four Cheese Pizza 14.85
+    `).map((item) => item.name)).toEqual(["NY Four Cheese Pizza"]);
+  });
 });
 
 describe("parseVisionMenuText", () => {

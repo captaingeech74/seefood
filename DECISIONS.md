@@ -2030,3 +2030,32 @@ publication authority: 43 restaurants with staged menus had no current corpus
 menu, while generic website imagery remained meaningfully noisier than images
 directly attached to structured menu items. Promotion must therefore retain
 byte verification, food classification, item-linkage, and duplicate gates.
+
+## Make Website Acquisition V3 the durable unified path (August 3, 2026)
+
+V3 replaces parallel website experiments with one evidence-preserving operating
+path. It attempts direct HTTP first and escalates only when evidence requires it
+through curl-cffi, Patchright public-network capture, and Scrapling. Crawl4AI is
+reserved for explicit deep discovery after the Temecula run showed that using it
+as a routine fallback spent substantial work for negligible additional menu
+evidence. Crawls and assets have separate durable queues; generic page imagery
+is staged without displacing PDFs or dish-linked images; one miss cannot erase
+known-good evidence; and V2 observations merge idempotently into the durable
+corpus.
+
+Publication remains explicit, preview-first, source-scoped, reversible, and
+byte-verified. V3 is a stronger acquisition architecture but was not a strict
+content superset of V2, so unification rather than replacement is the product
+rule. The Temecula union contains 5,560 unique entity/dish observations across
+66 entities. The first reviewed publication added 542 canonical dishes and 248
+new exact image byte identities across existing restaurant pages without
+touching LRay's Kitchen.
+
+PDF OCR is provider-neutral. PaddleOCR-VL remains the immediately runnable local
+default. Baidu Unlimited-OCR is a named GPU-service challenger because its
+long-document design is promising but its June 2026 release is not yet proven on
+SeeFood menus or a clean Apple Silicon deployment. Mistral OCR 4 is an optional
+paid challenger and never runs without explicit credentials. Vendor benchmark
+claims do not select the default; engines must compete on one fixed, labeled
+SeeFood menu-PDF set using item recall, hallucination rate, layout preservation,
+latency, and cost.

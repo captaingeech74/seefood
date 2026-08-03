@@ -178,6 +178,16 @@ def fetch_crawl4ai(url: str, timeout: int) -> dict:
     status = int(getattr(result, "status_code", 200) or 200)
     final_url = str(getattr(result, "url", url) or url)
     success = bool(getattr(result, "success", False)) and bool(html)
+    markdown_value = getattr(result, "markdown", "") or ""
+    if not isinstance(markdown_value, str):
+        markdown_value = str(getattr(markdown_value, "raw_markdown", "") or "")
+    discovered_links = []
+    links = getattr(result, "links", {}) or {}
+    for group in ("internal", "external"):
+        for link in links.get(group, []) if isinstance(links, dict) else []:
+            href = link.get("href") if isinstance(link, dict) else None
+            if href and href not in discovered_links:
+                discovered_links.append(href)
     return {
         "ok": success and status < 400,
         "status": status,
@@ -185,6 +195,8 @@ def fetch_crawl4ai(url: str, timeout: int) -> dict:
         "error": None if success else str(getattr(result, "error_message", "crawl4ai_failed")),
         "finalUrl": final_url if final_url != url else None,
         "payloads": [],
+        "markdown": markdown_value[:2_000_000],
+        "links": discovered_links[:100],
     }
 
 

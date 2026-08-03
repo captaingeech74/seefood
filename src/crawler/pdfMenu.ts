@@ -1,13 +1,15 @@
 import { createHash } from "node:crypto";
 import type { MenuItemData } from "../lib/types";
+import { runDocumentOcr, type OcrAttempt, type OcrProviderName } from "./documentOcr";
 
 export type PdfMenuResult = {
   items: MenuItemData[];
-  method: "pdf_text" | "paddleocr_vl" | "none";
+  method: "pdf_text" | OcrProviderName | "none";
   sha256: string;
   byteCount: number;
   pageCount: number;
   textCharacterCount: number;
+  ocrAttempts?: OcrAttempt[];
   error?: string;
 };
 
@@ -21,7 +23,7 @@ function clean(value: string): string {
 
 function likelyDishTitle(value: string): boolean {
   if (value.length < 2 || value.length > 90 || NON_ITEM.test(value)) return false;
-  if (PRICE_ANYWHERE.test(value) || /^(?:and|with|served|topped|choice|includes?|add|extra|&)/i.test(value)) return false;
+  if (PRICE_ANYWHERE.test(value) || /\b\d{1,3}\.\d{2}\b/.test(value) || /^(?:and|with|served|topped|choice|includes?|add|extra|&)/i.test(value)) return false;
   const letters = value.match(/[A-Za-z]/g) ?? [];
   if (letters.length < 2) return false;
   const capitals = value.match(/[A-Z]/g)?.length ?? 0;
@@ -39,6 +41,10 @@ export function parseMenuText(text: string): MenuItemData[] {
     if (!priceMatch) continue;
     let rawName = clean(line.slice(0, priceMatch.index));
     if (PRICE_ANYWHERE.test(rawName)) continue;
+    // Multiple decimal prices on one reconstructed line usually mean PDF
+    // columns or size variants were flattened together. Do not invent a
+    // single dish/price relationship from it.
+    if ((line.match(/\b\d{1,3}\.\d{2}\b/g) ?? []).length > 1) continue;
     const previous = lines[index - 1];
     if (previous && likelyDishTitle(previous) && (
       rawName.split(/\s+/).length > 7 ||
@@ -46,7 +52,7 @@ export function parseMenuText(text: string): MenuItemData[] {
       /^(?:served|topped|with|our|a |an |choice|includes?)/i.test(rawName)
     )) rawName = previous;
     if (rawName.length < 2 || rawName.length > 120 || NON_ITEM.test(rawName)) continue;
-    if (/^(add|extra|substitute|choice of|market price|mp\b|&)/i.test(rawName)) continue;
+    if (/^[a-z]/.test(rawName) || /^(add|extra|substitute|choice of|market price|mp\b|&)|(?:,|\s)ADD$/i.test(rawName)) continue;
     if ((rawName.match(/[A-Za-z]/g) ?? []).length < 2) continue;
     const item: MenuItemData = {
       name: rawName.replace(/[.·•\-–—]+$/g, "").trim(),
@@ -129,25 +135,6 @@ async function extractPdfText(bytes: Buffer): Promise<{ text: string; pages: num
   return { text: pageTexts.join("\n"), pages: document.numPages };
 }
 
-async function paddleOcrFallback(bytes: Buffer): Promise<{ text: string; pages: number } | null> {
-  const endpoint = (process.env.PADDLEOCR_VL_URL ?? "http://127.0.0.1:8119").replace(/\/$/, "");
-  if (!endpoint) return null;
-  try {
-    const response = await fetch(`${endpoint}/document/parse`, {
-      method: "POST",
-      headers: { "content-type": "application/pdf" },
-      body: new Blob([new Uint8Array(bytes)], { type: "application/pdf" }),
-      signal: AbortSignal.timeout(15 * 60_000),
-    });
-    if (!response.ok) return null;
-    const payload = await response.json() as { markdown?: string; text?: string; pageCount?: number };
-    const text = payload.markdown ?? payload.text ?? "";
-    return text ? { text, pages: payload.pageCount ?? 0 } : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function extractPdfMenu(url: string): Promise<PdfMenuResult> {
   try {
     const response = await fetch(url, {
@@ -170,15 +157,16 @@ export async function extractPdfMenu(url: string): Promise<PdfMenuResult> {
     }
     // Whole-document vision parsing is expensive. Restaurant menus are usually
     // short; oversized brochures stay recorded for a later, explicitly bounded pass.
-    const ocr = embedded.pages <= 12 ? await paddleOcrFallback(bytes) : null;
+    const routed = embedded.pages <= 12 ? await runDocumentOcr(bytes) : { result: null, attempts: [] };
+    const ocr = routed.result;
     if (ocr) {
       const ocrItems = mergeParsedItems(parseMenuText(ocr.text), parseVisionMenuText(ocr.text));
       if (menuQuality(ocrItems) >= embeddedQuality || items.length < 2) {
         items = ocrItems;
-        return { items, method: "paddleocr_vl", sha256, byteCount: bytes.length, pageCount: ocr.pages || embedded.pages, textCharacterCount: ocr.text.length };
+        return { items, method: ocr.provider, sha256, byteCount: bytes.length, pageCount: ocr.pageCount || embedded.pages, textCharacterCount: ocr.text.length, ocrAttempts: routed.attempts };
       }
     }
-    return { items, method: items.length ? "pdf_text" : "none", sha256, byteCount: bytes.length, pageCount: embedded.pages, textCharacterCount: embedded.text.length };
+    return { items, method: items.length ? "pdf_text" : "none", sha256, byteCount: bytes.length, pageCount: embedded.pages, textCharacterCount: embedded.text.length, ocrAttempts: routed.attempts };
   } catch (error) {
     return { items: [], method: "none", sha256: "", byteCount: 0, pageCount: 0, textCharacterCount: 0, error: String(error instanceof Error ? error.message : error) };
   }

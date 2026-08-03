@@ -63,20 +63,24 @@ MSAs, and finally all 387 MSAs.
   8,777 across San Diego Metro. Imports are versioned, idempotent, reversible,
   provenance-preserving, and ambiguity-safe. See
   `docs/NATIONAL_ACQUISITION_BACKBONE.md`.
-- The bounded website worker is HTTP-first with Chromium/public-JSON fallback,
-  per-domain serialization, retries, and explicit blocked outcomes. Initial
-  Temecula proof staged 536 menu items and 78 attached photo URLs across seven
-  entities after the first sit-down-priority pass; two product-attached groups
-  promoted 57 items and eight
-  byte-verified photos. Generic site imagery is not accepted as named dish
-  evidence.
-- Website Acquisition V2 is now a separate, no-paid-fallback evidence lane
-  using Crawlee, Patchright, Scrapling, Crawl4AI, embedded PDF parsing, and
-  PaddleOCR-VL 1.6 with local MLX acceleration. Its full Temecula run attempted
-  all 366 known websites and staged 5,318 menu observations, 14,304 image
-  candidates, 712 dish-linked image candidates, and 550 PDF-derived items. It
-  did not publish or alter the existing corpus. See
-  `docs/WEBSITE_ACQUISITION_V2.md`.
+- Website Acquisition V3 is the durable unified path. Direct HTTP escalates
+  only when necessary through curl-cffi, Patchright public-network capture, and
+  Scrapling; Crawl4AI is reserved for explicit deep discovery. Crawls and asset
+  verification are separate durable queues, generic site imagery cannot consume
+  dish-linked verification capacity, and two successful absence observations
+  are required before known-good evidence becomes stale.
+- V2 evidence remains valuable and merges idempotently into V3 rather than being
+  discarded. The full union contains 5,560 unique entity/dish observations
+  across 66 Temecula entities. The reviewed V3 publication added 542 genuinely
+  new canonical dishes across nine existing restaurant pages and 249 photo rows
+  representing 248 new exact image byte identities. It improved menu depth and
+  visual richness, not first-menu breadth. See
+  `docs/WEBSITE_ACQUISITION_V3.md`.
+- PDF parsing uses embedded text first and a pluggable OCR layer. PaddleOCR-VL
+  remains the local default; Baidu Unlimited-OCR is supported behind a separately
+  hosted GPU endpoint, and Mistral OCR 4 is supported but paid calls remain off
+  unless deliberately configured. Neither challenger becomes the default until
+  it wins a SeeFood menu-PDF bakeoff.
 
 ## Read Order
 

@@ -36,6 +36,10 @@ export interface PythonFetchResult {
   error?: string;
   finalUrl?: string | null;
   payloads?: unknown[];
+  /** Cleaned document-oriented output supplied by engines such as Crawl4AI. */
+  markdown?: string;
+  /** Engine-discovered links, used only as bounded crawl candidates. */
+  links?: string[];
 }
 
 function getPythonVersion(exe: string): [number, number] | null {

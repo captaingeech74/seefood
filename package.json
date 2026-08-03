@@ -12,6 +12,8 @@
     "acquisition:overture": "tsx scripts/sync-overture.ts",
     "acquisition:websites": "tsx scripts/crawl-websites.ts",
     "acquisition:websites-v2": "tsx scripts/crawl-websites-v2.ts",
+    "acquisition:websites-v3": "tsx scripts/crawl-websites-v3.ts",
+    "acquisition:merge-website-evidence": "tsx scripts/merge-website-evidence.ts",
     "acquisition:ocr-mlx": "crawler/.venv_paddleocr/bin/mlx_vlm.server --host 127.0.0.1 --port 8111 --log-level INFO",
     "acquisition:ocr-server": "crawler/.venv_paddleocr/bin/python crawler/paddleocr_service.py",
     "acquisition:promote-websites": "tsx scripts/promote-website-observations.ts",
