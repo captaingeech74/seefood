@@ -70,6 +70,13 @@ MSAs, and finally all 387 MSAs.
   promoted 57 items and eight
   byte-verified photos. Generic site imagery is not accepted as named dish
   evidence.
+- Website Acquisition V2 is now a separate, no-paid-fallback evidence lane
+  using Crawlee, Patchright, Scrapling, Crawl4AI, embedded PDF parsing, and
+  PaddleOCR-VL 1.6 with local MLX acceleration. Its full Temecula run attempted
+  all 366 known websites and staged 5,318 menu observations, 14,304 image
+  candidates, 712 dish-linked image candidates, and 550 PDF-derived items. It
+  did not publish or alter the existing corpus. See
+  `docs/WEBSITE_ACQUISITION_V2.md`.
 
 ## Read Order
 

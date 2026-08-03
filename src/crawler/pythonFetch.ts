@@ -7,7 +7,7 @@
  * requirements.txt if missing, so `npm run crawl` is the only command Kyle
  * ever has to type — no manual Python setup.
  */
-import { spawnSync } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import { existsSync, writeFileSync, readFileSync, rmSync } from "fs";
 import { join } from "path";
 import { createHash } from "crypto";
@@ -148,6 +148,7 @@ export function ensurePythonEnv(): { ready: boolean; reason?: string } {
 export function pythonFetch(
   url: string,
   opts: {
+    engine?: "patchright" | "scrapling" | "crawl4ai";
     render?: boolean;
     referer?: string;
     timeoutSec?: number;
@@ -160,6 +161,7 @@ export function pythonFetch(
 ): PythonFetchResult {
   const args = [join(CRAWLER_DIR, "fetch.py"), url];
   if (opts.render) args.push("--render");
+  if (opts.engine) args.push("--engine", opts.engine);
   if (opts.referer) args.push("--referer", opts.referer);
   if (opts.timeoutSec) args.push("--timeout", String(opts.timeoutSec));
   if (opts.waitSelector) args.push("--wait-selector", opts.waitSelector);
@@ -188,4 +190,45 @@ export function pythonFetch(
   } catch {
     return { ok: false, status: null, error: "Could not parse fetch.py output" };
   }
+}
+
+/** Non-blocking variant for the concurrent website V2 worker. */
+export function pythonFetchAsync(
+  url: string,
+  opts: Parameters<typeof pythonFetch>[1] = {}
+): Promise<PythonFetchResult> {
+  const args = [join(CRAWLER_DIR, "fetch.py"), url];
+  if (opts.render) args.push("--render");
+  if (opts.engine) args.push("--engine", opts.engine);
+  if (opts.referer) args.push("--referer", opts.referer);
+  if (opts.timeoutSec) args.push("--timeout", String(opts.timeoutSec));
+  if (opts.waitSelector) args.push("--wait-selector", opts.waitSelector);
+  if (opts.waitMs) args.push("--wait-ms", String(opts.waitMs));
+  if (opts.captureGrubhubMenu) args.push("--capture-grubhub-menu");
+  if (opts.captureMenuJson) args.push("--capture-menu-json");
+  if (opts.grubhubSearchLocation) args.push("--grubhub-search-location", opts.grubhubSearchLocation);
+  return new Promise((resolve) => {
+    const child = spawn(VENV_PYTHON, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const stdout: Buffer[] = [], stderr: Buffer[] = [];
+    let size = 0, settled = false;
+    const finish = (value: PythonFetchResult) => { if (!settled) { settled = true; resolve(value); } };
+    child.stdout.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size <= 50 * 1024 * 1024) stdout.push(chunk);
+      else { child.kill("SIGTERM"); finish({ ok: false, status: null, error: "renderer_output_too_large" }); }
+    });
+    child.stderr.on("data", (chunk: Buffer) => { if (Buffer.concat(stderr).length < 1_000_000) stderr.push(chunk); });
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+      finish({ ok: false, status: null, error: "renderer_timeout" });
+    }, (opts.timeoutSec ?? 20) * 1000 + 60_000);
+    child.on("error", (error) => { clearTimeout(timer); finish({ ok: false, status: null, error: String(error) }); });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (settled) return;
+      if (code !== 0) return finish({ ok: false, status: null, error: Buffer.concat(stderr).toString("utf8").trim() || `renderer_exit_${code}` });
+      try { finish(JSON.parse(Buffer.concat(stdout).toString("utf8").trim())); }
+      catch { finish({ ok: false, status: null, error: "Could not parse fetch.py output" }); }
+    });
+  });
 }

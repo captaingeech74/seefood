@@ -1,0 +1,6 @@
+# Kept separate from the browser crawler because Paddle's model runtime has a
+# large, fast-moving dependency graph. Apple Silicon installation also needs
+# the official Paddle CPU package index documented by PaddleOCR.
+paddlepaddle==3.2.1
+paddleocr[doc-parser]==3.7.0
+mlx-vlm>=0.3.11

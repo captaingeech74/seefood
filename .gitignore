@@ -11,6 +11,8 @@ SEEFOOD_URL_STRATEGY.md
 
 # crawler Python venv (self-installed by npm run crawl, machine-specific)
 crawler/.venv/
+crawler/.venv_paddleocr/
+storage/
 __pycache__/
 # downloaded DoorDash sitemap cache (~18MB/state, refetched every 24h)
 crawler/.cache/

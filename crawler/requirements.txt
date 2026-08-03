@@ -8,5 +8,8 @@ camoufox[geoip]>=0.4
 # binary fetch step (see pythonFetch.ts ensurePythonEnv).
 scrapling[all]>=0.2
 patchright>=1.40
+# Used only as the final unfamiliar-page interpreter in website acquisition V2.
+# Pin the reviewed release because its browser and server dependencies move fast.
+crawl4ai==0.9.2
 # Official Overture downloader used by the versioned metro backbone sync.
 overturemaps>=1.0.1,<2

@@ -2008,3 +2008,25 @@ opportunistic coverage. Market location is configurable and sit-down candidates
 run ahead of obvious fast-food and virtual-brand targets. A strict miss remains
 a miss. Public scraping supports demonstrations; a future sanctioned feed
 remains preferable for durable platform-scale access.
+
+## Add an isolated multi-engine website and PDF acquisition lane (August 3, 2026)
+
+Website Acquisition V2 runs beside the existing production collector and has
+no automatic publication path or paid fallback. Crawlee coordinates bounded
+work; plain HTTP escalates through Patchright, Scrapling, and Crawl4AI for
+public JavaScript content. The lane may inspect up to five high-signal pages and
+five PDFs per website. It stores deterministic evidence in dedicated V2 tables
+and never overwrites the current menu/photo corpus.
+
+PDF discovery without content extraction is no longer considered PDF support.
+Embedded text is parsed first; weak-layout and image-only menus use local
+PaddleOCR-VL 1.6, accelerated through MLX-VLM on Apple Silicon. PDFs without
+prices may still establish dishes when the visual parser preserves reliable
+heading and calorie structure. Weak parses stay staged rather than becoming
+product claims.
+
+The Temecula proof established material acquisition value but not automatic
+publication authority: 43 restaurants with staged menus had no current corpus
+menu, while generic website imagery remained meaningfully noisier than images
+directly attached to structured menu items. Promotion must therefore retain
+byte verification, food classification, item-linkage, and duplicate gates.

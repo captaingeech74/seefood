@@ -23,6 +23,7 @@ Modes:
 This worker reports access blocks rather than attempting to solve them.
 """
 import argparse
+import asyncio
 import json
 import sys
 
@@ -43,7 +44,12 @@ def fetch_rendered(
     capture_grubhub_menu: bool = False,
     capture_menu_json: bool = False,
     grubhub_search_location: str = "",
+    engine: str = "patchright",
 ) -> dict:
+    if engine == "crawl4ai":
+        return fetch_crawl4ai(url, timeout)
+    if engine == "scrapling":
+        return fetch_scrapling(url, timeout)
     # Patchright/Chromium executes public client-side JavaScript. It also lets
     # us capture the restaurant's own JSON responses before the virtualized DOM
     # discards off-screen menu sections.
@@ -137,10 +143,56 @@ def fetch_rendered(
     }
 
 
+def fetch_scrapling(url: str, timeout: int) -> dict:
+    # Scrapling 0.4.12 currently asks BrowserForge for a Chrome 149 profile,
+    # while BrowserForge 1.2.4's bundled dataset tops out at Chrome 140. Use
+    # the newest fingerprint actually present instead of failing during import.
+    import scrapling.engines.toolbelt.fingerprints as fingerprints
+    fingerprints.chromium_version = 140
+    fingerprints.chrome_version = 140
+    from scrapling.fetchers import StealthyFetcher
+    page = StealthyFetcher.fetch(
+        url,
+        headless=True,
+        network_idle=True,
+        timeout=timeout * 1000,
+        block_ads=True,
+    )
+    html = str(page.html_content)
+    status = int(getattr(page, "status", 200) or 200)
+    final_url = str(getattr(page, "url", url) or url)
+    return {"ok": status < 400, "status": status, "html": html, "finalUrl": final_url if final_url != url else None, "payloads": []}
+
+
+def fetch_crawl4ai(url: str, timeout: int) -> dict:
+    from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig
+
+    async def run():
+        browser = BrowserConfig(headless=True, verbose=False)
+        config = CrawlerRunConfig(page_timeout=timeout * 1000, wait_until="domcontentloaded")
+        async with AsyncWebCrawler(config=browser) as crawler:
+            return await crawler.arun(url=url, config=config)
+
+    result = asyncio.run(run())
+    html = getattr(result, "html", None) or getattr(result, "cleaned_html", None) or ""
+    status = int(getattr(result, "status_code", 200) or 200)
+    final_url = str(getattr(result, "url", url) or url)
+    success = bool(getattr(result, "success", False)) and bool(html)
+    return {
+        "ok": success and status < 400,
+        "status": status,
+        "html": html,
+        "error": None if success else str(getattr(result, "error_message", "crawl4ai_failed")),
+        "finalUrl": final_url if final_url != url else None,
+        "payloads": [],
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("url")
     parser.add_argument("--render", action="store_true")
+    parser.add_argument("--engine", choices=("patchright", "scrapling", "crawl4ai"), default="patchright")
     parser.add_argument("--referer", default="")
     parser.add_argument("--timeout", type=int, default=20)
     parser.add_argument("--wait-selector", default="")
@@ -160,6 +212,7 @@ def main():
                 args.capture_grubhub_menu,
                 args.capture_menu_json,
                 args.grubhub_search_location,
+                args.engine,
             )
         else:
             result = fetch_plain(args.url, args.referer, args.timeout)
