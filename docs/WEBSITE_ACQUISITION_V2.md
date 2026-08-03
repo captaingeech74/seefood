@@ -51,7 +51,7 @@ Completed run: `1a879c58-b434-47ab-be59-a1b4544e6b60`.
 - 14,220 unique restaurant/image pairs (11,901 globally unique URLs) were
   staged as candidates. 580 restaurant/image pairs were directly tied to menu
   items (519 globally unique URLs).
-- 69 PDFs were discovered. 51 were downloaded and parsed; 34 yielded menu
+- 69 PDFs were discovered. 51 were downloaded and parsed; 21 yielded menu
   items. Embedded PDF text yielded 387 raw items and PaddleOCR-VL yielded 163,
   for 550 total PDF item observations before restaurant-level deduplication.
 - A random reachability check found 75/75 dish-linked URLs reachable and 74/75
