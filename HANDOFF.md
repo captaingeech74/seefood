@@ -302,6 +302,28 @@ Cycle 6 verdict.
 
 ## Current Data-Quality State
 
+The August 7 production incident was caused by disabled Google Maps billing,
+not a failed Vercel deployment or database outage. Google Maps/Places search
+rendered `BillingNotEnabledMapError`, and Google photo proxy requests returned
+502. Product discovery now reads SeeFood's own `restaurants` corpus first and
+has a corpus-backed search route; Google Maps and Google-hosted photos are
+explicit optional lanes controlled by `NEXT_PUBLIC_GOOGLE_MAPS_ENABLED` and
+`GOOGLE_MAPS_ENABLED`. With both unset/false, the product remains navigable and
+all independently hosted photos render; Google-only restaurants show a clear
+`No photos yet` state. Do not silently re-enable either flag until the Google
+project is healthy.
+
+Website V3.1 menu recovery is implemented and production evidence is published
+for a reviewed subset. The recovery added same-origin sitemap/conventional-path
+discovery, semantic and loose menu DOM parsing, menu-image OCR, bounded asset
+priority, official-URL recovery tools, and reversible wrong-site quarantine.
+The current Temecula funnel is 438 active acquisition entities, 366 with active
+websites and attempted, 211 with any retained website menu evidence, 125 with
+strong evidence, and 79 attached product entities. The reviewed publication
+created 778 new canonical dishes across 18 attached entities and 112 new exact,
+menu-linked photo rows. See `docs/WEBSITE_ACQUISITION_V3.md` for run IDs and
+quality boundaries.
+
 The July 23 systemic photo audit and cleanup is complete in production. The
 rollback tag is `pre-photo-content-dedupe-2026-07-23`. Cleanup runs
 `9cb03d8a-fff1-49f4-976c-df07bec16994` and

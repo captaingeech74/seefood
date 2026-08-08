@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local-only PaddleOCR-VL 1.6 service for scanned restaurant menu PDFs."""
+"""Local-only PaddleOCR-VL 1.6 service for restaurant menu PDFs and images."""
 import json
 import tempfile
 import threading
@@ -54,12 +54,21 @@ class Handler(BaseHTTPRequestHandler):
         if length <= 0 or length > 25 * 1024 * 1024:
             return self.send_json(413, {"error": "invalid_size"})
         content = self.rfile.read(length)
-        if not content.startswith(b"%PDF-"):
+        content_type = (self.headers.get("content-type") or "").split(";")[0].lower()
+        suffix = {
+            "application/pdf": ".pdf",
+            "image/jpeg": ".jpg",
+            "image/png": ".png",
+            "image/webp": ".webp",
+        }.get(content_type)
+        if not suffix:
+            return self.send_json(415, {"error": "unsupported_document_type"})
+        if suffix == ".pdf" and not content.startswith(b"%PDF-"):
             return self.send_json(415, {"error": "not_a_pdf"})
         try:
             with tempfile.TemporaryDirectory(prefix="seefood-paddleocr-") as directory:
                 root = Path(directory)
-                source = root / "menu.pdf"
+                source = root / f"menu{suffix}"
                 output = root / "output"
                 source.write_bytes(content)
                 output.mkdir()

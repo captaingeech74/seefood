@@ -17,6 +17,9 @@ async function main(){
   const market=argument("market");if(!market)throw new Error("Usage: npm run acquisition:promote-websites -- --market temecula-ca [--limit 100] [--publish]");
   const limit=Math.min(1000,Math.max(1,Number(argument("limit","100"))));
   const publish=argument("publish")==="true";
+  const runId=argument("run-id")??null;
+  const entityIdsArgument=argument("entity-ids");
+  const selectedEntityIds=entityIdsArgument?entityIdsArgument.split(",").map(value=>value.trim()).filter(Boolean):null;
   const password=encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"");
   const connectionString=process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password);
   const db=new pg.Client({connectionString,ssl:{rejectUnauthorized:false},application_name:"seefood-website-reconciliation"});
@@ -27,8 +30,15 @@ async function main(){
      from website_menu_observations o
      join restaurants r on r.entity_id=o.entity_id and r.status<>'test_fixture'
      join acquisition_market_entities m on m.entity_id=o.entity_id and m.market_key=$1 and m.active
-     where o.active and o.confidence>=0.78 and o.item_name!~* '^(extra|add|substitute|choice of)(?:$|[^a-z])'
-     group by o.entity_id,r.place_id,o.source_key order by count(*) desc limit $2`,[market,limit])).rows;
+     where o.active and o.confidence>=0.78
+       and ($3::uuid is null or o.last_v3_run_id=$3)
+       and ($4::uuid[] is null or o.entity_id=any($4::uuid[]))
+       and o.item_name!~* '^(extra|add|substitute|choice of)(?:$|[^a-z])'
+       and o.item_name!~* '^(?:only|checkout|standard\+?|\([0-9]+ items?\)|[0-9]+ oz\.?|medium|small|large)$'
+       and o.item_name!~* '(?:shirts?|hoodies?|gift cards?)$'
+       and not exists (select 1 from website_menu_observations suspect where suspect.entity_id=o.entity_id and suspect.active
+         and suspect.last_v3_run_id=o.last_v3_run_id and suspect.extraction_method like '%network_json' and suspect.price>=500)
+     group by o.entity_id,r.place_id,o.source_key order by count(*) desc limit $2`,[market,limit,runId,selectedEntityIds])).rows;
   const entityIds=[...new Set(rows.map(row=>row.entity_id))];
   const existing=entityIds.length?(await db.query(`select entity_id,normalized_name from canonical_dishes where entity_id=any($1::uuid[]) and active`,[entityIds])).rows:[];
   await db.end();
@@ -46,7 +56,7 @@ async function main(){
     for(const item of items){if(item.imageUrl)stats.photoCandidates++;if(known.has(normalize(item.name)))stats.alreadyKnown++;else stats.newCanonicalCandidates++;}
     prepared.push({row,items});
   }
-  if(!publish){console.log(JSON.stringify({market,...stats,note:"Preview only. Re-run with --publish after review."},null,2));return;}
+  if(!publish){console.log(JSON.stringify({market,runId,selectedEntityCount:selectedEntityIds?.length??null,...stats,note:"Preview only. Re-run with --publish after review."},null,2));return;}
 
   const {persistSourceMenuItems}=await import("../src/lib/db");
   const {fingerprintPhoto,isImageContentType}=await import("../src/lib/photoFingerprint");
@@ -63,6 +73,6 @@ async function main(){
     const snapshot=await persistSourceMenuItems(row.place_id,safeSource(row.source_key),items);
     if(snapshot){stats.publishedGroups++;stats.publishedItems+=items.length;}
   }
-  console.log(JSON.stringify({market,...stats},null,2));
+  console.log(JSON.stringify({market,runId,selectedEntityCount:selectedEntityIds?.length??null,...stats},null,2));
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

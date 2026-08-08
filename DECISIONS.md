@@ -2059,3 +2059,23 @@ paid challenger and never runs without explicit credentials. Vendor benchmark
 claims do not select the default; engines must compete on one fixed, labeled
 SeeFood menu-PDF set using item recall, hallucination rate, layout preservation,
 latency, and cost.
+
+## Make SeeFood's corpus the product availability boundary (August 7, 2026)
+
+Google Maps billing failure must not disable SeeFood. Restaurant shared links,
+nearest-restaurant lookup, and manual search now resolve from the owned corpus
+before requesting Google. Manual search remains fully usable without a map.
+Google Maps is an enhancement behind `NEXT_PUBLIC_GOOGLE_MAPS_ENABLED=true`,
+and Google photo-reference delivery is behind `GOOGLE_MAPS_ENABLED=true`.
+Unavailable Google references are withheld from the gallery so the product
+shows an honest empty state instead of broken image tiles. Independently hosted
+website, delivery, management, and customer photos continue to render.
+
+The menu-recovery collector may inspect up to eight high-signal pages, including
+same-origin sitemap results and a tiny conventional menu-path probe. It may
+parse price-free items only from explicit semantic menu structures; weaker
+visual headings remain staged below publication confidence. Menu document OCR
+includes PDF and common raster image formats. Cross-domain navigation is
+limited to identity-matched consumer ordering storefronts. Marketing domains,
+unrelated redirects, and weak item lists are quarantined rather than hidden in
+the UI or promoted into the corpus.

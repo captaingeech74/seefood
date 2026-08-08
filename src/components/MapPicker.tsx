@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { DishPhoto } from "@/lib/types";
+import { DishPhoto, Restaurant } from "@/lib/types";
 import { formatAddress } from "@/lib/labels";
 
 export interface MapView {
@@ -23,6 +23,8 @@ declare global {
   interface Window {
     google: typeof google;
     initMapPicker: () => void;
+    gm_authFailure?: () => void;
+    __seefoodGoogleMapsAuthFailed?: boolean;
   }
 }
 
@@ -49,6 +51,8 @@ interface NearbyDish {
   rating?: number;
   photo: DishPhoto;
 }
+
+type SearchRestaurant = Restaurant & { distanceKm?: number };
 
 // LRay's Kitchen (status='test_fixture') is a real Google Place that isn't
 // classified as an active restaurant — that's exactly why it was safe to
@@ -181,6 +185,9 @@ export default function MapPicker({
   const [bestNearbyExpanded, setBestNearbyExpanded] = useState(false);
   /** Post-search feedback ("7 restaurants found"), auto-dismissed. */
   const [foundToast, setFoundToast] = useState<string | null>(null);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
+  const [searchResults, setSearchResults] = useState<SearchRestaurant[]>([]);
+  const [corpusSearching, setCorpusSearching] = useState(false);
 
   const clearMarkers = useCallback(() => {
     markersRef.current.forEach((m) => m.setMap(null));
@@ -571,9 +578,74 @@ export default function MapPicker({
     }
 
     setReady(true);
+
+    // Google can load its JavaScript successfully and only then reject the
+    // map (for example when billing is disabled). That failure does not
+    // reliably call gm_authFailure in every browser, so detect Google's own
+    // rendered error message and switch to corpus search instead of leaving a
+    // broken map blocking the product.
+    [500, 1500, 4000].forEach((delay) => {
+      window.setTimeout(() => {
+        if (mapRef.current?.textContent?.includes("can't load Google Maps")) {
+          window.__seefoodGoogleMapsAuthFailed = true;
+          setMapUnavailable(true);
+          setReady(false);
+        }
+      }, delay);
+    });
   }, [lat, lng, initialView, onViewChange, clearMarkers, searchCurrentArea, setMarkerSelected]);
 
   useEffect(() => {
+    const query = searchText.trim();
+    if (query.length < 2) {
+      setSearchResults([]);
+      setCorpusSearching(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setCorpusSearching(true);
+      try {
+        const response = await fetch(`/api/restaurants/search?q=${encodeURIComponent(query)}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const body = response.ok ? await response.json() : { restaurants: [] };
+        setSearchResults(body.restaurants ?? []);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") setSearchResults([]);
+      } finally {
+        if (!controller.signal.aborted) setCorpusSearching(false);
+      }
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchText]);
+
+  useEffect(() => {
+    const markMapUnavailable = () => {
+      window.__seefoodGoogleMapsAuthFailed = true;
+      setMapUnavailable(true);
+      setReady(false);
+    };
+    window.gm_authFailure = markMapUnavailable;
+
+    // Keep the product usable when the Maps project is disabled. Re-enable
+    // explicitly after the Google project is healthy; the corpus search above
+    // remains the primary, no-billing fallback either way.
+    if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_ENABLED !== "true") {
+      markMapUnavailable();
+      return;
+    }
+
+    if (window.__seefoodGoogleMapsAuthFailed) {
+      markMapUnavailable();
+      return;
+    }
     if (window.google?.maps) {
       initMap();
       return;
@@ -592,7 +664,12 @@ export default function MapPicker({
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMapPicker`;
     script.async = true;
     script.defer = true;
+    script.onerror = markMapUnavailable;
     document.head.appendChild(script);
+    const readinessTimer = window.setTimeout(() => {
+      if (!mapInstanceRef.current) setMapUnavailable(true);
+    }, 8000);
+    return () => window.clearTimeout(readinessTimer);
     // Only run once on mount — initMap is intentionally not in deps here;
     // re-running on every initMap identity change would re-attach listeners.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -624,7 +701,14 @@ export default function MapPicker({
             </svg>
           </button>
 
-          <div className="relative flex-1">
+          <form
+            className="relative flex-1"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const first = searchResults[0];
+              if (first) onSelectRestaurant(first.placeId ?? first.id, first.name);
+            }}
+          >
             <svg
               className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/35 pointer-events-none"
               width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -659,22 +743,56 @@ export default function MapPicker({
                 </svg>
               </button>
             )}
-          </div>
+          </form>
         </div>
+
+        {searchText.trim().length >= 2 && (
+          <div className="absolute left-14 right-3 top-[62px] z-50 max-w-[calc(36rem-3.5rem)] mx-auto rounded-2xl border border-white/10 bg-[#17171d]/[0.98] shadow-2xl overflow-hidden">
+            {corpusSearching ? (
+              <p className="px-4 py-4 text-white/50 text-[13px]">Searching SeeFood…</p>
+            ) : searchResults.length > 0 ? (
+              <div className="max-h-[min(55vh,420px)] overflow-y-auto">
+                {searchResults.map((item) => (
+                  <button
+                    key={item.placeId ?? item.id}
+                    type="button"
+                    onClick={() => onSelectRestaurant(item.placeId ?? item.id, item.name)}
+                    className="w-full px-4 py-3.5 text-left border-b border-white/[0.06] last:border-0 hover:bg-white/[0.06] active:bg-white/[0.1]"
+                  >
+                    <p className="text-white text-[14px] font-bold">{item.name}</p>
+                    <p className="text-white/45 text-[11px] mt-1 truncate">{formatAddress(item.address)}</p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="px-4 py-4 text-white/50 text-[13px]">No SeeFood restaurants match that search.</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Map area */}
       <div className="relative flex-1 overflow-hidden" style={{ background: "#16161c" }}>
-        <div
-          ref={mapRef}
-          className="absolute"
-          style={{
-            background: "#16161c",
-            inset: "-5% -7% -12%",
-            transform: "perspective(1100px) rotateX(7deg) scale(1.08)",
-            transformOrigin: "50% 18%",
-          }}
-        />
+        {!mapUnavailable ? (
+          <div
+            ref={mapRef}
+            className="absolute"
+            style={{
+              background: "#16161c",
+              inset: "-5% -7% -12%",
+              transform: "perspective(1100px) rotateX(7deg) scale(1.08)",
+              transformOrigin: "50% 18%",
+            }}
+          />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-7 text-center bg-[#111116]">
+            <div className="w-14 h-14 rounded-2xl bg-white/[0.06] flex items-center justify-center text-2xl">🔍</div>
+            <h2 className="text-white text-[19px] font-bold mt-5">Restaurant search is ready</h2>
+            <p className="text-white/45 text-[13px] leading-relaxed mt-2 max-w-sm">
+              The map is temporarily unavailable, but SeeFood's restaurant and menu search still works. Type a restaurant or city above.
+            </p>
+          </div>
+        )}
 
         {ready && showSearchHere && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none fade-up">
@@ -710,7 +828,7 @@ export default function MapPicker({
         {/* Hidden (not just nudged) while the preview sheet is up — the sheet
             is taller than any offset, so a shifted FAB still ended up buried
             behind it. */}
-        <button
+        {!mapUnavailable && <button
           onClick={handleRecenter}
           className="absolute bottom-5 right-4 z-10 w-14 h-14 rounded-full glass border border-[var(--border-subtle)] flex items-center justify-center shadow-2xl active:scale-95 transition-all"
           style={{
@@ -726,7 +844,7 @@ export default function MapPicker({
             <circle cx="12" cy="12" r="3"/>
             <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
           </svg>
-        </button>
+        </button>}
 
         {!selected && nearbyDishes.length > 0 && (
           <div

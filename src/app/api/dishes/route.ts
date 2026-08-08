@@ -38,12 +38,15 @@ export async function GET(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       const write = (chunk: object) => controller.enqueue(encoder.encode(JSON.stringify(chunk) + "\n"));
+      const googleEnabled = process.env.GOOGLE_MAPS_ENABLED === "true";
+      const renderable = <T extends { url: string }>(photos: T[]) =>
+        googleEnabled ? photos : photos.filter((photo) => !photo.url.startsWith("/api/photo?"));
 
       try {
         // ── Corpus-first: a fresh hit means zero external API calls ───────────
         const corpus = await getCorpusSnapshot(placeId).catch(() => null);
-        if (corpus?.isFresh) {
-          write({ dishes: corpus.photos.slice(0, 100), popularDishes: corpus.popularDishes, done: true });
+        if (corpus && (corpus.isFresh || !googleEnabled)) {
+          write({ dishes: renderable(corpus.photos).slice(0, 100), popularDishes: corpus.popularDishes, done: true });
           controller.close();
           return;
         }

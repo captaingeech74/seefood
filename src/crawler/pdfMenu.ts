@@ -15,7 +15,7 @@ export type PdfMenuResult = {
 
 const PRICE_AT_END = /(?:\s|^)(?:\$|USD\s*)?(\d{1,3}(?:\.\d{2}))\s*$/i;
 const PRICE_ANYWHERE = /(?:\$|USD\s*)\s*\d{1,3}(?:\.\d{2})?/i;
-const NON_ITEM = /^(menu|food|drinks?|beverages?|breakfast|brunch|lunch|dinner|desserts?|appetizers?|entrees?|sides?|salads?|soups?|sandwiches?|burgers?|pizza|pastas?|cocktails?|wine|beer|prices?|hours?|order online|catering)$/i;
+const NON_ITEM = /^(menu|food|drinks?|beverages?|breakfast|brunch|lunch|dinner|desserts?|appetizers?|entrees?|sides?|salads?|soups?|sandwiches?|burgers?|pizza|pastas?|cocktails?|wine|beer|prices?|hours?|order online|catering|premium [a-z0-9]+|regular|all you can eat menu)$/i;
 
 function clean(value: string): string {
   return value.replace(/[\u0000-\u001f]+/g, " ").replace(/[`|]+/g, " ").replace(/\s+/g, " ").trim();
@@ -39,7 +39,7 @@ export function parseMenuText(text: string): MenuItemData[] {
     const line = lines[index];
     const priceMatch = line.match(PRICE_AT_END);
     if (!priceMatch) continue;
-    let rawName = clean(line.slice(0, priceMatch.index));
+    let rawName = clean(line.slice(0, priceMatch.index)).replace(/^#{1,6}\s*/, "");
     if (PRICE_ANYWHERE.test(rawName)) continue;
     // Multiple decimal prices on one reconstructed line usually mean PDF
     // columns or size variants were flattened together. Do not invent a
@@ -87,6 +87,16 @@ export function parseVisionMenuText(text: string): MenuItemData[] {
       .replace(/\s+\d{1,4}\s*[-–]\s*$/, "")
       .trim();
     if (!likelyDishTitle(name) || /^(?:add extras?|choice of|calories?|feeds?\b)/i.test(name)) continue;
+    results.push({ name, source: "menu_ocr" });
+  }
+  // Some multilingual image menus use one price for an entire tier. Preserve
+  // the English dish name that precedes Korean, Chinese, or Japanese text.
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = clean(rawLine.replace(/^#{1,6}\s*/, ""));
+    const bilingual = line.match(/^([A-Za-z0-9&'().,+\- ]{2,90}?)\s+(?=[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af])/);
+    if (!bilingual) continue;
+    const name = clean(bilingual[1]);
+    if (!likelyDishTitle(name) || /^(?:all you can eat|premium|regular|unlimited|limit|for the first|all meats|includes?|menu)/i.test(name)) continue;
     results.push({ name, source: "menu_ocr" });
   }
   const deduped = new Map<string, MenuItemData>();
@@ -169,6 +179,27 @@ export async function extractPdfMenu(url: string): Promise<PdfMenuResult> {
     return { items, method: items.length ? "pdf_text" : "none", sha256, byteCount: bytes.length, pageCount: embedded.pages, textCharacterCount: embedded.text.length, ocrAttempts: routed.attempts };
   } catch (error) {
     return { items: [], method: "none", sha256: "", byteCount: 0, pageCount: 0, textCharacterCount: 0, error: String(error instanceof Error ? error.message : error) };
+  }
+}
+
+/** OCR a menu that the restaurant publishes as a JPEG/PNG/WebP instead of a PDF. */
+export async function extractMenuImage(url: string): Promise<PdfMenuResult> {
+  try {
+    const response = await fetch(url, { redirect: "follow", headers: { Accept: "image/*" }, signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) throw new Error(`http_${response.status}`);
+    const contentType = response.headers.get("content-type")?.split(";")[0]?.toLowerCase() ?? "";
+    if (!/^image\/(?:jpeg|png|webp)$/.test(contentType)) throw new Error("not_a_supported_menu_image");
+    const declared = Number(response.headers.get("content-length") ?? 0);
+    if (declared > 25 * 1024 * 1024) throw new Error("image_too_large");
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (!bytes.length || bytes.length > 25 * 1024 * 1024) throw new Error("image_too_large");
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const routed = await runDocumentOcr(bytes,contentType);
+    if (!routed.result) return { items: [],method:"none",sha256,byteCount:bytes.length,pageCount:1,textCharacterCount:0,ocrAttempts:routed.attempts };
+    const items = mergeParsedItems(parseMenuText(routed.result.text),parseVisionMenuText(routed.result.text));
+    return { items,method:routed.result.provider,sha256,byteCount:bytes.length,pageCount:1,textCharacterCount:routed.result.text.length,ocrAttempts:routed.attempts };
+  } catch (error) {
+    return { items: [],method:"none",sha256:"",byteCount:0,pageCount:0,textCharacterCount:0,error:String(error instanceof Error?error.message:error) };
   }
 }
 

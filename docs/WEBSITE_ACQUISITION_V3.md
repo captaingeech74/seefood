@@ -86,3 +86,49 @@ Rollback point: `rollback/pre-website-v3-20260803`.
 
 LRay's Kitchen remains a protected `test_fixture` and was excluded from
 publication.
+
+## Menu-recovery pass
+
+The August 3 follow-up focused on the first major retrieval break: official
+websites that visibly had a menu but produced no structured menu evidence.
+V3.1 adds same-origin sitemap discovery, a bounded `/menu`/`/menus`/`/food-menu`
+probe, price-free semantic menu cards, generated-class menu layouts, explicit
+menu-image discovery, and OCR routing for JPEG/PNG/WebP menu documents. It also
+enforces restaurant/ordering-storefront identity boundaries so a platform's
+marketing site or an unrelated redirect cannot become restaurant evidence.
+
+Run `e46ab0e8-5683-4897-b076-e169056e470c` attempted 460 prior misses: 151
+completed with evidence, 280 were empty, 29 were blocked, and none failed
+terminally. It found menu evidence at 91 entities, 11,924 raw item observations,
+40 PDFs, and 1,346 priority assets; 1,341 assets completed, yielding 341
+PDF/menu-image items and 605 exact generic-image identities. A separate
+semantic recovery run (`e66231ee-6cd9-4ef2-aad9-d564df41dfe2`) attempted 297
+remaining targets and found candidate evidence at 43 entities. Review accepted
+12 strong entities/959 strong rows; weak price-free headings remain staged and
+do not become product claims.
+
+Publication was deliberately narrower than retrieval. Eighteen reviewed
+attached restaurant entities produced 1,207 published observations, including
+778 genuinely new canonical dishes and 112 newly created, byte-unique,
+menu-linked photo rows. Eight wrong-site entity groups (381 observations) were
+quarantined with reversible audit records. LRay's Kitchen and all weak evidence
+remained untouched.
+
+Current Temecula website funnel: 438 active acquisition entities, 366 with an
+active website, all 366 attempted, 211 with any retained menu evidence, and 125
+with strong retained evidence. Only 79 entities are currently attached to an
+application restaurant row; website acquisition can deepen the evidence graph
+before product attachment, but it does not itself publish 438 restaurant pages.
+
+## Product resilience when Google is unavailable
+
+Google Maps billing was disabled on August 7, causing the manual map search,
+shared restaurant lookup, and `/api/photo` proxy to fail together. The product
+now searches and opens restaurants from SeeFood's own corpus first. Google Maps
+is an optional enhancement enabled only when
+`NEXT_PUBLIC_GOOGLE_MAPS_ENABLED=true`; server-rendered Google photo references
+are enabled only when `GOOGLE_MAPS_ENABLED=true`. When disabled, independent
+website/delivery/customer images continue to render and Google-only restaurants
+show an honest empty state rather than broken tiles. Restoring Google billing
+and both flags restores the map and Google-photo lane without changing corpus
+search.

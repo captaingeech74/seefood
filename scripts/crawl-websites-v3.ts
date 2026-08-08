@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
-import { extractPdfMenu } from "../src/crawler/pdfMenu";
+import { extractMenuImage, extractPdfMenu } from "../src/crawler/pdfMenu";
 import { ensurePythonEnv } from "../src/crawler/pythonFetch";
 import {
   crawlWebsiteV3,
@@ -16,7 +16,7 @@ import {
 
 type AssetJob = {
   id: string; run_id: string; entity_id: string; website_id: string; asset_url: string;
-  kind: "pdf" | "image"; menu_linked: boolean; attempts: number; lease_token: string;
+  kind: "pdf" | "image" | "menu_image"; menu_linked: boolean; attempts: number; lease_token: string;
 };
 
 function loadEnv() {
@@ -118,6 +118,20 @@ async function persistWebsiteResult(pool: pg.Pool, runId: string, target: Websit
         [runId,target.entityId,target.websiteId,url]
       );
     }
+    for (const url of result.items.length ? [] : result.menuImageUrls) {
+      await client.query(
+        `insert into website_assets(entity_id,website_id,page_url,asset_url,kind,source,metadata,active,last_seen_at)
+         values($1,$2,$3,$4,'image','website_v3',$5::jsonb,true,now())
+         on conflict(entity_id,asset_url) do update set website_id=excluded.website_id,page_url=excluded.page_url,
+         source=excluded.source,metadata=excluded.metadata,active=true,last_seen_at=now()`,
+        [target.entityId,target.websiteId,target.url,url,JSON.stringify({runId,menuDocument:true,verificationStatus:"pending_ocr"})]
+      );
+      await client.query(
+        `insert into website_asset_jobs(run_id,entity_id,website_id,asset_url,kind)
+         values($1,$2,$3,$4,'menu_image') on conflict(run_id,website_id,asset_url,kind) do nothing`,
+        [runId,target.entityId,target.websiteId,url]
+      );
+    }
 
     const completed = result.status === "completed" || result.status === "empty";
     const retry = result.status === "failed" && target.attempts < 3;
@@ -128,7 +142,7 @@ async function persistWebsiteResult(pool: pg.Pool, runId: string, target: Websit
        lease_token=null,lease_expires_at=null,last_error=$4,last_http_status=$5,result_metadata=$6::jsonb,updated_at=now()
        where id=$1 and lease_token=$2::uuid`,
       [target.jobId,target.leaseToken,jobStatus,result.error?.slice(0,500)??null,result.pages.at(-1)?.status??null,
-       JSON.stringify({ collector: "website-v3.0.0",runId,status:result.status,items:result.items.length,pdfs:result.pdfUrls.length,methods:result.methods })]
+       JSON.stringify({ collector: "website-v3.1.0",runId,status:result.status,items:result.items.length,pdfs:result.pdfUrls.length,menuImages:result.menuImageUrls.length,methods:result.methods })]
     );
     await client.query(
       `update restaurant_websites set platforms=$2,page_count=$3,menu_item_count=$4,photo_count=$5,pdf_count=$6,
@@ -144,8 +158,18 @@ async function persistWebsiteResult(pool: pg.Pool, runId: string, target: Websit
 
 async function processAsset(pool: pg.Pool, job: AssetJob) {
   try {
-    if (job.kind === "pdf") {
-      const result = await extractPdfMenu(job.asset_url);
+    const reused=await pool.query(
+      `with prior as (select * from website_asset_results where run_id=$2 and entity_id=$3 and asset_url=$5 and kind=$6 and status='completed' and asset_job_id<>$1 order by id limit 1)
+       insert into website_asset_results(asset_job_id,run_id,entity_id,website_id,asset_url,kind,status,content_sha256,content_type,byte_count,page_count,extraction_method,extracted_item_count,evidence)
+       select $1,$2,$3,$4,$5,$6,prior.status,prior.content_sha256,prior.content_type,prior.byte_count,prior.page_count,prior.extraction_method,prior.extracted_item_count,
+         coalesce(prior.evidence,'{}'::jsonb)||jsonb_build_object('reusedFromAssetJobId',prior.asset_job_id) from prior
+       on conflict(asset_job_id) do update set status=excluded.status,content_sha256=excluded.content_sha256,content_type=excluded.content_type,byte_count=excluded.byte_count,
+         page_count=excluded.page_count,extraction_method=excluded.extraction_method,extracted_item_count=excluded.extracted_item_count,evidence=excluded.evidence returning 1`,
+      [job.id,job.run_id,job.entity_id,job.website_id,job.asset_url,job.kind]
+    );
+    if(reused.rowCount){await pool.query(`update website_asset_jobs set status='completed',lease_token=null,lease_expires_at=null,last_error=null,updated_at=now() where id=$1`,[job.id]);return;}
+    if (job.kind === "pdf" || job.kind === "menu_image") {
+      const result = job.kind === "pdf" ? await extractPdfMenu(job.asset_url) : await extractMenuImage(job.asset_url);
       const status = result.error === "pdf_too_large" ? "too_large" : result.error ? "failed" : "completed";
       const client = await pool.connect();
       try {
@@ -163,10 +187,10 @@ async function processAsset(pool: pg.Pool, job: AssetJob) {
         }
         await client.query(
           `insert into website_asset_results(asset_job_id,run_id,entity_id,website_id,asset_url,kind,status,content_sha256,byte_count,page_count,extraction_method,extracted_item_count,evidence)
-           values($1,$2,$3,$4,$5,'pdf',$6,$7,$8,$9,$10,$11,$12::jsonb)
+           values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
            on conflict(asset_job_id) do update set status=excluded.status,content_sha256=excluded.content_sha256,byte_count=excluded.byte_count,
            page_count=excluded.page_count,extraction_method=excluded.extraction_method,extracted_item_count=excluded.extracted_item_count,evidence=excluded.evidence`,
-          [job.id,job.run_id,job.entity_id,job.website_id,job.asset_url,status,result.sha256||null,result.byteCount||null,result.pageCount||null,
+          [job.id,job.run_id,job.entity_id,job.website_id,job.asset_url,job.kind,status,result.sha256||null,result.byteCount||null,result.pageCount||null,
            result.method,result.items.length,JSON.stringify({ textCharacters: result.textCharacterCount,ocrAttempts: result.ocrAttempts??[] })]
         );
         await client.query(`update website_asset_jobs set status=$2,lease_token=null,lease_expires_at=null,last_error=$3,updated_at=now() where id=$1`,
@@ -209,11 +233,29 @@ async function processAssets(pool: pg.Pool, runId: string, concurrency: number) 
     if (!jobs.length) break;
     let cursor=0;
     async function worker(){while(cursor<jobs.length)await processAsset(pool,jobs[cursor++]);}
-    await Promise.all(Array.from({length:Math.min(concurrency,jobs.length)},()=>worker()));
+    // Local PaddleOCR serializes model work; two callers keep it fed without
+    // building a memory-heavy queue of identical in-flight documents.
+    const workers=jobs.every(job=>job.kind==="image")?Math.min(16,concurrency):Math.min(2,concurrency);
+    await Promise.all(Array.from({length:Math.min(workers,jobs.length)},()=>worker()));
     processed+=jobs.length;
     console.log(JSON.stringify({assetProgress:processed,lastBatch:jobs.length}));
   }
   return processed;
+}
+
+async function finalizeRun(pool:pg.Pool,runId:string,assetsProcessed:number){
+  const metrics=(await pool.query(`select count(*) total,count(*) filter(where status='completed') completed,count(*) filter(where status='empty') empty,
+    count(*) filter(where status='blocked') blocked,count(*) filter(where status='failed') failed,count(distinct entity_id) filter(where item_count>0) restaurants_with_menu,
+    coalesce(sum(item_count),0) items,coalesce(sum(menu_linked_photo_count),0) linked_photos,coalesce(sum(generic_photo_candidate_count),0) generic_photos,
+    coalesce(sum(pdf_discovered_count),0) pdfs from website_crawl_v3_results where run_id=$1`,[runId])).rows[0];
+  const assetMetrics=(await pool.query(`select count(*) assets,count(*) filter(where status='completed') asset_completed,
+    coalesce(sum(extracted_item_count),0) pdf_items,count(distinct content_sha256) filter(where kind='image' and status='completed') unique_image_bytes
+    from website_asset_results where run_id=$1`,[runId])).rows[0];
+  await pool.query(`update website_crawl_v3_runs set status='completed',completed_count=$2,empty_count=$3,blocked_count=$4,failed_count=$5,
+    restaurant_with_menu_count=$6,item_count=$7,menu_linked_photo_count=$8,generic_photo_candidate_count=$9,pdf_discovered_count=$10,
+    metadata=$11::jsonb,completed_at=now() where id=$1`,[runId,metrics.completed,metrics.empty,metrics.blocked,metrics.failed,metrics.restaurants_with_menu,
+    metrics.items,metrics.linked_photos,metrics.generic_photos,metrics.pdfs,JSON.stringify({assetsProcessed,...assetMetrics})]);
+  return {...metrics,...assetMetrics};
 }
 
 async function main(){
@@ -226,18 +268,26 @@ async function main(){
   if(renderEnabled){const python=ensurePythonEnv();if(!python.ready)throw new Error(`Advanced browser environment unavailable: ${python.reason}`);}
   const pool=new pg.Pool({connectionString:connectionString(),ssl:{rejectUnauthorized:false},max:concurrency+4});
   if(options["assets-run-id"]){
-    const processed=await processAssets(pool,options["assets-run-id"],Math.min(6,concurrency));
-    console.log(JSON.stringify({runId:options["assets-run-id"],assetsProcessed:processed},null,2));
+    const processed=await processAssets(pool,options["assets-run-id"],concurrency);
+    const metrics=await finalizeRun(pool,options["assets-run-id"],processed);
+    console.log(JSON.stringify({runId:options["assets-run-id"],assetsProcessed:processed,...metrics},null,2));
     await pool.end();return;
   }
   if(options["run-id"]){throw new Error("V3 run resumption is automatic through durable jobs; omit --run-id");}
   await pool.query(`select queue_web_crawl_v3_market($1,$2)`,[market,options.refresh==="true"]);
-  const leased=(await pool.query(
+  const leasedAll=(await pool.query(
     `select j.id "jobId",j.entity_id "entityId",j.website_id "websiteId",j.attempts,j.lease_token "leaseToken",w.url,w.domain,e.name "restaurantName"
      from lease_web_crawl_v3_jobs($1,$2,90) j join restaurant_websites w on w.id=j.website_id join restaurant_entities e on e.id=j.entity_id`,[market,limit]
   )).rows as WebsiteV3Target[];
+  let leased=leasedAll;
+  if(options["recovery-only"]==="true"){
+    const successful=new Set((await pool.query(`select distinct o.entity_id from website_menu_observations o join acquisition_market_entities m on m.entity_id=o.entity_id and m.market_key=$1 and m.active where o.active`,[market])).rows.map(row=>row.entity_id));
+    leased=leasedAll.filter(target=>!successful.has(target.entityId));
+    const skipped=leasedAll.filter(target=>successful.has(target.entityId)).map(target=>target.jobId);
+    if(skipped.length)await pool.query(`update web_crawl_jobs set status='completed',lease_token=null,lease_expires_at=null,completed_at=now(),updated_at=now() where id=any($1::uuid[])`,[skipped]);
+  }
   const run=(await pool.query(`insert into website_crawl_v3_runs(market_key,collector_version,configuration,leased_count)
-    values($1,'website-v3.0.0',$2::jsonb,$3) returning id`,[market,JSON.stringify({concurrency,renderEnabled,maxPages:5,paidOcrEnabled:(process.env.SEEFOOD_OCR_PROVIDERS??"").includes("mistral"),paidWebFallback:false}),leased.length])).rows[0];
+    values($1,'website-v3.1.0',$2::jsonb,$3) returning id`,[market,JSON.stringify({concurrency,renderEnabled,maxPages:8,paidOcrEnabled:(process.env.SEEFOOD_OCR_PROVIDERS??"").includes("mistral"),paidWebFallback:false}),leased.length])).rows[0];
   const runId=run.id as string;
   let finished=0;
   log.setLevel(log.LEVELS.INFO);
@@ -247,27 +297,18 @@ async function main(){
     async requestHandler({request}){
       const target=request.userData.target as WebsiteV3Target;
       const previous=domainTails.get(target.domain)??Promise.resolve();
-      const current=previous.then(async()=>{const result=await crawlWebsiteV3(target,{renderEnabled,maxPages:5,deepDiscovery:options["deep-discovery"]==="true"});await persistWebsiteResult(pool,runId,target,result);
+      const current=previous.then(async()=>{const result=await crawlWebsiteV3(target,{renderEnabled,maxPages:8,deepDiscovery:options["deep-discovery"]==="true"});await persistWebsiteResult(pool,runId,target,result);
         finished++;if(finished%10===0||finished===leased.length)console.log(JSON.stringify({progress:`${finished}/${leased.length}`,restaurant:target.restaurantName,status:result.status,items:result.items.length,pdfs:result.pdfUrls.length,methods:result.methods}));});
       domainTails.set(target.domain,current.catch(()=>{}));
       await current;
     },
-    async failedRequestHandler({request},error){const target=request.userData.target as WebsiteV3Target;await persistWebsiteResult(pool,runId,target,{status:"failed",items:[],genericPhotos:[],linkedPhotos:[],pdfUrls:[],pages:[],platforms:[],methods:[],routeDecisions:[],elapsedMs:0,error:String(error)});finished++;}
+    async failedRequestHandler({request},error){const target=request.userData.target as WebsiteV3Target;await persistWebsiteResult(pool,runId,target,{status:"failed",items:[],genericPhotos:[],linkedPhotos:[],menuImageUrls:[],pdfUrls:[],pages:[],platforms:[],methods:[],routeDecisions:[],elapsedMs:0,error:String(error)});finished++;}
   });
   try{
     await crawler.run(leased.map(target=>({url:target.url,uniqueKey:target.jobId,userData:{target}})));
-    const assets=options["skip-assets"]==="true"?0:await processAssets(pool,runId,Math.min(6,concurrency));
-    const metrics=(await pool.query(`select count(*) total,count(*) filter(where status='completed') completed,count(*) filter(where status='empty') empty,
-      count(*) filter(where status='blocked') blocked,count(*) filter(where status='failed') failed,count(distinct entity_id) filter(where item_count>0) restaurants_with_menu,
-      coalesce(sum(item_count),0) items,coalesce(sum(menu_linked_photo_count),0) linked_photos,coalesce(sum(generic_photo_candidate_count),0) generic_photos,
-      coalesce(sum(pdf_discovered_count),0) pdfs from website_crawl_v3_results where run_id=$1`,[runId])).rows[0];
-    const assetMetrics=(await pool.query(`select count(*) assets,count(*) filter(where status='completed') asset_completed,
-      coalesce(sum(extracted_item_count),0) pdf_items,count(distinct content_sha256) filter(where kind='image' and status='completed') unique_image_bytes
-      from website_asset_results where run_id=$1`,[runId])).rows[0];
-    await pool.query(`update website_crawl_v3_runs set status='completed',completed_count=$2,empty_count=$3,blocked_count=$4,failed_count=$5,
-      restaurant_with_menu_count=$6,item_count=$7,menu_linked_photo_count=$8,generic_photo_candidate_count=$9,pdf_discovered_count=$10,
-      metadata=$11::jsonb,completed_at=now() where id=$1`,[runId,metrics.completed,metrics.empty,metrics.blocked,metrics.failed,metrics.restaurants_with_menu,
-      metrics.items,metrics.linked_photos,metrics.generic_photos,metrics.pdfs,JSON.stringify({assetsProcessed:assets,...assetMetrics})]);
+    const assets=options["skip-assets"]==="true"?0:await processAssets(pool,runId,concurrency);
+    const metrics=await finalizeRun(pool,runId,assets);
+    const assetMetrics={assets:metrics.assets,asset_completed:metrics.asset_completed,pdf_items:metrics.pdf_items,unique_image_bytes:metrics.unique_image_bytes};
     console.log(JSON.stringify({runId,market,...metrics,...assetMetrics},null,2));
   }catch(error){await pool.query(`update website_crawl_v3_runs set status='failed',metadata=jsonb_build_object('error',$2::text),completed_at=now() where id=$1`,[runId,String(error)]);throw error;}
   finally{await pool.end();}

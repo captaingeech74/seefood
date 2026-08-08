@@ -56,6 +56,7 @@ def fetch_rendered(
     from patchright.sync_api import sync_playwright
 
     payloads = []
+    priority_payloads = []
 
     def page_setup(page):
         if not capture_grubhub_menu and not capture_menu_json:
@@ -72,12 +73,16 @@ def fetch_rendered(
             is_menu_json = capture_menu_json and "json" in content_type and not any(hint in response_url.lower() for hint in (
                 "analytics", "account", "customer", "checkout", "payment", "tracking"
             ))
-            if not (is_feed or is_item_batch or is_menu_json) or len(payloads) >= 24:
+            if not (is_feed or is_item_batch or is_menu_json) or len(payloads) + len(priority_payloads) >= 48:
                 return
             try:
                 length = int(response.headers.get("content-length") or 0)
                 if length <= 5_000_000:
-                    payloads.append(response.json())
+                    payload = response.json()
+                    if any(hint in response_url.lower() for hint in ("menu", "catalog", "product", "item", "ordering", "restaurant")):
+                        priority_payloads.append(payload)
+                    else:
+                        payloads.append(payload)
             except Exception:
                 pass
 
@@ -122,6 +127,12 @@ def fetch_rendered(
                 pass
         if capture_grubhub_menu or grubhub_search_location:
             page_action(page)
+        elif capture_menu_json:
+            # Virtualized first-party menus often fetch categories only as the
+            # diner scrolls. Keep this bounded and retain JSON, not screenshots.
+            for _ in range(8):
+                page.mouse.wheel(0, 1200)
+                page.wait_for_timeout(180)
         final_url = page.url
         html = page.content()
         try:
@@ -139,7 +150,7 @@ def fetch_rendered(
         "html": html,
         "error": "access_blocked" if blocked else None,
         "finalUrl": final_url if final_url and final_url != url else None,
-        "payloads": payloads,
+        "payloads": (priority_payloads + payloads)[:32],
     }
 
 

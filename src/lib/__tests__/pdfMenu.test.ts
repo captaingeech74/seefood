@@ -42,4 +42,15 @@ Hand-Cut Fries 340-680 CAL
 `);
     expect(items.map((item) => item.name)).toEqual(["Classic", "Hand-Cut Fries"]);
   });
+
+  it("keeps bilingual dish rows from a tier-priced image menu", () => {
+    const items = parseVisionMenuText(`
+### PREMIUM A $52.99
+Ribeye Steak 꽃돌싱 스테이크
+Beef Short Rib 생갈비
+For the first 100 guests, Limited supply
+Corn Cheese 콘치즈
+`);
+    expect(items.map((item) => item.name)).toEqual(["Ribeye Steak", "Beef Short Rib", "Corn Cheese"]);
+  });
 });

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findNearbyRestaurant, getRestaurantDetails } from "@/lib/google";
-import { getSlugForPlaceId, getTestFixtureNameOverride } from "@/lib/db";
+import {
+  findStoredNearbyRestaurant,
+  getSlugForPlaceId,
+  getStoredRestaurant,
+  getTestFixtureNameOverride,
+} from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -12,12 +17,13 @@ export async function GET(req: NextRequest) {
     let restaurant;
 
     if (placeId) {
-      restaurant = await getRestaurantDetails(placeId);
+      restaurant = await getStoredRestaurant(placeId);
+      if (!restaurant) restaurant = await getRestaurantDetails(placeId);
     } else if (lat && lng) {
-      restaurant = await findNearbyRestaurant(
-        parseFloat(lat),
-        parseFloat(lng)
-      );
+      const latitude = parseFloat(lat);
+      const longitude = parseFloat(lng);
+      restaurant = await findStoredNearbyRestaurant(latitude, longitude);
+      if (!restaurant) restaurant = await findNearbyRestaurant(latitude, longitude);
     } else {
       return NextResponse.json(
         { error: "Provide lat/lng or placeId" },

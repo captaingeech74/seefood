@@ -254,6 +254,128 @@ function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): nu
   return 6371 * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
+interface StoredRestaurantRow {
+  place_id: string;
+  slug: string | null;
+  name: string;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  status: string | null;
+}
+
+function storedRowToRestaurant(row: StoredRestaurantRow): Restaurant | null {
+  if (row.lat === null || row.lng === null) return null;
+  return {
+    id: row.place_id,
+    placeId: row.place_id,
+    slug: row.slug ?? undefined,
+    name: row.name,
+    address: row.address ?? "",
+    lat: row.lat,
+    lng: row.lng,
+  };
+}
+
+/**
+ * Product-safe restaurant discovery from SeeFood's own corpus. Google Places
+ * enriches discovery when available, but must never be a single point of
+ * failure for opening a stored restaurant or finding one nearby.
+ */
+export async function getStoredRestaurant(placeId: string): Promise<Restaurant | null> {
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("place_id,slug,name,address,lat,lng,status")
+    .eq("place_id", placeId)
+    .neq("status", "inactive")
+    .maybeSingle();
+  if (error) throw error;
+  return data ? storedRowToRestaurant(data as StoredRestaurantRow) : null;
+}
+
+export async function findStoredNearbyRestaurant(
+  lat: number,
+  lng: number,
+  maxDistanceKm = 3
+): Promise<Restaurant | null> {
+  const latDelta = maxDistanceKm / 111;
+  const lngDelta = maxDistanceKm / Math.max(20, 111 * Math.cos(lat * Math.PI / 180));
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("place_id,slug,name,address,lat,lng,status")
+    .not("lat", "is", null)
+    .not("lng", "is", null)
+    .neq("status", "inactive")
+    .gte("lat", lat - latDelta)
+    .lte("lat", lat + latDelta)
+    .gte("lng", lng - lngDelta)
+    .lte("lng", lng + lngDelta)
+    .limit(200);
+  if (error) throw error;
+
+  return (data ?? [])
+    .map((row) => storedRowToRestaurant(row as StoredRestaurantRow))
+    .filter((row): row is Restaurant => row !== null)
+    .map((restaurant) => ({
+      restaurant,
+      distance: haversineKm(lat, lng, restaurant.lat, restaurant.lng),
+    }))
+    .filter(({ distance }) => distance <= maxDistanceKm)
+    .sort((a, b) => a.distance - b.distance)[0]?.restaurant ?? null;
+}
+
+export async function searchStoredRestaurants(
+  query: string,
+  center?: { lat: number; lng: number },
+  limit = 30
+): Promise<Array<Restaurant & { distanceKm?: number }>> {
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("place_id,slug,name,address,lat,lng,status")
+    .not("lat", "is", null)
+    .not("lng", "is", null)
+    .neq("status", "inactive")
+    .limit(1000);
+  if (error) throw error;
+
+  const terms = query
+    .normalize("NFKD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+
+  return (data ?? [])
+    .map((row) => storedRowToRestaurant(row as StoredRestaurantRow))
+    .filter((row): row is Restaurant => row !== null)
+    .map((restaurant) => {
+      const haystack = `${restaurant.name} ${restaurant.address}`
+        .normalize("NFKD")
+        .replace(/\p{Diacritic}/gu, "")
+        .toLowerCase();
+      const matches = terms.length === 0 || terms.every((term) => haystack.includes(term));
+      const distanceKm = center
+        ? haversineKm(center.lat, center.lng, restaurant.lat, restaurant.lng)
+        : undefined;
+      return { ...restaurant, matches, distanceKm };
+    })
+    .filter((restaurant) => restaurant.matches)
+    .sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      const normalizedQuery = terms.join(" ");
+      const aExact = aName === normalizedQuery ? 0 : aName.startsWith(normalizedQuery) ? 1 : 2;
+      const bExact = bName === normalizedQuery ? 0 : bName.startsWith(normalizedQuery) ? 1 : 2;
+      if (aExact !== bExact) return aExact - bExact;
+      if (a.distanceKm !== undefined && b.distanceKm !== undefined && a.distanceKm !== b.distanceKm) {
+        return a.distanceKm - b.distanceKm;
+      }
+      return aName.localeCompare(bName);
+    })
+    .slice(0, Math.max(1, Math.min(limit, 50)))
+    .map(({ matches: _matches, ...restaurant }) => restaurant);
+}
+
 function emptyActivity(): CoverageActivity {
   return { opens: 0, uniqueVisitors: 0, loves: 0, shares: 0, photoAdds: 0 };
 }
