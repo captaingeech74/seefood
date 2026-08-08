@@ -9,6 +9,12 @@ rejected, quarantined, or a confirmed duplicate. Content readiness changes its
 ranking and visual treatment; it does not determine whether the restaurant
 exists in the product.
 
+An unresolved permit holder or generic business record is not yet a restaurant.
+Review-state records publish only when they also have consumer-facing restaurant
+evidence: a specific food-service category or high-confidence menu evidence.
+This keeps legitimate thin restaurants visible without putting sign companies,
+management companies, or legal shell names on the dining map.
+
 This is intentionally expansive. SeeFood will observe real crowding and usage
 before inventing a scarcity policy. At neighborhood zoom every restaurant is an
 individual pin. When more than 120 restaurants occupy one viewport, the map

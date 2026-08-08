@@ -1,15 +1,16 @@
 #!/usr/bin/env -S npx tsx
 /**
  * Reversible early-market publication. Preview is the default. Publication
- * creates or reactivates product restaurant rows for every active market
- * entity not known closed/quarantined/rejected. Rollback hides created rows
+ * creates or reactivates product restaurant rows for every evidenced market
+ * restaurant not known closed/quarantined/rejected. Review-state raw business
+ * records need specific food-service or strong menu evidence. Rollback hides created rows
  * without deleting any restaurant, menu, photo, provenance, or contribution.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
 
-const POLICY_VERSION = "show_all_not_known_closed_v1";
+const POLICY_VERSION = "show_all_restaurant_evidence_v2";
 
 function loadEnv() {
   const path = join(__dirname, "..", ".env.local");
@@ -74,6 +75,22 @@ async function candidates(client: pg.PoolClient, market: string): Promise<Candid
       and e.status not in ('inactive','rejected')
       and coalesce(e.operating_status,'')<>'permanently_closed'
       and e.lat is not null and e.lng is not null
+      and (
+        e.backbone_state='published'
+        or exists (
+          select 1 from unnest(coalesce(e.categories,'{}'::text[])) category
+          where category<>'restaurant' and (
+            category like '%restaurant%' or category in (
+              'bar','salad_bar','food_truck','coffee_shop','cafe','bakery',
+              'ice_cream_shop','brewery','winery','pub','sandwich_shop'
+            )
+          )
+        )
+        or exists (
+          select 1 from website_menu_observations w
+          where w.entity_id=e.id and w.active and w.confidence>=0.78
+        )
+      )
     order by e.name,e.id
   `, [market])).rows;
 }
@@ -228,11 +245,67 @@ async function rollback(client: pg.PoolClient, runId: string) {
   }
 }
 
+async function status(client: pg.PoolClient, market: string) {
+  const runs = (await client.query(
+    `select id,market_key,status,eligible_count,excluded_count,already_live_count,
+            published_count,before_metrics,after_metrics,started_at,completed_at,rolled_back_at
+     from market_publication_runs where market_key=$1 order by started_at desc limit 5`,
+    [market]
+  )).rows;
+  const summary = (await client.query(`
+    with eligible as (
+      select distinct e.id,e.website
+      from acquisition_market_entities m join restaurant_entities e on e.id=m.entity_id
+      where m.market_key=$1 and m.active
+        and e.backbone_state not in ('quarantined','rejected')
+        and e.status not in ('inactive','rejected')
+        and coalesce(e.operating_status,'')<>'permanently_closed'
+        and e.lat is not null and e.lng is not null
+    ), live as (
+      select r.place_id,r.entity_id,coalesce(r.website,e.website) website
+      from restaurants r join eligible e on e.id=r.entity_id where r.status<>'inactive'
+    ), ready as (
+      select rr.* from restaurant_product_readiness(array(select place_id from live),false) rr
+    )
+    select
+      (select market_product_scorecard($1,false)) scorecard,
+      (select count(*) from live where website is not null and website<>'')::int restaurants_with_website,
+      (select count(*) from ready where menu_item_count>0)::int restaurants_with_menu,
+      (select coalesce(sum(menu_item_count),0) from ready)::int distinct_menu_items,
+      (select count(*) from ready where dish_photo_count>0)::int restaurants_with_dish_photo,
+      (select coalesce(sum(dish_photo_count),0) from ready)::int distinct_photographed_dishes,
+      (select count(*) from ready where readiness='partial')::int partial_restaurants,
+      (select count(*) from ready where readiness='shell')::int shell_restaurants,
+      (select count(*) from live where place_id like 'seefood:%')::int seefood_ids,
+      (select count(*) from live where place_id not like 'seefood:%')::int provider_ids
+  `, [market])).rows[0];
+  const classification = (await client.query(`
+    select e.backbone_state,e.operating_status,count(distinct e.id)::int records,
+      count(distinct r.entity_id) filter(where r.status<>'inactive')::int live
+    from acquisition_market_entities m
+    join restaurant_entities e on e.id=m.entity_id
+    left join restaurants r on r.entity_id=e.id
+    where m.market_key=$1 and m.active
+    group by e.backbone_state,e.operating_status order by e.backbone_state,e.operating_status
+  `, [market])).rows;
+  const reviewCandidates = (await client.query(`
+    select e.id,e.name,e.categories,e.overture_confidence,e.operating_status,
+      coalesce(r.status,'missing') product_status
+    from acquisition_market_entities m
+    join restaurant_entities e on e.id=m.entity_id
+    left join restaurants r on r.entity_id=e.id
+    where m.market_key=$1 and m.active and e.backbone_state='review'
+    order by e.name
+  `, [market])).rows;
+  return { mode: "status", market, summary, classification, reviewCandidates, runs };
+}
+
 async function main() {
   loadEnv();
   const market = argument("market", "temecula-ca")!;
   const rollbackId = argument("rollback");
-  const shouldPublish = argument("publish") === "true";
+  const shouldPublish = process.argv.includes("--publish");
+  const shouldShowStatus = process.argv.includes("--status");
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
   const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password),
@@ -242,7 +315,9 @@ async function main() {
   });
   const client = await pool.connect();
   try {
-    const result = rollbackId
+    const result = shouldShowStatus
+      ? await status(client, market)
+      : rollbackId
       ? await rollback(client, rollbackId)
       : shouldPublish
         ? await publish(client, market)

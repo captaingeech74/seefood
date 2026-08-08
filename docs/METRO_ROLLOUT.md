@@ -38,6 +38,10 @@ that is not known closed, then use readiness styling and map clustering instead
 of hiding thin restaurants. Exact GPS detection includes contribution-needed
 shells. See `docs/RESTAURANT_PUBLICATION_POLICY.md`.
 
+Do not equate a raw permit/business candidate with a restaurant. Review-state
+records need a specific food-service category or strong menu evidence before
+publication. This is an identity check, not a content-depth gate.
+
 The founder-facing headline is verified, live, strong, and neighborhood
 availability. Keep the detailed rungs below as the diagnostic drill-down.
 

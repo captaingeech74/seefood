@@ -387,6 +387,38 @@ run were deactivated, not deleted, and source run 1014 was marked failed.
 Brand-word matching now rejects cuisine substitutes and ambiguous same-brand
 locations; an empty or failed provider result cannot retire good prior data.
 
+## Temecula restaurant publication and GPS availability (August 8, 2026)
+
+Temecula now uses the expansive early-market publication policy documented in
+`docs/RESTAURANT_PUBLICATION_POLICY.md`. Every evidenced, not-known-closed
+restaurant is visible regardless of menu/photo strength. Review-state raw
+business records require a specific food-service category or high-confidence
+menu evidence so public-record false positives do not become map restaurants.
+
+Production has 394 verified and live Temecula restaurants: 70 strong, 81
+partial, and 243 contribution-needed shells. There are 340 with websites, 146
+with active menus, 14,438 distinct active menu items, and 85 with at least one
+displayable photographed dish. Neighborhood availability is 98.5%. The rollout
+preserved all 79 provider IDs and created 315 stable `seefood:` IDs. It withheld
+32 unresolved business candidates and 12 known permanent closures.
+
+Website evidence promotion completed for 126 source groups / 123 entities:
+9,962 staged observations were reconciled, 1,453 candidate images passed byte
+verification, and 53 inaccessible/non-image URLs were rejected. LRay's Kitchen
+and all prior source data were preserved.
+
+Publication run `d4263151-b362-490d-ac24-2d180fc1be4c` is the active reversible
+run. The over-broad first run `ba8b77de-5551-4434-a1a2-70340290f652` was fully
+rolled back after a live QA spot check exposed a mislabeled sign company. The
+pre-change Git rollback tag is `rollback/pre-temecula-show-all-20260808`.
+
+The map displays individual restaurants at neighborhood scale and clusters only
+when a viewport exceeds 120 records. GPS lookup uses a phone-accuracy-aware
+120–350 meter radius and includes shells. Shell pages say "You're in the right
+place" and offer an immediate first-dish contribution action. The `/pulse`
+headline is intentionally limited to verified, live, strong, and neighborhood
+availability; the legacy funnel remains collapsed for diagnosis.
+
 ## Handoff Maintenance
 
 Follow `docs/HOW_TO_HAND_OFF.md` for the next lead transition. Update this file

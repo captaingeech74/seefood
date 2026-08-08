@@ -2101,3 +2101,12 @@ without deleting corpus or contribution data. Founder reporting is simplified
 to verified restaurants, live restaurants, strong restaurants, and neighborhood
 availability; technical funnels remain a diagnostic drill-down. Full policy:
 `docs/RESTAURANT_PUBLICATION_POLICY.md`.
+
+The first broad publication exposed that Overture/public-record classification
+can label non-food businesses as restaurants. The macro rule is therefore
+"show every evidenced restaurant," not "show every raw candidate." Published
+backbone identities remain eligible; review-state identities require a specific
+food-service category or high-confidence menu evidence. In Temecula this keeps
+394 restaurants live while withholding 32 unresolved business records and 12
+known closures. Content-poor but real restaurants remain fully visible and
+GPS-discoverable.
