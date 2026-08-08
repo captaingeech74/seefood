@@ -6,7 +6,7 @@ import RestaurantHeader from "@/components/RestaurantHeader";
 import TopDishesGrid from "@/components/TopDishesGrid";
 import Reveal from "@/components/Reveal";
 import PopularDishes from "@/components/PopularDishes";
-import MapPicker, { MapView } from "@/components/MapPicker";
+import RestaurantPicker, { MapView } from "@/components/RestaurantPicker";
 import LoadingScreen from "@/components/LoadingScreen";
 import SuggestDishModal from "@/components/SuggestDishModal";
 import { trackAppOpen } from "@/lib/analytics";
@@ -31,7 +31,9 @@ function syncUrlToRestaurant(r: Restaurant) {
   if (!r.slug || typeof window === "undefined") return;
   const path = `/r/${r.slug}`;
   if (window.location.pathname !== path) {
-    window.history.replaceState(null, "", path);
+    const mapExperiment = new URLSearchParams(window.location.search).get("map");
+    const suffix = mapExperiment ? `?map=${encodeURIComponent(mapExperiment)}` : "";
+    window.history.replaceState(null, "", `${path}${suffix}`);
   }
 }
 
@@ -257,7 +259,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
 
   if (state === "map_open") {
     return (
-      <MapPicker
+      <RestaurantPicker
         lat={userLat || 37.7749}
         lng={userLng || -122.4194}
         initialView={lastMapView}

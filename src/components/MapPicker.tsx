@@ -10,7 +10,7 @@ export interface MapView {
   zoom: number;
 }
 
-interface MapPickerProps {
+export interface MapPickerProps {
   lat: number;
   lng: number;
   initialView?: MapView | null;

@@ -376,6 +376,41 @@ export async function searchStoredRestaurants(
     .map(({ matches: _matches, ...restaurant }) => restaurant);
 }
 
+export interface RestaurantBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+/**
+ * Returns SeeFood restaurants already attached to the product inside a map
+ * viewport. This deliberately reads the same restaurant table as the rest of
+ * the app; the experimental map does not create a parallel restaurant corpus.
+ */
+export async function getStoredRestaurantsInBounds(
+  bounds: RestaurantBounds,
+  limit = 80
+): Promise<Restaurant[]> {
+  const safeLimit = Math.max(1, Math.min(limit, 150));
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("place_id,slug,name,address,lat,lng,status")
+    .not("lat", "is", null)
+    .not("lng", "is", null)
+    .neq("status", "inactive")
+    .gte("lat", bounds.south)
+    .lte("lat", bounds.north)
+    .gte("lng", bounds.west)
+    .lte("lng", bounds.east)
+    .limit(safeLimit);
+  if (error) throw error;
+
+  return (data ?? [])
+    .map((row) => storedRowToRestaurant(row as StoredRestaurantRow))
+    .filter((row): row is Restaurant => row !== null);
+}
+
 function emptyActivity(): CoverageActivity {
   return { opens: 0, uniqueVisitors: 0, loves: 0, shares: 0, photoAdds: 0 };
 }
@@ -1126,6 +1161,7 @@ export async function getMapPhotosForPlaceIds(
       .from("photos")
       .select("*")
       .in("restaurant_id", placeIds)
+      .eq("active", true)
       .order("tier", { ascending: true })
       .order("id", { ascending: true }),
     supabase.from("menu_items").select("id,name,description,restaurant_id").in("restaurant_id", placeIds),
@@ -1144,8 +1180,14 @@ export async function getMapPhotosForPlaceIds(
   }
 
   for (const [placeId, photos] of byRestaurant) {
-    if (photos.length === 0) continue;
-    const { primary } = dedupeToPrimary(photos);
+    // Match the dish API's renderability rule. When Google's billable proxy is
+    // disabled, proxy-only photos must not make a map pin promise content the
+    // restaurant page cannot display.
+    const renderable = process.env.GOOGLE_MAPS_ENABLED === "true"
+      ? photos
+      : photos.filter((photo) => !photo.url.startsWith("/api/photo?"));
+    if (renderable.length === 0) continue;
+    const { primary } = dedupeToPrimary(renderable);
     result.set(placeId, { topPhoto: primary[0], dishes: primary.slice(0, 5), totalDishCount: primary.length });
   }
   return result;

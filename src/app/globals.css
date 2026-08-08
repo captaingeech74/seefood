@@ -218,3 +218,37 @@ img {
 .text-shadow-soft {
   text-shadow: 0 1px 12px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.8);
 }
+/* Removable open-map experiment (`?map=open`). */
+.open-map-pin {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 3px solid white;
+  background: #ff6b35 center / cover no-repeat;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 45%);
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+
+.open-map-pin::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 9px;
+  height: 9px;
+  background: white;
+  transform: translateX(-50%) rotate(45deg);
+  z-index: -1;
+}
+
+.open-map-pin--selected {
+  transform: scale(1.22);
+  border-color: #ff6b35;
+  z-index: 2;
+}
+
+.maplibregl-ctrl-bottom-left,
+.maplibregl-ctrl-bottom-right {
+  z-index: 5;
+}

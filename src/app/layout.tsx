@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 // @ts-expect-error CSS import
 import "./globals.css";
+// @ts-expect-error MapLibre publishes runtime CSS without a TS declaration.
+import "maplibre-gl/dist/maplibre-gl.css";
 
 export const metadata: Metadata = {
   title: "seeFood",
