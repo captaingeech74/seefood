@@ -5,10 +5,10 @@ is drawn, not how restaurants are identified or stored.
 
 ## Try it
 
-Add `?map=open` to a SeeFood URL, then open restaurant search. The query choice
-is preserved when the app redirects to a restaurant page. Add `?map=google` to
-force the established picker. The default remains the established picker unless
-`NEXT_PUBLIC_MAP_PROVIDER=open` is deliberately configured.
+Open restaurant search normally. The open map is now the default. Add
+`?map=google` to force the established picker, or configure
+`NEXT_PUBLIC_MAP_PROVIDER=google` to revert the whole deployment without a code
+change. An explicit `?map=open` continues to override that environment switch.
 
 The experimental picker uses MapLibre GL JS with OpenFreeMap's Liberty style.
 It reads attached restaurants from SeeFood's existing `restaurants` table and

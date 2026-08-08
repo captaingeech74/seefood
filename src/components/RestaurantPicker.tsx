@@ -27,7 +27,7 @@ export default function RestaurantPicker(props: MapPickerProps) {
   useEffect(() => {
     const queryChoice = new URLSearchParams(window.location.search).get("map");
     setUseOpenMap(queryChoice === "open" || (
-      queryChoice !== "google" && process.env.NEXT_PUBLIC_MAP_PROVIDER === "open"
+      queryChoice !== "google" && process.env.NEXT_PUBLIC_MAP_PROVIDER !== "google"
     ));
   }, []);
 
