@@ -225,7 +225,7 @@ export default function RestaurantHeader({
               {formatAddress(restaurant.address)}
             </p>
             <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(restaurant.address || restaurant.name)}${restaurant.placeId ? `&destination_place_id=${restaurant.placeId}` : ""}`}
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(restaurant.address || restaurant.name)}${restaurant.googlePlaceId ? `&destination_place_id=${restaurant.googlePlaceId}` : ""}`}
               target="_blank"
               rel="noopener noreferrer"
               className="hit-target relative shrink-0 flex items-center gap-1 text-[12px] font-bold"

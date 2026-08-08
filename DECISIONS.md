@@ -2079,3 +2079,25 @@ includes PDF and common raster image formats. Cross-domain navigation is
 limited to identity-matched consumer ordering storefronts. Marketing domains,
 unrelated redirects, and weak item lists are quarantined rather than hidden in
 the UI or promoted into the corpus.
+
+## Show every real early-market restaurant and separate existence from readiness (August 8, 2026)
+
+In an early market, a confidently real restaurant is visible unless it is known
+permanently closed, rejected, quarantined, or a confirmed duplicate. Menu/photo
+strength controls styling and ranking, never existence. SeeFood observes real
+crowding before introducing a scarcity policy. Individual pins remain visible
+at neighborhood scale; an unwieldy viewport clusters them without dropping
+restaurants.
+
+GPS-first entry includes empty restaurant shells. The nearest restaurant is
+eligible inside a tight accuracy-aware 120–350 meter radius, while a farther
+restaurant is not falsely presented as the diner's venue. Shell pages receive a
+prominent first-dish contribution invitation.
+
+Google Place IDs remain attached where present. Overture-only restaurants use a
+stable SeeFood-owned product ID and do not fabricate Google identity records.
+Market publication is logged, idempotent, and reversibly hides changed rows
+without deleting corpus or contribution data. Founder reporting is simplified
+to verified restaurants, live restaurants, strong restaurants, and neighborhood
+availability; technical funnels remain a diagnostic drill-down. Full policy:
+`docs/RESTAURANT_PUBLICATION_POLICY.md`.

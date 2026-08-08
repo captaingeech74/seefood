@@ -33,6 +33,14 @@ coverage estimates from the same versioned geography source when that happens.
 
 ## Market Exit Criteria
 
+Early-market publication is expansive: expose every confidently real restaurant
+that is not known closed, then use readiness styling and map clustering instead
+of hiding thin restaurants. Exact GPS detection includes contribution-needed
+shells. See `docs/RESTAURANT_PUBLICATION_POLICY.md`.
+
+The founder-facing headline is verified, live, strong, and neighborhood
+availability. Keep the detailed rungs below as the diagnostic drill-down.
+
 A market is not "done" because identities were imported. Report every rung:
 
 1. Restaurants identified

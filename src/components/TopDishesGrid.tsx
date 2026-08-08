@@ -39,6 +39,8 @@ export default function TopDishesGrid({
   finalized,
   resetKey,
   onOpenReveal,
+  onAddMissing,
+  restaurantName,
 }: {
   dishes: DishPhoto[];
   loading: boolean;
@@ -46,6 +48,8 @@ export default function TopDishesGrid({
   /** Restaurant identity (e.g. placeId) — visible-count resets only when this changes, not on every dish-list mutation (e.g. a diner adding a missing dish shouldn't collapse the scroll position). */
   resetKey: string;
   onOpenReveal: (rankedList: DishPhoto[], startIndex: number, allPhotos: DishPhoto[]) => void;
+  onAddMissing: () => void;
+  restaurantName?: string;
 }) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -140,8 +144,17 @@ export default function TopDishesGrid({
             <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
           </svg>
         </div>
-        <p className="text-white/75 text-[15px] font-semibold mb-1">No photos yet</p>
-        <p className="text-white/35 text-[13px] mb-6">We haven&apos;t found any dishes here yet.</p>
+        <p className="text-white/85 text-[17px] font-semibold mb-1">You&apos;re in the right place</p>
+        <p className="text-white/40 text-[13px] mb-6 max-w-sm leading-relaxed">
+          {restaurantName ? `${restaurantName} needs its first dish photo.` : "This restaurant needs its first dish photo."} Be the person who helps the next diner see what to order.
+        </p>
+        <button
+          type="button"
+          onClick={onAddMissing}
+          className="rounded-2xl bg-[var(--accent)] px-5 py-3.5 text-white text-[14px] font-bold active:scale-95 transition-transform"
+        >
+          Add the first dish
+        </button>
       </div>
     );
   }

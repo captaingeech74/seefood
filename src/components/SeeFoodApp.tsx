@@ -121,10 +121,12 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
   }, []);
 
   const fetchRestaurant = useCallback(
-    async (lat: number, lng: number) => {
+    async (lat: number, lng: number, accuracy?: number) => {
       setState("loading_restaurant");
       try {
-        const res = await fetch(`/api/restaurant?lat=${lat}&lng=${lng}`, { cache: "no-store" });
+        const params = new URLSearchParams({ lat: String(lat), lng: String(lng) });
+        if (accuracy !== undefined) params.set("accuracy", String(accuracy));
+        const res = await fetch(`/api/restaurant?${params}`, { cache: "no-store" });
         if (!res.ok) throw new Error("No restaurant found");
         const data: Restaurant = await res.json();
         setRestaurant(data);
@@ -177,7 +179,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         const { latitude, longitude } = pos.coords;
         setUserLat(latitude);
         setUserLng(longitude);
-        fetchRestaurant(latitude, longitude);
+        fetchRestaurant(latitude, longitude, pos.coords.accuracy);
       },
       (err) => {
         setError(
@@ -288,6 +290,8 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         finalized={dishesFinal}
         resetKey={restaurant?.placeId || restaurant?.id || ""}
         onOpenReveal={(list, index, allPhotos) => setReveal({ list, index, allPhotos })}
+        onAddMissing={() => setSuggest({})}
+        restaurantName={restaurant?.name}
       />
 
       {suggest && restaurant && (

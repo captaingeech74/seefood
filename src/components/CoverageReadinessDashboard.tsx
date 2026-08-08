@@ -27,6 +27,12 @@ interface CoverageReadinessResponse {
   newVisitors: number;
   uploadSessions: number;
   loves: number;
+  verifiedRestaurants?: number;
+  liveRestaurants?: number;
+  strongRestaurants?: number;
+  neighborhoodCoverage?: number;
+  contributionOpportunities?: number;
+  neighborhoodDefinition?: string;
 }
 
 const FUNNEL = [
@@ -168,8 +174,38 @@ export default function CoverageReadinessDashboard() {
               </div>
             )}
 
-            <section className="pt-6">
-              <div className="flex items-end justify-between mb-4">
+            {data.verifiedRestaurants !== undefined && (
+              <section className="pt-6">
+                <div className="mb-3">
+                  <p className="text-white/35 text-[9px] font-bold uppercase">Market scorecard</p>
+                  <h2 className="text-white text-[17px] font-bold">The four numbers that matter</h2>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    ["Verified", data.verifiedRestaurants.toLocaleString(), "Real, not known closed"],
+                    ["Live", (data.liveRestaurants ?? 0).toLocaleString(), "Visible in SeeFood"],
+                    ["Strong", (data.strongRestaurants ?? 0).toLocaleString(), "Menu + 7 photographed dishes"],
+                    ["Neighborhoods", `${data.neighborhoodCoverage ?? 0}%`, "5 choices within 1.5 km"],
+                  ].map(([label, value, detail]) => (
+                    <div key={label} className="rounded-2xl bg-white/5 border border-white/8 p-4 min-h-28">
+                      <p className="text-white text-[26px] font-bold tabular-nums">{value}</p>
+                      <p className="text-white/70 text-[11px] font-bold uppercase mt-1">{label}</p>
+                      <p className="text-white/30 text-[10px] mt-1 leading-snug">{detail}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-white/30 text-[10px] mt-3">
+                  {(data.contributionOpportunities ?? 0).toLocaleString()} live restaurants currently need their first useful contribution.
+                </p>
+              </section>
+            )}
+
+            <details className="pt-7 group">
+              <summary className="cursor-pointer list-none flex items-center justify-between py-3 border-y border-white/8">
+                <span className="text-white/65 text-[12px] font-bold">Technical coverage funnel</span>
+                <span className="text-white/30 text-[11px] group-open:rotate-180 transition-transform">⌄</span>
+              </summary>
+              <div className="flex items-end justify-between mt-5 mb-4">
                 <div><p className="text-white/35 text-[9px] font-bold uppercase">Restaurant data</p><h2 className="text-white text-[17px] font-bold">Coverage funnel</h2></div>
                 <span className="text-white/30 text-[10px]">Live corpus</span>
               </div>
@@ -188,7 +224,7 @@ export default function CoverageReadinessDashboard() {
                   );
                 })}
               </div>
-            </section>
+            </details>
 
             <section className="pt-7">
               <div className="flex items-center justify-between">

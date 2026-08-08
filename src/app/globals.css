@@ -248,6 +248,35 @@ img {
   z-index: 2;
 }
 
+.open-map-pin--shell {
+  background: rgba(17, 17, 17, 0.92);
+  border-color: #ff6b35;
+}
+
+.open-map-pin--shell::before {
+  content: "+";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #ff6b35;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.open-map-cluster {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 3px solid white;
+  background: #ff6b35;
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 45%);
+  cursor: pointer;
+}
+
 .maplibregl-ctrl-bottom-left,
 .maplibregl-ctrl-bottom-right {
   z-index: 5;

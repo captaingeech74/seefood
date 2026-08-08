@@ -264,17 +264,52 @@ interface StoredRestaurantRow {
   status: string | null;
 }
 
+export function isSeeFoodRestaurantId(value: string): boolean {
+  return value.startsWith("seefood:");
+}
+
 function storedRowToRestaurant(row: StoredRestaurantRow): Restaurant | null {
   if (row.lat === null || row.lng === null) return null;
   return {
     id: row.place_id,
     placeId: row.place_id,
+    googlePlaceId: isSeeFoodRestaurantId(row.place_id) ? undefined : row.place_id,
     slug: row.slug ?? undefined,
     name: row.name,
     address: row.address ?? "",
     lat: row.lat,
     lng: row.lng,
   };
+}
+
+interface RestaurantReadinessRow {
+  place_id: string;
+  menu_item_count: number | string;
+  dish_photo_count: number | string;
+  readiness: Restaurant["readiness"];
+}
+
+async function withRestaurantReadiness<T extends Restaurant>(restaurants: T[]): Promise<T[]> {
+  if (restaurants.length === 0) return restaurants;
+  const placeIds = [...new Set(restaurants.map((restaurant) => restaurant.placeId || restaurant.id))];
+  const { data, error } = await supabase.rpc("restaurant_product_readiness", {
+    p_place_ids: placeIds,
+    p_include_google_proxy: process.env.GOOGLE_MAPS_ENABLED === "true",
+  });
+  if (error || !data) {
+    if (error) console.error("[restaurant-readiness] lookup failed", error.message);
+    return restaurants.map((restaurant) => ({ ...restaurant, readiness: "shell" as const }));
+  }
+  const readiness = new Map((data as RestaurantReadinessRow[]).map((row) => [row.place_id, row]));
+  return restaurants.map((restaurant) => {
+    const row = readiness.get(restaurant.placeId || restaurant.id);
+    return row ? {
+      ...restaurant,
+      readiness: row.readiness,
+      menuItemCount: Number(row.menu_item_count),
+      dishPhotoCount: Number(row.dish_photo_count),
+    } : { ...restaurant, readiness: "shell" as const, menuItemCount: 0, dishPhotoCount: 0 };
+  });
 }
 
 /**
@@ -290,7 +325,8 @@ export async function getStoredRestaurant(placeId: string): Promise<Restaurant |
     .neq("status", "inactive")
     .maybeSingle();
   if (error) throw error;
-  return data ? storedRowToRestaurant(data as StoredRestaurantRow) : null;
+  const restaurant = data ? storedRowToRestaurant(data as StoredRestaurantRow) : null;
+  return restaurant ? (await withRestaurantReadiness([restaurant]))[0] : null;
 }
 
 export async function findStoredNearbyRestaurant(
@@ -313,7 +349,7 @@ export async function findStoredNearbyRestaurant(
     .limit(200);
   if (error) throw error;
 
-  return (data ?? [])
+  const nearest = (data ?? [])
     .map((row) => storedRowToRestaurant(row as StoredRestaurantRow))
     .filter((row): row is Restaurant => row !== null)
     .map((restaurant) => ({
@@ -322,6 +358,7 @@ export async function findStoredNearbyRestaurant(
     }))
     .filter(({ distance }) => distance <= maxDistanceKm)
     .sort((a, b) => a.distance - b.distance)[0]?.restaurant ?? null;
+  return nearest ? (await withRestaurantReadiness([nearest]))[0] : null;
 }
 
 export async function searchStoredRestaurants(
@@ -345,7 +382,7 @@ export async function searchStoredRestaurants(
     .split(/[^a-z0-9]+/)
     .filter(Boolean);
 
-  return (data ?? [])
+  const restaurants = (data ?? [])
     .map((row) => storedRowToRestaurant(row as StoredRestaurantRow))
     .filter((row): row is Restaurant => row !== null)
     .map((restaurant) => {
@@ -374,6 +411,7 @@ export async function searchStoredRestaurants(
     })
     .slice(0, Math.max(1, Math.min(limit, 50)))
     .map(({ matches: _matches, ...restaurant }) => restaurant);
+  return withRestaurantReadiness(restaurants);
 }
 
 export interface RestaurantBounds {
@@ -390,9 +428,9 @@ export interface RestaurantBounds {
  */
 export async function getStoredRestaurantsInBounds(
   bounds: RestaurantBounds,
-  limit = 80
+  limit = 1000
 ): Promise<Restaurant[]> {
-  const safeLimit = Math.max(1, Math.min(limit, 150));
+  const safeLimit = Math.max(1, Math.min(limit, 1000));
   const { data, error } = await supabase
     .from("restaurants")
     .select("place_id,slug,name,address,lat,lng,status")
@@ -406,9 +444,10 @@ export async function getStoredRestaurantsInBounds(
     .limit(safeLimit);
   if (error) throw error;
 
-  return (data ?? [])
+  const restaurants = (data ?? [])
     .map((row) => storedRowToRestaurant(row as StoredRestaurantRow))
     .filter((row): row is Restaurant => row !== null);
+  return withRestaurantReadiness(restaurants);
 }
 
 function emptyActivity(): CoverageActivity {
@@ -728,6 +767,25 @@ export interface CoverageReadinessMetrics {
   newVisitors: number;
   uploadSessions: number;
   loves: number;
+}
+
+export interface MarketProductScorecard {
+  verifiedRestaurants: number;
+  liveRestaurants: number;
+  strongRestaurants: number;
+  neighborhoodCoverage: number;
+  contributionOpportunities: number;
+  policy: string;
+  neighborhoodDefinition: string;
+}
+
+export async function getMarketProductScorecard(marketKey: string): Promise<MarketProductScorecard> {
+  const { data, error } = await supabase.rpc("market_product_scorecard", {
+    p_market_key: marketKey,
+    p_include_google_proxy: process.env.GOOGLE_MAPS_ENABLED === "true",
+  });
+  if (error) throw error;
+  return data as MarketProductScorecard;
 }
 
 export async function getCoverageReadinessMetrics(input: {
@@ -1407,7 +1465,7 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
   const cleanName = restaurant.name.replace(/\s*\[bench-[^\]]*\]\s*$/i, "").trim();
 
   let entityId = existing?.entity_id as string | null | undefined;
-  if (!entityId) {
+  if (!entityId && !isSeeFoodRestaurantId(placeId)) {
     const { data: existingEntity } = await supabase
       .from("restaurant_entities")
       .select("id")
@@ -1419,7 +1477,7 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
     const { data: createdEntity } = await supabase
       .from("restaurant_entities")
       .insert({
-        legacy_place_id: placeId,
+        legacy_place_id: isSeeFoodRestaurantId(placeId) ? null : placeId,
         name: cleanName,
         normalized_name: cleanName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(),
         address: restaurant.address,
@@ -1457,16 +1515,16 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
   }
 
   if (entityId) {
-    await Promise.all([
-      supabase.from("restaurant_entities").update({
+    await supabase.from("restaurant_entities").update({
         name: cleanName,
         normalized_name: cleanName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(),
         address: restaurant.address,
         lat: restaurant.lat,
         lng: restaurant.lng,
         updated_at: new Date().toISOString(),
-      }).eq("id", entityId),
-      supabase.from("restaurant_identities").upsert({
+      }).eq("id", entityId);
+    if (!isSeeFoodRestaurantId(placeId)) {
+      await supabase.from("restaurant_identities").upsert({
         entity_id: entityId,
         provider: "google",
         provider_id: placeId,
@@ -1477,8 +1535,8 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
         confidence: 1,
         last_seen_at: new Date().toISOString(),
         active: true,
-      }, { onConflict: "provider,provider_id" }),
-    ]);
+      }, { onConflict: "provider,provider_id" });
+    }
   }
 }
 

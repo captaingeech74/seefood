@@ -5,6 +5,7 @@ import type { Map as MapLibreMap, Marker } from "maplibre-gl";
 import type { MapPickerProps } from "@/components/MapPicker";
 import type { DishPhoto, Restaurant } from "@/lib/types";
 import { formatAddress } from "@/lib/labels";
+import { shouldClusterRestaurantPins } from "@/lib/restaurantPolicy";
 
 type SearchRestaurant = Restaurant & { distanceKm?: number };
 type GeocoderResult = { id: string; label: string; lat: number; lng: number; type?: string };
@@ -74,7 +75,7 @@ export default function OpenMapPicker({
       if (request !== requestRef.current) return;
       const rows = payload.restaurants ?? [];
       setRestaurants(rows);
-      void loadPreviews(rows);
+      void loadPreviews(rows.filter((restaurant) => restaurant.readiness !== "shell").slice(0, 200));
     } catch {
       // Keep the existing pins if a viewport refresh briefly fails.
     }
@@ -125,12 +126,45 @@ export default function OpenMapPicker({
 
     void import("maplibre-gl").then(({ Marker: MapMarker }) => {
       if (map !== mapRef.current) return;
-      markersRef.current = restaurants.map((restaurant) => {
+      const shouldCluster = shouldClusterRestaurantPins(restaurants.length);
+      const markerGroups = new Map<string, SearchRestaurant[]>();
+      for (const restaurant of restaurants) {
+        const point = map.project([restaurant.lng, restaurant.lat]);
+        const key = shouldCluster
+          ? `${Math.floor(point.x / 62)}:${Math.floor(point.y / 62)}`
+          : restaurant.id;
+        markerGroups.set(key, [...(markerGroups.get(key) ?? []), restaurant]);
+      }
+
+      markersRef.current = [...markerGroups.values()].map((group) => {
+        if (group.length > 1) {
+          const center = group.reduce((current, restaurant) => ({
+            lat: current.lat + restaurant.lat / group.length,
+            lng: current.lng + restaurant.lng / group.length,
+          }), { lat: 0, lng: 0 });
+          const element = document.createElement("button");
+          element.type = "button";
+          element.className = "open-map-cluster";
+          element.textContent = String(group.length);
+          element.setAttribute("aria-label", `${group.length} restaurants; zoom in`);
+          element.addEventListener("click", () => {
+            map.easeTo({ center: [center.lng, center.lat], zoom: Math.min(17, map.getZoom() + 2) });
+          });
+          return new MapMarker({ element })
+            .setLngLat([center.lng, center.lat])
+            .addTo(map);
+        }
+
+        const restaurant = group[0];
         const id = restaurant.placeId || restaurant.id;
         const preview = previews[id];
         const element = document.createElement("button");
         element.type = "button";
-        element.className = `open-map-pin${selected?.id === restaurant.id ? " open-map-pin--selected" : ""}`;
+        element.className = [
+          "open-map-pin",
+          restaurant.readiness === "shell" ? "open-map-pin--shell" : "",
+          selected?.id === restaurant.id ? "open-map-pin--selected" : "",
+        ].filter(Boolean).join(" ");
         element.setAttribute("aria-label", restaurant.name);
         if (preview?.topPhoto.url) {
           element.style.backgroundImage = `url(${JSON.stringify(preview.topPhoto.url).slice(1, -1)})`;
@@ -292,7 +326,13 @@ export default function OpenMapPicker({
                 <h2 className="font-bold text-[17px] truncate">{selected.name}</h2>
                 <p className="text-white/45 text-[12px] line-clamp-2 mt-1">{formatAddress(selected.address)}</p>
                 <p className="text-orange-300/80 text-[11px] mt-1.5">
-                  {selectedPreview ? `${selectedPreview.totalDishCount} dish photo${selectedPreview.totalDishCount === 1 ? "" : "s"}` : "Restaurant found"}
+                  {selected.readiness === "shell"
+                    ? "Needs its first dish photo"
+                    : selectedPreview
+                      ? `${selectedPreview.totalDishCount} dish photo${selectedPreview.totalDishCount === 1 ? "" : "s"}`
+                      : selected.menuItemCount
+                        ? `Menu found · photos needed`
+                        : "Restaurant found"}
                 </p>
               </div>
             </div>
@@ -301,7 +341,7 @@ export default function OpenMapPicker({
               onClick={() => onSelectRestaurant(selectedId, selected.name)}
               className="mt-3 w-full rounded-2xl bg-[var(--accent)] py-3.5 font-bold text-[14px] active:scale-[0.99] transition-transform"
             >
-              See this restaurant
+              {selected.readiness === "shell" ? "Open & help build it" : "See this restaurant"}
             </button>
           </div>
         </div>

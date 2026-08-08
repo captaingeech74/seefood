@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCoverageReadinessMetrics } from "@/lib/db";
+import { getCoverageReadinessMetrics, getMarketProductScorecard } from "@/lib/db";
 import {
   CoverageScope,
   MAJOR_METROS,
@@ -114,9 +114,12 @@ export async function GET(request: NextRequest) {
     locationLabel = "United States";
   }
 
-  const metrics = await getCoverageReadinessMetrics(params);
+  const [metrics, scorecard] = await Promise.all([
+    getCoverageReadinessMetrics(params),
+    scope === "temecula" ? getMarketProductScorecard("temecula-ca").catch(() => null) : Promise.resolve(null),
+  ]);
   return NextResponse.json(
-    { ...metrics, locationLabel, period },
+    { ...metrics, ...(scorecard ?? {}), locationLabel, period },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

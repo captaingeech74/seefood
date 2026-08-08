@@ -21,6 +21,7 @@
     "acquisition:ocr-server": "crawler/.venv_paddleocr/bin/python crawler/paddleocr_service.py",
     "acquisition:promote-websites": "tsx scripts/promote-website-observations.ts",
     "acquisition:rollback": "tsx scripts/rollback-acquisition-batch.ts",
+    "market:publish": "tsx scripts/publish-market-restaurants.ts",
     "photo-dedupe": "tsx scripts/photo-dedupe.ts",
     "photo-quarantine": "node scripts/quarantine-reactivated-photos.mjs",
     "ingest-fixture-photos": "tsx scripts/ingest-fixture-photos.ts",

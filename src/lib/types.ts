@@ -102,12 +102,18 @@ export interface Restaurant {
   lat: number;
   lng: number;
   placeId?: string;
+  /** Google identity when one exists. SeeFood-owned IDs remain valid without it. */
+  googlePlaceId?: string;
   rating?: number;
   reviewCount?: number;
   priceLevel?: number; // 0–4
   isOpen?: boolean;
   /** Stable shareable URL slug (PRD §4.4, `/r/[slug]`). */
   slug?: string;
+  /** Product usefulness never controls whether a real restaurant is visible. */
+  readiness?: "rich" | "partial" | "shell";
+  menuItemCount?: number;
+  dishPhotoCount?: number;
 }
 
 export interface DishesResponse {

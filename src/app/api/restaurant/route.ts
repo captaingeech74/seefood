@@ -6,6 +6,7 @@ import {
   getStoredRestaurant,
   getTestFixtureNameOverride,
 } from "@/lib/db";
+import { onsiteRestaurantRadiusKm } from "@/lib/restaurantPolicy";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -22,8 +23,17 @@ export async function GET(req: NextRequest) {
     } else if (lat && lng) {
       const latitude = parseFloat(lat);
       const longitude = parseFloat(lng);
-      restaurant = await findStoredNearbyRestaurant(latitude, longitude);
-      if (!restaurant) restaurant = await findNearbyRestaurant(latitude, longitude);
+      const reportedAccuracy = Number(searchParams.get("accuracy"));
+      // A restaurant a few kilometres away is not where the diner is. Use a
+      // tight, GPS-aware radius: tolerant of ordinary phone drift and venue
+      // centroids, but never enough to jump to another neighborhood.
+      const maxDistanceKm = onsiteRestaurantRadiusKm(
+        Number.isFinite(reportedAccuracy) ? reportedAccuracy : undefined
+      );
+      restaurant = await findStoredNearbyRestaurant(latitude, longitude, maxDistanceKm);
+      if (!restaurant && process.env.GOOGLE_MAPS_ENABLED === "true") {
+        restaurant = await findNearbyRestaurant(latitude, longitude);
+      }
     } else {
       return NextResponse.json(
         { error: "Provide lat/lng or placeId" },

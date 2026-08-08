@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { fetchStreamingCandidates, finalizeWithGemini } from "@/lib/google";
 import { getCorpusSnapshot, persistPipelineResult } from "@/lib/db";
+import { isSeeFoodRestaurantId } from "@/lib/db";
 
 // Gemini analysis of up to 10 images in one batched call, plus source fetches,
 // can take up to ~30s on a cold miss. Vercel paid plan allows up to 300s.
@@ -47,6 +48,14 @@ export async function GET(req: NextRequest) {
         const corpus = await getCorpusSnapshot(placeId).catch(() => null);
         if (corpus && (corpus.isFresh || !googleEnabled)) {
           write({ dishes: renderable(corpus.photos).slice(0, 100), popularDishes: corpus.popularDishes, done: true });
+          controller.close();
+          return;
+        }
+
+        // SeeFood-owned identities and a disabled Google lane are valid empty
+        // restaurants, not cache misses that should trigger an external call.
+        if (!googleEnabled || isSeeFoodRestaurantId(placeId)) {
+          write({ dishes: [], popularDishes: [], done: true });
           controller.close();
           return;
         }
