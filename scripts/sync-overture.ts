@@ -8,6 +8,7 @@ import { createInterface } from "node:readline";
 import { spawnSync } from "node:child_process";
 import pg from "pg";
 import { resolveIdentity, type IdentityCandidate } from "../src/lib/acquisitionIdentity";
+import { isOvertureFoodServicePlace } from "../src/lib/overturePolicy";
 
 type Args = Record<string, string | boolean>;
 type Bounds = { west: number; south: number; east: number; north: number };
@@ -95,8 +96,7 @@ function parseFeature(line: string, bounds: Bounds, polygons?: Polygon[]): Overt
   try { feature = JSON.parse(line); } catch { return null; }
   const properties = feature?.properties ?? {};
   const coordinates = feature?.geometry?.coordinates;
-  const hierarchy: string[] = properties?.taxonomy?.hierarchy ?? [];
-  if (!hierarchy.includes("restaurant") || !Array.isArray(coordinates)) return null;
+  if (!isOvertureFoodServicePlace(properties) || !Array.isArray(coordinates)) return null;
   const [lng, lat] = coordinates.map(Number);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)
     || lng < bounds.west || lng > bounds.east || lat < bounds.south || lat > bounds.north) return null;
