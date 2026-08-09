@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
 
   try {
     let restaurant;
+    let locationDiagnostic: { reportedAccuracyMeters: number | null; radiusMeters: number } | null = null;
 
     if (placeId) {
       restaurant = await getStoredRestaurant(placeId);
@@ -23,13 +24,27 @@ export async function GET(req: NextRequest) {
     } else if (lat && lng) {
       const latitude = parseFloat(lat);
       const longitude = parseFloat(lng);
-      const reportedAccuracy = Number(searchParams.get("accuracy"));
+      const accuracyParam = searchParams.get("accuracy");
+      const parsedAccuracy = accuracyParam === null ? undefined : Number(accuracyParam);
+      const reportedAccuracy = parsedAccuracy !== undefined && Number.isFinite(parsedAccuracy) && parsedAccuracy >= 0
+        ? parsedAccuracy
+        : undefined;
+      if (
+        !Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+        latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180
+      ) {
+        return NextResponse.json({ error: "Invalid coordinates" }, { status: 400 });
+      }
       // A restaurant a few kilometres away is not where the diner is. Use a
-      // tight, GPS-aware radius: tolerant of ordinary phone drift and venue
-      // centroids, but never enough to jump to another neighborhood.
+      // bounded, GPS-aware venue radius: tolerant of ordinary phone drift and
+      // provider centroids, but never enough to jump to another neighborhood.
       const maxDistanceKm = onsiteRestaurantRadiusKm(
-        Number.isFinite(reportedAccuracy) ? reportedAccuracy : undefined
+        reportedAccuracy
       );
+      locationDiagnostic = {
+        reportedAccuracyMeters: reportedAccuracy === undefined ? null : Math.round(reportedAccuracy),
+        radiusMeters: Math.round(maxDistanceKm * 1000),
+      };
       restaurant = await findStoredNearbyRestaurant(latitude, longitude, maxDistanceKm);
       if (!restaurant && process.env.GOOGLE_MAPS_ENABLED === "true") {
         restaurant = await findNearbyRestaurant(latitude, longitude);
@@ -42,6 +57,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (!restaurant) {
+      console.info("[restaurant-location] no stored restaurant in on-site radius", locationDiagnostic);
       return NextResponse.json(
         { error: "No restaurant found nearby" },
         { status: 404 }

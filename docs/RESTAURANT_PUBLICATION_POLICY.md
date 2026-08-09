@@ -22,10 +22,12 @@ clusters them rather than silently dropping records.
 
 ## On-site rule
 
-The GPS-first opening is the primary product moment. The app selects the nearest
-published restaurant only inside a tight, phone-accuracy-aware radius of
-120–350 meters. An empty restaurant is still eligible. A restaurant several
-blocks away is not silently presented as the diner's current venue.
+The GPS-first opening is the primary product moment. The app requires a fresh
+location reading and selects the nearest published restaurant only inside a
+bounded, phone-accuracy-aware venue radius of 250–500 meters. This accounts for
+ordinary indoor GPS drift and provider coordinates placed at a parcel or venue
+centroid. An empty restaurant is still eligible. A restaurant outside that
+immediate venue area is not silently presented as the diner's current venue.
 
 ## Readiness treatment
 

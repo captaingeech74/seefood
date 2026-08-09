@@ -413,9 +413,10 @@ rolled back after a live QA spot check exposed a mislabeled sign company. The
 pre-change Git rollback tag is `rollback/pre-temecula-show-all-20260808`.
 
 The map displays individual restaurants at neighborhood scale and clusters only
-when a viewport exceeds 120 records. GPS lookup uses a phone-accuracy-aware
-120–350 meter radius and includes shells. Shell pages say "You're in the right
-place" and offer an immediate first-dish contribution action. The `/pulse`
+when a viewport exceeds 120 records. GPS lookup requires a fresh reading, uses
+a phone-accuracy-aware 250–500 meter venue radius, and includes shells. Shell
+pages say "You're in the right place" and offer an immediate first-dish
+contribution action. The `/pulse`
 headline is intentionally limited to verified, live, strong, and neighborhood
 availability; the legacy funnel remains collapsed for diagnosis.
 

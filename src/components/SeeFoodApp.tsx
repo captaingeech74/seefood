@@ -189,7 +189,10 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         );
         setState("error");
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      // The primary use case starts after arrival. A cached reading from the
+      // drive in can be hundreds of metres away even when its reported
+      // accuracy is good, so require a fresh fix.
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
     // Only run once on mount — initialPlaceId/fetchRestaurant/fetchRestaurantByPlaceId
     // are stable for the lifetime of this decision.

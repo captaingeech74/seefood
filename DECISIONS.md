@@ -2110,3 +2110,13 @@ food-service category or high-confidence menu evidence. In Temecula this keeps
 394 restaurants live while withholding 32 unresolved business records and 12
 known closures. Content-poor but real restaurants remain fully visible and
 GPS-discoverable.
+
+## Require fresh, venue-tolerant GPS for the primary opening (August 8, 2026)
+
+The GPS-first home route may not reuse a browser location from the drive into a
+restaurant. It requests a fresh high-accuracy reading (`maximumAge: 0`) and
+matches against a bounded 250–500 meter radius based on the phone's reported
+accuracy. The allowance covers ordinary indoor drift and provider parcel or
+venue centroids without returning to the former multi-kilometer nearest-place
+behavior. Failed matches log only the reported accuracy and applied radius, not
+the diner's coordinates.

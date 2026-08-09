@@ -1,8 +1,12 @@
-/** Tight enough to avoid claiming a restaurant in another block, but tolerant
- * of ordinary phone GPS drift and restaurant-coordinate centroids. */
+/**
+ * On-site GPS is not a survey point: browsers can drift indoors and provider
+ * coordinates may represent a parcel or venue centroid rather than the front
+ * door. Keep the match bounded to the immediate venue area while allowing a
+ * real diner to resolve despite those two ordinary errors.
+ */
 export function onsiteRestaurantRadiusKm(reportedAccuracyMeters?: number): number {
-  if (reportedAccuracyMeters === undefined || !Number.isFinite(reportedAccuracyMeters)) return 0.2;
-  return Math.max(0.12, Math.min(0.35, (reportedAccuracyMeters + 80) / 1000));
+  if (reportedAccuracyMeters === undefined || !Number.isFinite(reportedAccuracyMeters)) return 0.35;
+  return Math.max(0.25, Math.min(0.5, (reportedAccuracyMeters + 180) / 1000));
 }
 
 export function shouldClusterRestaurantPins(restaurantCount: number): boolean {
