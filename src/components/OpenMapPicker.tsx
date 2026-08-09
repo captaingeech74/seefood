@@ -5,7 +5,7 @@ import type { Map as MapLibreMap, Marker } from "maplibre-gl";
 import type { MapPickerProps } from "@/components/MapPicker";
 import type { DishPhoto, Restaurant } from "@/lib/types";
 import { formatAddress } from "@/lib/labels";
-import { shouldClusterRestaurantPins } from "@/lib/restaurantPolicy";
+import { recoveryMapZoom, shouldClusterRestaurantPins } from "@/lib/restaurantPolicy";
 
 type SearchRestaurant = Restaurant & { distanceKm?: number };
 type GeocoderResult = { id: string; label: string; lat: number; lng: number; type?: string };
@@ -27,6 +27,7 @@ export default function OpenMapPicker({
   const markersRef = useRef<Marker[]>([]);
   const userMarkerRef = useRef<Marker | null>(null);
   const requestRef = useRef(0);
+  const recoveryZoomAdjustedRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [restaurants, setRestaurants] = useState<SearchRestaurant[]>([]);
   const [previews, setPreviews] = useState<Record<string, MapPreview>>({});
@@ -78,17 +79,26 @@ export default function OpenMapPicker({
       const rows = payload.restaurants ?? [];
       setRestaurants(rows);
       void loadPreviews(rows.filter((restaurant) => restaurant.readiness !== "shell").slice(0, 200));
+
+      if (recoveryMode && !recoveryZoomAdjustedRef.current && rows.length > 1) {
+        recoveryZoomAdjustedRef.current = true;
+        const currentZoom = map.getZoom();
+        const adjustedZoom = recoveryMapZoom(currentZoom, lat, rows);
+        if (adjustedZoom > currentZoom + 0.1) {
+          map.easeTo({ center: [lng, lat], zoom: adjustedZoom, duration: 550 });
+        }
+      }
     } catch {
       // Keep the existing pins if a viewport refresh briefly fails.
     }
-  }, [loadPreviews]);
+  }, [lat, lng, loadPreviews, recoveryMode]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     let disposed = false;
     void import("maplibre-gl").then((maplibre) => {
       if (disposed || !containerRef.current) return;
-      const start = initialView ?? { lat, lng, zoom: recoveryMode ? 16 : 14 };
+      const start = initialView ?? { lat, lng, zoom: recoveryMode ? 15 : 14 };
       const map = new maplibre.Map({
         container: containerRef.current,
         style: STYLE_URL,

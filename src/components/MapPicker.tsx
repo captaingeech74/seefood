@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { DishPhoto, Restaurant } from "@/lib/types";
 import { formatAddress } from "@/lib/labels";
+import { recoveryMapZoom } from "@/lib/restaurantPolicy";
 
 export interface MapView {
   lat: number;
@@ -176,6 +177,7 @@ export default function MapPicker({
   const markersRef = useRef<google.maps.Marker[]>([]);
   const selectedMarkerRef = useRef<google.maps.Marker | null>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const recoveryZoomAdjustedRef = useRef(false);
   const previewsRef = useRef<Map<string, MapPreview>>(new Map());
 
   const [ready, setReady] = useState(false);
@@ -468,12 +470,23 @@ export default function MapPicker({
 
           await loadPreviewsAndAddMarkers(mapInstance, withFixture);
 
+          if (recoveryMode && !recoveryZoomAdjustedRef.current && withFixture.length > 1) {
+            recoveryZoomAdjustedRef.current = true;
+            const currentZoom = mapInstance.getZoom() ?? 15;
+            const coordinates = withFixture.flatMap((place) => {
+              const location = place.geometry?.location;
+              return location ? [{ lat: location.lat(), lng: location.lng() }] : [];
+            });
+            const adjustedZoom = recoveryMapZoom(currentZoom, center.lat(), coordinates);
+            if (adjustedZoom > currentZoom + 0.1) mapInstance.setZoom(adjustedZoom);
+          }
+
           const n = Math.min(withFixture.length, 20);
           showFoundToast(`${n} restaurant${n === 1 ? "" : "s"} found`);
 
           // First open only: if the camera landed somewhere with pins all
           // off-screen, widen to include them — never open onto an empty map.
-          if (opts?.ensureVisible && markersRef.current.length > 0) {
+          if (!recoveryMode && opts?.ensureVisible && markersRef.current.length > 0) {
             const view = mapInstance.getBounds();
             const anyVisible = markersRef.current.some((m) => {
               const p = m.getPosition();
@@ -496,14 +509,14 @@ export default function MapPicker({
         }
       );
     },
-    [clearMarkers, loadPreviewsAndAddMarkers, showFoundToast]
+    [clearMarkers, loadPreviewsAndAddMarkers, recoveryMode, showFoundToast]
   );
 
   const initMap = useCallback(() => {
     if (!mapRef.current || !window.google) return;
 
     const center = initialView ?? { lat, lng };
-    const zoom = initialView?.zoom ?? (recoveryMode ? 16 : 13);
+    const zoom = initialView?.zoom ?? (recoveryMode ? 15 : 13);
 
     const mapInstance = new window.google.maps.Map(mapRef.current, {
       center,

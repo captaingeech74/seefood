@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { onsiteRestaurantRadiusKm, shouldClusterRestaurantPins } from "../restaurantPolicy";
+import { onsiteRestaurantRadiusKm, recoveryMapZoom, shouldClusterRestaurantPins } from "../restaurantPolicy";
 
 describe("restaurant publication and location policy", () => {
   it("uses a venue-tolerant on-site radius while keeping lookup local", () => {
@@ -13,5 +13,45 @@ describe("restaurant publication and location policy", () => {
   it("shows every individual restaurant until pins become unwieldy", () => {
     expect(shouldClusterRestaurantPins(120)).toBe(false);
     expect(shouldClusterRestaurantPins(121)).toBe(true);
+  });
+
+  it("zooms closer for genuinely dense restaurant groups", () => {
+    const dense = [
+      { lat: 33.5273, lng: -117.1147 },
+      { lat: 33.5276, lng: -117.1147 },
+      { lat: 33.5273, lng: -117.11435 },
+      { lat: 33.5276, lng: -117.11435 },
+    ];
+    const spreadOut = [
+      { lat: 33.5273, lng: -117.1147 },
+      { lat: 33.5323, lng: -117.1147 },
+      { lat: 33.5273, lng: -117.1087 },
+      { lat: 33.5323, lng: -117.1087 },
+    ];
+
+    expect(recoveryMapZoom(15, 33.5273, dense)).toBeGreaterThan(
+      recoveryMapZoom(15, 33.5273, spreadOut)
+    );
+  });
+
+  it("does not chase impossible same-coordinate collisions or exceed its cap", () => {
+    const sameParcel = [
+      { lat: 33.5273, lng: -117.1147 },
+      { lat: 33.5273, lng: -117.1147 },
+    ];
+    const extremelyDense = [
+      { lat: 33.5273, lng: -117.1147 },
+      { lat: 33.52739, lng: -117.1147 },
+    ];
+
+    expect(recoveryMapZoom(15, 33.5273, sameParcel)).toBe(15);
+    expect(recoveryMapZoom(15, 33.5273, extremelyDense)).toBe(18);
+  });
+
+  it("never zooms back out from a user-selected view", () => {
+    expect(recoveryMapZoom(17, 33.5273, [
+      { lat: 33.52, lng: -117.11 },
+      { lat: 33.54, lng: -117.09 },
+    ])).toBe(17);
   });
 });
