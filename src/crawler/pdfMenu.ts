@@ -13,7 +13,7 @@ export type PdfMenuResult = {
   error?: string;
 };
 
-const PRICE_AT_END = /(?:\s|^)(?:\$|USD\s*)?(\d{1,3}(?:\.\d{2}))\s*$/i;
+const PRICE_AT_END = /(?:\s|^)(?:\$|USD\s*)?(\d{1,3}(?:\.\d{2})?)\s*$/i;
 const PRICE_ANYWHERE = /(?:\$|USD\s*)\s*\d{1,3}(?:\.\d{2})?/i;
 const NON_ITEM = /^(menu|food|drinks?|beverages?|breakfast|brunch|lunch|dinner|desserts?|appetizers?|entrees?|sides?|salads?|soups?|sandwiches?|burgers?|pizza|pastas?|cocktails?|wine|beer|prices?|hours?|order online|catering|premium [a-z0-9]+|regular|all you can eat menu)$/i;
 
@@ -41,6 +41,10 @@ export function parseMenuText(text: string): MenuItemData[] {
     if (!priceMatch) continue;
     let rawName = clean(line.slice(0, priceMatch.index)).replace(/^#{1,6}\s*/, "");
     if (PRICE_ANYWHERE.test(rawName)) continue;
+    // OCR can flatten two menu columns into "Dish A ..... 12 Dish B 14".
+    // The final number belongs to Dish B, so publishing the whole prefix would
+    // invent a name/price pairing. Keep the evidence out of the product layer.
+    if (/[.·…]{2,}\s*\d{1,3}(?:\.\d{2})?/.test(rawName)) continue;
     // Multiple decimal prices on one reconstructed line usually mean PDF
     // columns or size variants were flattened together. Do not invent a
     // single dish/price relationship from it.
@@ -51,6 +55,7 @@ export function parseMenuText(text: string): MenuItemData[] {
       /^[a-z&]/.test(rawName) ||
       /^(?:served|topped|with|our|a |an |choice|includes?)/i.test(rawName)
     )) rawName = previous;
+    if (/[.·…]{2,}\s*\d{1,3}(?:\.\d{2})?/.test(rawName)) continue;
     if (rawName.length < 2 || rawName.length > 120 || NON_ITEM.test(rawName)) continue;
     if (/^[a-z]/.test(rawName) || /^(add|extra|substitute|choice of|market price|mp\b|&)|(?:,|\s)ADD$/i.test(rawName)) continue;
     if ((rawName.match(/[A-Za-z]/g) ?? []).length < 2) continue;
@@ -70,7 +75,13 @@ export function parseMenuText(text: string): MenuItemData[] {
     const key = item.name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
     if (!deduped.has(key)) deduped.set(key, item);
   }
-  return [...deduped.values()].slice(0, 500);
+  const unique = [...deduped.values()];
+  return unique.filter((item) => !unique.some((candidate) => {
+    if (candidate === item || candidate.name.length >= item.name.length) return false;
+    const suffix = item.name.slice(item.name.length - candidate.name.length);
+    const prefix = item.name.slice(0, item.name.length - candidate.name.length);
+    return suffix.toLowerCase() === candidate.name.toLowerCase() && prefix.trim().length <= 5;
+  })).slice(0, 500);
 }
 
 /** PaddleOCR-VL preserves document reading order and Markdown headings. Many
@@ -195,7 +206,16 @@ export async function extractMenuImage(url: string): Promise<PdfMenuResult> {
     if (!bytes.length || bytes.length > 25 * 1024 * 1024) throw new Error("image_too_large");
     const sha256 = createHash("sha256").update(bytes).digest("hex");
     const routed = await runDocumentOcr(bytes,contentType);
-    if (!routed.result) return { items: [],method:"none",sha256,byteCount:bytes.length,pageCount:1,textCharacterCount:0,ocrAttempts:routed.attempts };
+    if (!routed.result) return {
+      items: [],
+      method: "none",
+      sha256,
+      byteCount: bytes.length,
+      pageCount: 1,
+      textCharacterCount: 0,
+      ocrAttempts: routed.attempts,
+      error: "ocr_unavailable",
+    };
     const items = mergeParsedItems(parseMenuText(routed.result.text),parseVisionMenuText(routed.result.text));
     return { items,method:routed.result.provider,sha256,byteCount:bytes.length,pageCount:1,textCharacterCount:routed.result.text.length,ocrAttempts:routed.attempts };
   } catch (error) {

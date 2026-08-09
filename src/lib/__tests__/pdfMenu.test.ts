@@ -21,13 +21,23 @@ describe("PDF menu text parsing", () => {
     expect(parseMenuText("Tacos $12.00\nTacos $12.00")).toHaveLength(1);
   });
 
+  it("accepts whole-dollar prices commonly recovered from image menus", () => {
+    expect(parseMenuText("Classic Caesar 16\nromaine, croutons, lemon, parmesan"))
+      .toEqual([expect.objectContaining({ name: "Classic Caesar", price: 16 })]);
+  });
+
   it("rejects flattened columns, description fragments, and add-on labels", () => {
     expect(parseMenuText(`
       Individual 4.50 Whole 69.99
       and sautéed seasonal vegetables 13.99
       BEEF RIBS (3 BONES), ADD 8.00
+      Abeja Merlot ..... 75 Baron Red Blend 78
+      Girlan Pinot Noir ..... 75
+      with the next column accidentally flattened 98
+      Sp] Spicy Lamb Rigatoni 28
+      Spicy Lamb Rigatoni 28
       NY Four Cheese Pizza 14.85
-    `).map((item) => item.name)).toEqual(["NY Four Cheese Pizza"]);
+    `).map((item) => item.name)).toEqual(["Girlan Pinot Noir", "Spicy Lamb Rigatoni", "NY Four Cheese Pizza"]);
   });
 });
 

@@ -41,3 +41,21 @@ export function isOvertureFoodServicePlace(properties: OvertureClassification): 
   ].filter((category): category is string => Boolean(category));
   return categories.some((category) => FOOD_SERVICE_CATEGORIES.has(category));
 }
+
+type OvertureAddress = {
+  freeform?: string | null;
+  locality?: string | null;
+  region?: string | null;
+  postcode?: string | null;
+};
+
+export function formatOvertureAddress(address: OvertureAddress | null | undefined): string | null {
+  if (!address) return null;
+  const street = address.freeform?.trim() ?? "";
+  const locality = address.locality?.trim() ?? "";
+  const regionPostal = [address.region?.trim(), address.postcode?.trim()].filter(Boolean).join(" ");
+  const localityAlreadyPresent = locality
+    && street.toLowerCase().includes(locality.toLowerCase());
+  const parts = [street, localityAlreadyPresent ? "" : locality, regionPostal].filter(Boolean);
+  return parts.length ? parts.join(", ") : null;
+}

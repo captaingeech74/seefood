@@ -77,6 +77,12 @@ describe("website acquisition V3 menu recovery", () => {
     expect(discoverMenuImages(html,"https://restaurant.example/menu",true)).toEqual(["https://restaurant.example/menu-page-1.jpg"]);
   });
 
+  it("recovers original Squarespace menu booklets instead of their thumbnails", () => {
+    const original="https://images.squarespace-cdn.com/content/Spokane+Menu+Booklet.jpg";
+    const html=`<img src="${original}?format=100w" data-image="${original}" data-image-dimensions="4200x2550" alt="">`;
+    expect(discoverMenuImages(html,"https://www.woodencityspokane.com/menu",true)).toEqual([original]);
+  });
+
   it("recovers a repeated visual menu that intentionally omits prices",()=>{
     const html=`<main>${["Fried Calamari","Pizza Margherita","Pizza Regina","Tuna Salad","Cheese Garlic Bread"].map((name,index)=>`<div class="wixui-rich-text"><p style="font-size:20px">${name}</p><p style="font-size:15px">Fresh description number ${index}</p></div>`).join("")}</main>`;
     expect(parseUnpricedMenuDom(html).map(item=>item.name)).toContain("Pizza Margherita");

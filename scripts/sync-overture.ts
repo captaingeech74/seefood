@@ -8,7 +8,7 @@ import { createInterface } from "node:readline";
 import { spawnSync } from "node:child_process";
 import pg from "pg";
 import { resolveIdentity, type IdentityCandidate } from "../src/lib/acquisitionIdentity";
-import { isOvertureFoodServicePlace } from "../src/lib/overturePolicy";
+import { formatOvertureAddress, isOvertureFoodServicePlace } from "../src/lib/overturePolicy";
 
 type Args = Record<string, string | boolean>;
 type Bounds = { west: number; south: number; east: number; north: number };
@@ -106,7 +106,7 @@ function parseFeature(line: string, bounds: Bounds, polygons?: Polygon[]): Overt
   const name = properties?.names?.primary;
   const providerId = feature.id;
   if (typeof name !== "string" || !name.trim() || typeof providerId !== "string") return null;
-  const address = addressRow.freeform || [addressRow.locality, addressRow.region, addressRow.postcode].filter(Boolean).join(", ") || null;
+  const address = formatOvertureAddress(addressRow);
   const websites = [...new Set((properties.websites ?? []).map(normalizeUrl).filter(Boolean))] as string[];
   const sources = Array.isArray(properties.sources) ? properties.sources : [];
   const normalized = {

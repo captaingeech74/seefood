@@ -185,16 +185,19 @@ export function discoverMenuImages(html: string, baseUrl: string, menuContext: b
   const $ = cheerio.load(html), candidates: Array<{ url: string; score: number }> = [];
   $("img").each((_, element) => {
     const node = $(element);
-    const raw = node.attr("src") ?? node.attr("data-src") ?? node.attr("data-lazy-src");
+    // Builders such as Squarespace keep the original menu document in
+    // `data-image` while `src` may be an aggressively downscaled thumbnail.
+    const raw = node.attr("data-image") ?? node.attr("data-src") ?? node.attr("data-lazy-src") ?? node.attr("src");
     const url = safePublicUrl(raw, baseUrl);
     if (!url || /logo|icon|favicon|avatar|social|badge|button|tracking|\.svg(?:\?|$)/i.test(url)) return;
-    const filename=decodeURIComponent(new URL(url).pathname.split("/").pop()??"");
+    const filename=decodeURIComponent(new URL(url).pathname.split("/").pop()??"").replace(/\+/g," ");
     const alternate=`${node.attr("alt")??""} ${node.attr("title")??""}`;
-    const menuNamed=/(?:food|drink)?[+ _-]?menu[+ _-]?(?:page|\d)|menu[_ -]?(?:page|\d)/i.test(`${filename} ${alternate}`);
+    const menuNamed=/(?:^|[^a-z])(?:food|drink|dinner|lunch|breakfast|brunch|happy[ _-]?hour)?[ _-]*menu(?:[ _-]*(?:booklet|page|\d))?(?:[^a-z]|$)/i.test(`${filename} ${alternate}`);
     const numberedDocument=menuContext&&/^\d{1,2}\.(?:png|jpe?g|webp)$/i.test(filename);
-    const width = Number(node.attr("width") ?? 0), height = Number(node.attr("height") ?? 0);
+    const dimensions=(node.attr("data-image-dimensions")??"").match(/^(\d+)x(\d+)$/i);
+    const width = Number(node.attr("width") ?? dimensions?.[1] ?? 0), height = Number(node.attr("height") ?? dimensions?.[2] ?? 0);
     const large = width >= 600 || height >= 800;
-    if (!menuNamed&&!numberedDocument) return;
+    if (!(menuNamed && menuContext) && !numberedDocument) return;
     candidates.push({ url, score: (menuNamed ? 100 : 0) + (numberedDocument?60:0) + (large ? 30 : 0) });
   });
   return [...new Set(candidates.sort((a,b)=>b.score-a.score).map(candidate=>candidate.url))].slice(0, 8);

@@ -35,6 +35,7 @@ async function main(){
        and ($4::uuid[] is null or o.entity_id=any($4::uuid[]))
        and o.item_name!~* '^(extra|add|substitute|choice of)(?:$|[^a-z])'
        and o.item_name!~* '^(?:only|checkout|standard\+?|\([0-9]+ items?\)|[0-9]+ oz\.?|medium|small|large)$'
+       and o.item_name!~ '[.·…]{2,}[[:space:]]*[0-9]'
        and o.item_name!~* '(?:shirts?|hoodies?|gift cards?)$'
        and not exists (select 1 from website_menu_observations suspect where suspect.entity_id=o.entity_id and suspect.active
          and suspect.last_v3_run_id=o.last_v3_run_id and suspect.extraction_method like '%network_json' and suspect.price>=500)

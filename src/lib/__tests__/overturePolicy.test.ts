@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isOvertureFoodServicePlace } from "../overturePolicy";
+import { formatOvertureAddress, isOvertureFoodServicePlace } from "../overturePolicy";
 
 describe("Overture food-service classification", () => {
   it("accepts the ordinary restaurant hierarchy", () => {
@@ -20,5 +20,25 @@ describe("Overture food-service classification", () => {
       categories: { primary: "night_club", alternate: ["event_venue"] },
       taxonomy: { hierarchy: ["attractions_and_activities", "nightlife"] },
     })).toBe(false);
+  });
+});
+
+describe("Overture address formatting", () => {
+  it("keeps the street, city, state, and postal code searchable", () => {
+    expect(formatOvertureAddress({
+      freeform: "821 W Riverside Ave",
+      locality: "Spokane",
+      region: "WA",
+      postcode: "99201-0901",
+    })).toBe("821 W Riverside Ave, Spokane, WA 99201-0901");
+  });
+
+  it("does not repeat a locality already present in a complete freeform address", () => {
+    expect(formatOvertureAddress({
+      freeform: "719 N Monroe St, Spokane",
+      locality: "Spokane",
+      region: "WA",
+      postcode: "99201",
+    })).toBe("719 N Monroe St, Spokane, WA 99201");
   });
 });
