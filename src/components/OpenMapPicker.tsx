@@ -16,6 +16,7 @@ const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 export default function OpenMapPicker({
   lat,
   lng,
+  recoveryMode = false,
   initialView,
   onViewChange,
   onSelectRestaurant,
@@ -24,6 +25,7 @@ export default function OpenMapPicker({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
+  const userMarkerRef = useRef<Marker | null>(null);
   const requestRef = useRef(0);
   const [ready, setReady] = useState(false);
   const [restaurants, setRestaurants] = useState<SearchRestaurant[]>([]);
@@ -86,7 +88,7 @@ export default function OpenMapPicker({
     let disposed = false;
     void import("maplibre-gl").then((maplibre) => {
       if (disposed || !containerRef.current) return;
-      const start = initialView ?? { lat, lng, zoom: 14 };
+      const start = initialView ?? { lat, lng, zoom: recoveryMode ? 16 : 14 };
       const map = new maplibre.Map({
         container: containerRef.current,
         style: STYLE_URL,
@@ -95,6 +97,12 @@ export default function OpenMapPicker({
       });
       map.addControl(new maplibre.NavigationControl({ showCompass: false }), "bottom-right");
       map.on("load", () => {
+        const userLocation = document.createElement("div");
+        userLocation.className = "open-map-user-location";
+        userLocation.setAttribute("aria-label", "Your location");
+        userMarkerRef.current = new maplibre.Marker({ element: userLocation })
+          .setLngLat([lng, lat])
+          .addTo(map);
         setReady(true);
         void loadViewport();
       });
@@ -113,10 +121,12 @@ export default function OpenMapPicker({
       disposed = true;
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [initialView, lat, lng, loadViewport, onViewChange]);
+  }, [initialView, lat, lng, loadViewport, onViewChange, recoveryMode]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -170,12 +180,25 @@ export default function OpenMapPicker({
           element.style.backgroundImage = `url(${JSON.stringify(preview.topPhoto.url).slice(1, -1)})`;
         }
         element.addEventListener("click", () => setSelected(restaurant));
-        return new MapMarker({ element, anchor: "bottom" })
+        if (!recoveryMode) {
+          return new MapMarker({ element, anchor: "bottom" })
+            .setLngLat([restaurant.lng, restaurant.lat])
+            .addTo(map);
+        }
+
+        const labeledMarker = document.createElement("div");
+        labeledMarker.className = "open-map-labeled-marker";
+        labeledMarker.addEventListener("click", () => setSelected(restaurant));
+        const label = document.createElement("span");
+        label.className = "open-map-pin-label";
+        label.textContent = restaurant.name;
+        labeledMarker.append(label, element);
+        return new MapMarker({ element: labeledMarker, anchor: "bottom" })
           .setLngLat([restaurant.lng, restaurant.lat])
           .addTo(map);
       });
     });
-  }, [previews, ready, restaurants, selected?.id]);
+  }, [previews, ready, recoveryMode, restaurants, selected?.id]);
 
   useEffect(() => {
     const query = searchText.trim();
@@ -309,6 +332,17 @@ export default function OpenMapPicker({
       {ready && restaurants.length === 0 && !selected && (
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10 rounded-full bg-black/75 backdrop-blur-lg px-4 py-2 text-white/60 text-[12px] whitespace-nowrap">
           No SeeFood restaurants in this view yet
+        </div>
+      )}
+
+      {recoveryMode && !selected && restaurants.length > 0 && (
+        <div
+          className="absolute z-10 inset-x-0 bottom-0 px-4 pt-12 pb-[max(22px,env(safe-area-inset-bottom))] pointer-events-none"
+          style={{ background: "linear-gradient(to top, rgba(10,10,10,0.98) 0%, rgba(10,10,10,0.78) 68%, transparent 100%)" }}
+        >
+          <h1 className="mx-auto max-w-xl text-center text-[25px] font-bold tracking-[-0.03em]">
+            Where would you like to See Food?
+          </h1>
         </div>
       )}
 

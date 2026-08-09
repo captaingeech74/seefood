@@ -61,6 +61,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
   // Preserves map pan/zoom across opens (PRD §4.4 "back preserves map position") —
   // only used on re-open, not the first cold explore entry, which centers fresh.
   const [lastMapView, setLastMapView] = useState<MapView | null>(null);
+  const [mapRecoveryMode, setMapRecoveryMode] = useState(false);
 
   const fetchDishes = useCallback(async (r: Restaurant) => {
     setDishesLoading(true);
@@ -134,8 +135,11 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         setState("loading_dishes");
         await fetchDishes(data);
       } catch {
-        setError("Could not find a restaurant near you.");
-        setState("error");
+        // We know where the diner is, but cannot confidently choose the
+        // restaurant. Let them resolve the ambiguity on the nearby map
+        // instead of presenting a dead-end error.
+        setMapRecoveryMode(true);
+        setState("map_open");
       }
     },
     [fetchDishes]
@@ -219,6 +223,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
 
   const handleSelectRestaurant = useCallback(
     (placeId: string, _name: string) => {
+      setMapRecoveryMode(false);
       fetchRestaurantByPlaceId(placeId);
     },
     [fetchRestaurantByPlaceId]
@@ -253,7 +258,10 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
           </p>
         )}
         <button
-          onClick={() => setState("map_open")}
+          onClick={() => {
+            setMapRecoveryMode(false);
+            setState("map_open");
+          }}
           className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white px-8 py-3.5 rounded-2xl font-bold text-[14px] active:scale-95 transition-all shadow-lg shadow-orange-500/20"
         >
           Search for a Restaurant
@@ -267,10 +275,14 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
       <RestaurantPicker
         lat={userLat || 37.7749}
         lng={userLng || -122.4194}
+        recoveryMode={mapRecoveryMode}
         initialView={lastMapView}
         onViewChange={setLastMapView}
         onSelectRestaurant={handleSelectRestaurant}
-        onClose={() => setState(restaurant ? "ready" : "error")}
+        onClose={() => {
+          setMapRecoveryMode(false);
+          setState(restaurant ? "ready" : "error");
+        }}
       />
     );
   }
@@ -280,7 +292,10 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
       <RestaurantHeader
         restaurant={restaurant}
         dishes={dishes}
-        onChangeRestaurant={() => setState("map_open")}
+        onChangeRestaurant={() => {
+          setMapRecoveryMode(false);
+          setState("map_open");
+        }}
         onSuggestDish={(initialName) => setSuggest({ initialName })}
         onOpenReveal={(list, index, allPhotos) => setReveal({ list, index, allPhotos })}
       />

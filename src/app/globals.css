@@ -264,6 +264,40 @@ img {
   font-weight: 800;
 }
 
+.open-map-labeled-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.open-map-user-location {
+  width: 18px;
+  height: 18px;
+  border: 3px solid #dbeafe;
+  border-radius: 999px;
+  background: #3b82f6;
+  box-shadow: 0 0 0 18px rgb(59 130 246 / 18%), 0 2px 9px rgb(0 0 0 / 40%);
+}
+
+.open-map-pin-label,
+.seefood-google-map-label {
+  max-width: 170px;
+  overflow: hidden;
+  padding: 5px 9px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 9px;
+  background: rgb(10 10 10 / 88%);
+  box-shadow: 0 3px 12px rgb(0 0 0 / 42%);
+  color: white;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 80%);
+  white-space: nowrap;
+}
+
 .open-map-cluster {
   width: 42px;
   height: 42px;

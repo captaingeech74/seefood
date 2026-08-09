@@ -13,6 +13,7 @@ export interface MapView {
 export interface MapPickerProps {
   lat: number;
   lng: number;
+  recoveryMode?: boolean;
   initialView?: MapView | null;
   onViewChange?: (view: MapView) => void;
   onSelectRestaurant: (placeId: string, name: string) => void;
@@ -164,6 +165,7 @@ async function buildPhotoMarkerIcons(url: string): Promise<{ normal: string; sel
 export default function MapPicker({
   lat,
   lng,
+  recoveryMode = false,
   initialView,
   onViewChange,
   onSelectRestaurant,
@@ -203,6 +205,7 @@ export default function MapPicker({
     strokeColor: "#ffffff",
     strokeWeight: 2.5,
     scale: 8.5,
+    labelOrigin: new window.google.maps.Point(0, -18),
   }), []);
 
   const selectedDotIcon = useCallback((): google.maps.Symbol => ({
@@ -212,6 +215,7 @@ export default function MapPicker({
     strokeColor: "#ff6b35",
     strokeWeight: 4,
     scale: 11,
+    labelOrigin: new window.google.maps.Point(0, -21),
   }), []);
 
   // Composited circular marker icons per photo URL (see buildPhotoMarkerIcons).
@@ -230,12 +234,14 @@ export default function MapPicker({
           scaledSize: new window.google.maps.Size(size, size + PIN.tail),
           // Anchor at the tail tip so the pin points at its coordinate.
           anchor: new window.google.maps.Point(size / 2, size + PIN.tail),
+          labelOrigin: new window.google.maps.Point(size / 2, -8),
         };
       }
       return {
         url,
         scaledSize: new window.google.maps.Size(isSelected ? 56 : 44, isSelected ? 56 : 44),
         anchor: new window.google.maps.Point(isSelected ? 28 : 22, isSelected ? 28 : 22),
+        labelOrigin: new window.google.maps.Point(isSelected ? 28 : 22, -8),
       };
     },
     []
@@ -270,6 +276,15 @@ export default function MapPicker({
         title: place.name,
         position: place.geometry.location,
         icon: preview ? photoIcon(preview.topPhoto.url, false) : dotIcon(),
+        label: recoveryMode
+          ? {
+              text: (place.name || "Restaurant").slice(0, 28),
+              color: "#ffffff",
+              fontSize: "12px",
+              fontWeight: "700",
+              className: "seefood-google-map-label",
+            }
+          : undefined,
         animation: window.google.maps.Animation.DROP,
       });
       marker.set("placeId", placeId);
@@ -296,7 +311,7 @@ export default function MapPicker({
       markersRef.current.push(marker);
       return marker;
     },
-    [dotIcon, photoIcon, setMarkerSelected]
+    [dotIcon, photoIcon, recoveryMode, setMarkerSelected]
   );
 
   // Viewport prefetch (PRD §4.4 <300ms pin taps): batch-fetch corpus photo
@@ -488,7 +503,7 @@ export default function MapPicker({
     if (!mapRef.current || !window.google) return;
 
     const center = initialView ?? { lat, lng };
-    const zoom = initialView?.zoom ?? 13; // Wide enough for Best Nearby to represent multiple restaurants, even in suburbs.
+    const zoom = initialView?.zoom ?? (recoveryMode ? 16 : 13);
 
     const mapInstance = new window.google.maps.Map(mapRef.current, {
       center,
@@ -527,6 +542,22 @@ export default function MapPicker({
     });
 
     mapInstanceRef.current = mapInstance;
+
+    new window.google.maps.Marker({
+      map: mapInstance,
+      position: { lat, lng },
+      title: "Your location",
+      zIndex: 1000,
+      clickable: false,
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        fillColor: "#3b82f6",
+        fillOpacity: 1,
+        strokeColor: "#dbeafe",
+        strokeWeight: 3,
+        scale: 7,
+      },
+    });
 
     mapInstance.addListener("click", () => {
       setSelected(null);
@@ -593,7 +624,7 @@ export default function MapPicker({
         }
       }, delay);
     });
-  }, [lat, lng, initialView, onViewChange, clearMarkers, searchCurrentArea, setMarkerSelected]);
+  }, [lat, lng, initialView, onViewChange, clearMarkers, recoveryMode, searchCurrentArea, setMarkerSelected]);
 
   useEffect(() => {
     const query = searchText.trim();
@@ -679,9 +710,9 @@ export default function MapPicker({
     const map = mapInstanceRef.current;
     if (!map) return;
     map.panTo({ lat, lng });
-    map.setZoom(13);
+    map.setZoom(recoveryMode ? 16 : 13);
     setTimeout(() => searchCurrentArea(map), 250);
-  }, [lat, lng, searchCurrentArea]);
+  }, [lat, lng, recoveryMode, searchCurrentArea]);
 
   return (
     <div className="fixed inset-0 z-50 bg-[var(--surface-0)] flex flex-col">
@@ -835,7 +866,11 @@ export default function MapPicker({
             opacity: selected ? 0 : 1,
             pointerEvents: selected ? "none" : "auto",
             transform: selected ? "scale(0.85)" : "scale(1)",
-            bottom: !selected && nearbyDishes.length > 0 ? (bestNearbyExpanded ? 326 : 178) : 20,
+            bottom: !selected && recoveryMode
+              ? 118
+              : !selected && nearbyDishes.length > 0
+                ? (bestNearbyExpanded ? 326 : 178)
+                : 20,
             transition: "opacity 240ms var(--ease-standard), transform 240ms var(--ease-standard)",
           }}
           aria-label="Recenter on my location"
@@ -846,7 +881,7 @@ export default function MapPicker({
           </svg>
         </button>}
 
-        {!selected && nearbyDishes.length > 0 && (
+        {!selected && !recoveryMode && nearbyDishes.length > 0 && (
           <div
             className="absolute inset-x-0 bottom-0 z-20 pt-10 pb-3 fade-up transition-[max-height] duration-300 overflow-hidden"
             style={{
@@ -921,6 +956,20 @@ export default function MapPicker({
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {!selected && recoveryMode && (
+          <div
+            className="absolute inset-x-0 bottom-0 z-20 px-4 pt-10 fade-up"
+            style={{
+              paddingBottom: "max(22px, env(safe-area-inset-bottom))",
+              background: "linear-gradient(to top, rgba(10,10,10,0.98) 0%, rgba(10,10,10,0.82) 68%, transparent 100%)",
+            }}
+          >
+            <h1 className="mx-auto max-w-xl text-center text-white text-[25px] font-bold tracking-[-0.03em]">
+              Where would you like to See Food?
+            </h1>
           </div>
         )}
 
