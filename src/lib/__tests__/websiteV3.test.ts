@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { chooseAdaptiveRoute, discoverMenuImages, isTrustedCrawlUrl, normalizeMenuItemName, parseLooseMenuDom, parseSemanticMenuDom, parseSitemapMenuLinks, parseUnpricedMenuDom, safePublicUrl } from "../../crawler/websiteV3";
-import { parseCapturedMenuPayloads } from "../menuSources";
+import { attachNamedPhotosToMenuItems, canonicalizeWebsiteImageUrl, chooseAdaptiveRoute, discoverMenuImages, extractNamedWebsitePhotos, isTrustedCrawlUrl, namedPhotoDishMatchScore, normalizeMenuItemName, parseLooseMenuDom, parseSemanticMenuDom, parseSitemapMenuLinks, parseUnpricedMenuDom, safePublicUrl } from "../../crawler/websiteV3";
+import { extractPageAssets, parseCapturedMenuPayloads } from "../menuSources";
 
 describe("website acquisition V3 routing", () => {
   it("escalates a blocked direct request through progressively stronger free fetchers", () => {
@@ -86,5 +86,60 @@ describe("website acquisition V3 menu recovery", () => {
   it("recovers a repeated visual menu that intentionally omits prices",()=>{
     const html=`<main>${["Fried Calamari","Pizza Margherita","Pizza Regina","Tuna Salad","Cheese Garlic Bread"].map((name,index)=>`<div class="wixui-rich-text"><p style="font-size:20px">${name}</p><p style="font-size:15px">Fresh description number ${index}</p></div>`).join("")}</main>`;
     expect(parseUnpricedMenuDom(html).map(item=>item.name)).toContain("Pizza Margherita");
+  });
+});
+
+describe("website acquisition V3 official gallery photos", () => {
+  it("discovers bounded same-origin gallery and food pages", () => {
+    const html=`<a href="/gallery">Gallery</a><a href="/our-food">Our Food</a><a href="/apparel">Shop</a>`;
+    expect(extractPageAssets(html,"https://restaurant.example/").pageUrls).toEqual([
+      "https://restaurant.example/gallery",
+      "https://restaurant.example/our-food",
+    ]);
+  });
+
+  it("collapses Squarespace size variants and rejects obvious non-food imagery", () => {
+    const original="https://images.squarespace-cdn.com/content/dish/Chicken+Schnitzel.jpg";
+    expect(canonicalizeWebsiteImageUrl(`${original}?format=100w`)).toBe(original);
+    const html=`<img src="${original}?format=100w" data-image="${original}" alt="ENTREE - Chicken Schnitzel (1)_enhanced copy.jpg">
+      <img src="${original}?format=1500w" alt="Chicken Schnitzel">
+      <img src="/bar.jpg" alt="Wooden City bar interior"><img src="/shirt.jpg" alt="Mustard tee apparel">`;
+    expect(extractNamedWebsitePhotos(html,"https://restaurant.example/gallery")).toEqual([
+      expect.objectContaining({url:original,label:"chicken schnitzel"}),
+    ]);
+  });
+
+  it("collapses Wix size variants to their original byte asset",()=>{
+    const original="https://static.wixstatic.com/media/a1b2c3~mv2.jpg";
+    expect(canonicalizeWebsiteImageUrl(`${original}/v1/fill/w_640,h_480,al_c,q_85/dinner.jpg`)).toBe(original);
+  });
+
+  it("rejects another branch selected through a same-site location parameter",()=>{
+    expect(isTrustedCrawlUrl(
+      "https://shawnodonnells.com/menu?location=Shawn%20O%27Donnell%27s%20Everett",
+      "https://shawnodonnells.com/",
+      "Shawn O'Donnell's Spokane",
+      "719 N Monroe St, Spokane, WA 99201",
+    )).toBe(false);
+  });
+
+  it("attaches a clearly named official photo only to its matching known dish", () => {
+    const evidence=["Chicken Schnitzel","Salmon Toast","French Fries"].map((name,index)=>({
+      item:{name,source:"schema_org" as const},method:"http:menu",evidenceUrl:"https://restaurant.example/menu",
+      confidence:0.84,sourceKey:"schema_org",fingerprint:`before-${index}`,
+    }));
+    const attached=attachNamedPhotosToMenuItems(evidence,[
+      {url:"https://cdn.example/chicken.jpg",label:"ENTREE - Chicken Schnitzel enhanced",evidenceUrl:"https://restaurant.example/gallery",method:"http"},
+      {url:"https://cdn.example/interior.jpg",label:"dining room interior",evidenceUrl:"https://restaurant.example/gallery",method:"http"},
+    ]);
+    expect(attached.find(item=>item.item.name==="Chicken Schnitzel")?.item.imageUrl).toBe("https://cdn.example/chicken.jpg");
+    expect(attached.find(item=>item.item.name==="Salmon Toast")?.item.imageUrl).toBeUndefined();
+    expect(attached.find(item=>item.item.name==="French Fries")?.item.imageUrl).toBeUndefined();
+  });
+
+  it("allows harmless cooking modifiers but rejects a different overlapping dish",()=>{
+    expect(namedPhotoDishMatchScore("Hungarian Wax Peppers","Blistered Hungarian Peppers")).toBe(85);
+    expect(namedPhotoDishMatchScore("Corned Beef Benedict","Corned Beef Scrambler")).toBe(0);
+    expect(namedPhotoDishMatchScore("Avo Garden Scramble","Avocado Garden Scramble")).toBe(100);
   });
 });

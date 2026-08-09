@@ -9,6 +9,7 @@ import { extractMenuImage, extractPdfMenu } from "../src/crawler/pdfMenu";
 import { ensurePythonEnv } from "../src/crawler/pythonFetch";
 import {
   crawlWebsiteV3,
+  namedPhotoDishMatchScore,
   normalizeMenuItemName,
   type WebsiteV3Result,
   type WebsiteV3Target,
@@ -93,12 +94,14 @@ async function persistWebsiteResult(pool: pg.Pool, runId: string, target: Websit
     }
 
     for (const url of [...new Set([...result.linkedPhotos, ...result.genericPhotos])].slice(0,160)) {
+      const named=result.namedPhotos.find(photo=>photo.url===url);
       await client.query(
         `insert into website_assets(entity_id,website_id,page_url,asset_url,kind,source,metadata,active,last_seen_at)
          values($1,$2,$3,$4,'image','website_v3',$5::jsonb,true,now())
          on conflict(entity_id,asset_url) do update set website_id=excluded.website_id,page_url=excluded.page_url,
          source=excluded.source,metadata=excluded.metadata,active=true,last_seen_at=now()`,
-        [target.entityId,target.websiteId,target.url,url,JSON.stringify({runId,menuLinked:result.linkedPhotos.includes(url),verificationStatus:"pending"})]
+        [target.entityId,target.websiteId,named?.evidenceUrl??target.url,url,JSON.stringify({runId,menuLinked:result.linkedPhotos.includes(url),verificationStatus:"pending",
+          namedFoodLabel:named?.label??null,namedPhotoCandidate:Boolean(named)})]
       );
     }
     // Byte verification is immediately valuable for dish-linked images.
@@ -109,6 +112,15 @@ async function persistWebsiteResult(pool: pg.Pool, runId: string, target: Websit
         `insert into website_asset_jobs(run_id,entity_id,website_id,asset_url,kind,menu_linked)
          values($1,$2,$3,$4,'image',$5) on conflict(run_id,website_id,asset_url,kind) do update set menu_linked=excluded.menu_linked`,
         [runId,target.entityId,target.websiteId,url,true]
+      );
+    }
+    // Explicitly labelled official gallery/food photos are bounded priority
+    // assets. Byte verification happens before any label can reach product data.
+    for (const photo of result.namedPhotos.filter(photo=>!result.linkedPhotos.includes(photo.url)).slice(0,80)) {
+      await client.query(
+        `insert into website_asset_jobs(run_id,entity_id,website_id,asset_url,kind,menu_linked)
+         values($1,$2,$3,$4,'image',false) on conflict(run_id,website_id,asset_url,kind) do nothing`,
+        [runId,target.entityId,target.websiteId,photo.url]
       );
     }
     for (const url of result.pdfUrls) {
@@ -243,7 +255,67 @@ async function processAssets(pool: pg.Pool, runId: string, concurrency: number) 
   return processed;
 }
 
-async function finalizeRun(pool:pg.Pool,runId:string,assetsProcessed:number){
+async function reconcileNamedWebsitePhotos(pool: pg.Pool, runId: string) {
+  const assets=(await pool.query(
+    `select entity_id,website_id,asset_url,page_url,metadata->>'namedFoodLabel' label
+     from website_assets where metadata->>'runId'=$1 and active
+       and metadata->>'namedPhotoCandidate'='true' and metadata->>'verificationStatus'='byte_verified'
+     order by entity_id,asset_url`,[runId]
+  )).rows as Array<{entity_id:string;website_id:string;asset_url:string;page_url:string;label:string}>;
+  if(!assets.length)return{namedPhotoCandidates:0,namedPhotoMatches:0,namedPhotoAmbiguous:0,namedPhotoUnmatched:0};
+  const entityIds=[...new Set(assets.map(asset=>asset.entity_id))];
+  const observations=(await pool.query(
+    `select distinct on(entity_id,source_key,item_fingerprint) entity_id,website_id,source_key,item_name,item_description,image_url,price,extraction_method,confidence
+     from website_menu_observations where entity_id=any($1::uuid[]) and active and confidence>=0.78
+     order by entity_id,source_key,item_fingerprint,confidence desc,last_seen_at desc`,[entityIds]
+  )).rows;
+  const byEntity=new Map<string,typeof observations>();
+  for(const observation of observations){const group=byEntity.get(observation.entity_id)??[];group.push(observation);byEntity.set(observation.entity_id,group);}
+  let matched=0,ambiguous=0,unmatched=0;
+  const matchedByEntity=new Map<string,number>();
+  for(const asset of assets){
+    const menu=new Map<string,(typeof observations)[number]>();
+    for(const observation of byEntity.get(asset.entity_id)??[]){const key=normalizeMenuItemName(observation.item_name);const current=menu.get(key);if(!current||Number(observation.confidence)>Number(current.confidence))menu.set(key,observation);}
+    const ranked=[...menu.values()].map(observation=>({observation,score:namedPhotoDishMatchScore(asset.label,observation.item_name)}))
+      .filter(candidate=>candidate.score>=85).sort((left,right)=>right.score-left.score||left.observation.item_name.localeCompare(right.observation.item_name));
+    const top=ranked[0],second=ranked[1];
+    const status=!top?"unmatched":second&&top.score===second.score?"ambiguous":"matched";
+    if(status!=="matched"){
+      if(status==="ambiguous")ambiguous++;else unmatched++;
+      await pool.query(`update website_assets set metadata=metadata||$3::jsonb,last_seen_at=now() where entity_id=$1 and asset_url=$2`,
+        [asset.entity_id,asset.asset_url,JSON.stringify({namedMatchStatus:status,matchedAt:new Date().toISOString()})]);
+      continue;
+    }
+    const observation=top.observation;
+    if(observation.image_url===asset.asset_url){
+      await pool.query(`update website_assets set metadata=metadata||$3::jsonb,last_seen_at=now() where entity_id=$1 and asset_url=$2`,
+        [asset.entity_id,asset.asset_url,JSON.stringify({namedMatchStatus:"matched",matchedMenuName:observation.item_name,matchScore:top.score,matchedAt:new Date().toISOString()})]);
+      matched++;matchedByEntity.set(asset.entity_id,(matchedByEntity.get(asset.entity_id)??0)+1);
+      continue;
+    }
+    const item={name:observation.item_name,description:observation.item_description??undefined,imageUrl:asset.asset_url,price:observation.price===null?undefined:Number(observation.price)};
+    const fingerprint=itemFingerprint(item);
+    await pool.query(
+      `insert into website_menu_observations(entity_id,website_id,source_key,item_name,item_description,image_url,price,item_fingerprint,active,last_seen_at,evidence_url,extraction_method,confidence,last_v3_run_id,absent_successful_runs)
+       values($1,$2,$3,$4,$5,$6,$7,$8,true,now(),$9,$10,$11,$12,0)
+       on conflict(entity_id,source_key,item_fingerprint) do update set active=true,last_seen_at=now(),website_id=excluded.website_id,
+         evidence_url=excluded.evidence_url,extraction_method=excluded.extraction_method,confidence=greatest(website_menu_observations.confidence,excluded.confidence),
+         last_v3_run_id=excluded.last_v3_run_id,absent_successful_runs=0`,
+      [asset.entity_id,asset.website_id,observation.source_key,observation.item_name,observation.item_description??null,asset.asset_url,
+       observation.price??null,fingerprint,asset.page_url,`${observation.extraction_method}+named_gallery_photo`,Math.max(Number(observation.confidence),0.9),runId]
+    );
+    await pool.query(`update website_assets set metadata=metadata||$3::jsonb,last_seen_at=now() where entity_id=$1 and asset_url=$2`,
+      [asset.entity_id,asset.asset_url,JSON.stringify({namedMatchStatus:"matched",matchedMenuName:observation.item_name,matchScore:top.score,matchedAt:new Date().toISOString()})]);
+    matched++;matchedByEntity.set(asset.entity_id,(matchedByEntity.get(asset.entity_id)??0)+1);
+  }
+  for(const [entityId,count] of matchedByEntity){
+    await pool.query(`update website_crawl_v3_results set menu_linked_photo_count=greatest(menu_linked_photo_count,$3) where run_id=$1 and entity_id=$2`,[runId,entityId,count]);
+    await pool.query(`update restaurant_websites set photo_count=greatest(photo_count,$2),updated_at=now() where entity_id=$1`,[entityId,count]);
+  }
+  return{namedPhotoCandidates:assets.length,namedPhotoMatches:matched,namedPhotoAmbiguous:ambiguous,namedPhotoUnmatched:unmatched};
+}
+
+async function finalizeRun(pool:pg.Pool,runId:string,assetsProcessed:number,namedPhotoMetrics:Record<string,number>={}){
   const metrics=(await pool.query(`select count(*) total,count(*) filter(where status='completed') completed,count(*) filter(where status='empty') empty,
     count(*) filter(where status='blocked') blocked,count(*) filter(where status='failed') failed,count(distinct entity_id) filter(where item_count>0) restaurants_with_menu,
     coalesce(sum(item_count),0) items,coalesce(sum(menu_linked_photo_count),0) linked_photos,coalesce(sum(generic_photo_candidate_count),0) generic_photos,
@@ -254,7 +326,7 @@ async function finalizeRun(pool:pg.Pool,runId:string,assetsProcessed:number){
   await pool.query(`update website_crawl_v3_runs set status='completed',completed_count=$2,empty_count=$3,blocked_count=$4,failed_count=$5,
     restaurant_with_menu_count=$6,item_count=$7,menu_linked_photo_count=$8,generic_photo_candidate_count=$9,pdf_discovered_count=$10,
     metadata=$11::jsonb,completed_at=now() where id=$1`,[runId,metrics.completed,metrics.empty,metrics.blocked,metrics.failed,metrics.restaurants_with_menu,
-    metrics.items,metrics.linked_photos,metrics.generic_photos,metrics.pdfs,JSON.stringify({assetsProcessed,...assetMetrics})]);
+    metrics.items,metrics.linked_photos,metrics.generic_photos,metrics.pdfs,JSON.stringify({assetsProcessed,...assetMetrics,...namedPhotoMetrics})]);
   return {...metrics,...assetMetrics};
 }
 
@@ -269,14 +341,15 @@ async function main(){
   const pool=new pg.Pool({connectionString:connectionString(),ssl:{rejectUnauthorized:false},max:concurrency+4});
   if(options["assets-run-id"]){
     const processed=await processAssets(pool,options["assets-run-id"],concurrency);
-    const metrics=await finalizeRun(pool,options["assets-run-id"],processed);
-    console.log(JSON.stringify({runId:options["assets-run-id"],assetsProcessed:processed,...metrics},null,2));
+    const namedPhotoMetrics=await reconcileNamedWebsitePhotos(pool,options["assets-run-id"]);
+    const metrics=await finalizeRun(pool,options["assets-run-id"],processed,namedPhotoMetrics);
+    console.log(JSON.stringify({runId:options["assets-run-id"],assetsProcessed:processed,...metrics,...namedPhotoMetrics},null,2));
     await pool.end();return;
   }
   if(options["run-id"]){throw new Error("V3 run resumption is automatic through durable jobs; omit --run-id");}
   await pool.query(`select queue_web_crawl_v3_market($1,$2)`,[market,options.refresh==="true"]);
   const leasedAll=(await pool.query(
-    `select j.id "jobId",j.entity_id "entityId",j.website_id "websiteId",j.attempts,j.lease_token "leaseToken",w.url,w.domain,e.name "restaurantName"
+    `select j.id "jobId",j.entity_id "entityId",j.website_id "websiteId",j.attempts,j.lease_token "leaseToken",w.url,w.domain,e.name "restaurantName",e.address "restaurantAddress"
      from lease_web_crawl_v3_jobs($1,$2,90) j join restaurant_websites w on w.id=j.website_id join restaurant_entities e on e.id=j.entity_id`,[market,limit]
   )).rows as WebsiteV3Target[];
   let leased=leasedAll;
@@ -302,14 +375,15 @@ async function main(){
       domainTails.set(target.domain,current.catch(()=>{}));
       await current;
     },
-    async failedRequestHandler({request},error){const target=request.userData.target as WebsiteV3Target;await persistWebsiteResult(pool,runId,target,{status:"failed",items:[],genericPhotos:[],linkedPhotos:[],menuImageUrls:[],pdfUrls:[],pages:[],platforms:[],methods:[],routeDecisions:[],elapsedMs:0,error:String(error)});finished++;}
+    async failedRequestHandler({request},error){const target=request.userData.target as WebsiteV3Target;await persistWebsiteResult(pool,runId,target,{status:"failed",items:[],namedPhotos:[],genericPhotos:[],linkedPhotos:[],menuImageUrls:[],pdfUrls:[],pages:[],platforms:[],methods:[],routeDecisions:[],elapsedMs:0,error:String(error)});finished++;}
   });
   try{
     await crawler.run(leased.map(target=>({url:target.url,uniqueKey:target.jobId,userData:{target}})));
     const assets=options["skip-assets"]==="true"?0:await processAssets(pool,runId,concurrency);
-    const metrics=await finalizeRun(pool,runId,assets);
+    const namedPhotoMetrics=options["skip-assets"]==="true"?{}:await reconcileNamedWebsitePhotos(pool,runId);
+    const metrics=await finalizeRun(pool,runId,assets,namedPhotoMetrics);
     const assetMetrics={assets:metrics.assets,asset_completed:metrics.asset_completed,pdf_items:metrics.pdf_items,unique_image_bytes:metrics.unique_image_bytes};
-    console.log(JSON.stringify({runId,market,...metrics,...assetMetrics},null,2));
+    console.log(JSON.stringify({runId,market,...metrics,...assetMetrics,...namedPhotoMetrics},null,2));
   }catch(error){await pool.query(`update website_crawl_v3_runs set status='failed',metadata=jsonb_build_object('error',$2::text),completed_at=now() where id=$1`,[runId,String(error)]);throw error;}
   finally{await pool.end();}
 }

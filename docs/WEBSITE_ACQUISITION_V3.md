@@ -23,6 +23,18 @@ was not unified into one reviewable corpus.
 - Dish-linked images and PDFs enter a durable asset queue. Generic page imagery
   is retained as low-priority evidence but does not consume immediate download
   and verification work.
+- Menu, gallery, galleries, photos, food, dishes, and cuisine pages are explicit
+  priority crawl targets. Official images with meaningful captions, alt text,
+  or filenames become named candidates; interiors, storefronts, people, logos,
+  drinks, events, and apparel are excluded from automatic dish matching.
+- Common responsive variants from Squarespace and Wix collapse to their stable
+  original asset URL before download. Exact byte hashes provide the second
+  deduplication layer, so alternate URLs for the same image do not inflate the
+  product photo count.
+- A named official food photo attaches automatically only when it has one clear
+  menu-dish match. Exact names, contained names, a small set of harmless cooking
+  modifiers, and the common `avo`/`avocado` abbreviation are accepted. Shared
+  words alone are not enough.
 - One failed observation never retires known-good evidence. Staleness requires
   two successful crawls that both establish absence.
 - V2 evidence is merged idempotently into the same durable observation layer.
@@ -86,6 +98,23 @@ Rollback point: `rollback/pre-website-v3-20260803`.
 
 LRay's Kitchen remains a protected `test_fixture` and was excluded from
 publication.
+
+## Official-gallery validation
+
+The August 9 Spokane validation corrected the omission that had left Wooden
+City's official gallery unused. Run `4b5a466a-60de-4a51-bead-54b81db062b0`
+attempted all four Spokane website records and completed all four. It verified
+137 priority assets representing 85 exact image-byte identities. Seventy
+explicitly named food-photo candidates produced six observation matches; review
+confirmed four unique Wooden City dish photos and one additional same-site match
+for Shawn O'Donnell's, alongside Shawn's existing Spokane ordering photos.
+
+The validation also caught a multi-location boundary failure before publication:
+an earlier run had followed Shawn O'Donnell's Spokane into an Everett menu. The
+crawler now rejects conflicting same-site location parameters. Twelve affected
+staging observations were quarantined under
+`wrong_location_menu_photo_match`; the quarantine log makes that cleanup
+reversible, and none of those records reached the application.
 
 ## Menu-recovery pass
 

@@ -246,11 +246,11 @@ export function extractArchivedPage(url: string, html: string): WebsiteExtractRe
  * Deliberately permissive: a wrong guess just means the follow-up page also
  * yields nothing (fail-open), so a false positive costs one wasted fetch.
  */
-const CONTENT_LINK_HINT = /menu|order|food|drink|catering|brunch|breakfast|lunch|dinner|happy[-_ ]?hour|special/i;
+const CONTENT_LINK_HINT = /menu|order|food|drink|catering|brunch|breakfast|lunch|dinner|happy[-_ ]?hour|special|galler(?:y|ies)|photos?|dishes|cuisine/i;
 const NON_FOOD_IMAGE_HINTS = /logo|icon|favicon|sprite|avatar|placeholder|\.svg(\?|$)|social|facebook|instagram|twitter|tripadvisor|yelp|pixel|analytics|badge|button|spacer|tracking/i;
 const PLATFORM_HOST_HINT = /menufy|toasttab|square\.site|squareup|clover|chownow|olo\.com|popmenu|bentobox|owner\.com|spothopper|slicelife|flipdish|lightspeed|gloriafood/i;
 const PLATFORM_MARKETING_HOST = /^(?:(?:www|get|go|blog|help|support|marketing)\.)?(?:popmenu\.com|owner\.com|spothopper\.com|menufy\.com)$/i;
-const NON_MENU_PAGE_HINT = /privacy|terms|legal|accessibility|careers?|jobs?|franchis|contact|about|blog|news|gallery|events?|rewards?|gift|facebook|instagram|twitter|tiktok|yelp/i;
+const NON_MENU_PAGE_HINT = /privacy|terms|legal|accessibility|careers?|jobs?|franchis|contact|about|blog|news|events?|rewards?|gift|facebook|instagram|twitter|tiktok|yelp/i;
 
 /**
  * Scrape plausible food-photo URLs directly off a page's <img> tags — the
@@ -325,10 +325,12 @@ export function extractPageAssets(html: string, baseUrl: string): { photoUrls: s
       const exactMenu = /^(?:our\s+)?(?:food\s+|full\s+|main\s+|dinner\s+|lunch\s+)?menus?$/i.test(anchor);
       const menuPath = /\/(?:food[-_/]?)?menus?(?:\/|$)/i.test(resolved.pathname);
       const orderPath = /\/(?:order|ordering|order-online|online-order)(?:\/|$)/i.test(resolved.pathname);
+      const mediaPath = /\/(?:galler(?:y|ies)|photos?|food|dishes|cuisine)(?:\/|$)/i.test(resolved.pathname);
       const score = (exactMenu ? 120 : 0) + (menuPath ? 90 : 0) + (orderPath ? 70 : 0)
+        + (mediaPath ? 65 : 0)
         + (PLATFORM_HOST_HINT.test(resolved.hostname) ? 45 : 0)
         + (/menu/i.test(anchor) ? 40 : 0) + (/order/i.test(anchor) ? 25 : 0)
-        + (/food|breakfast|brunch|lunch|dinner/i.test(anchor) ? 15 : 0)
+        + (/food|breakfast|brunch|lunch|dinner|gallery|photos?|dishes|cuisine/i.test(anchor) ? 15 : 0)
         - (/catering|drink|happy[- ]?hour|special/i.test(label) ? 20 : 0);
       pageUrls.push({ url: resolved.href, score });
     } catch {}
