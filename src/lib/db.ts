@@ -20,6 +20,7 @@ import {
 } from "./contributionFunnel";
 import { interpretContributionGoldContract } from "./contributionContract.mjs";
 import { normalizeMerchantItems, type MerchantProvider } from "./merchantProviders";
+import { restaurantSearchMatches, restaurantSearchTerms } from "./restaurantSearch";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -375,22 +376,14 @@ export async function searchStoredRestaurants(
     .limit(1000);
   if (error) throw error;
 
-  const terms = query
-    .normalize("NFKD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean);
+  const terms = restaurantSearchTerms(query);
 
   const restaurants = (data ?? [])
     .map((row) => storedRowToRestaurant(row as StoredRestaurantRow))
     .filter((row): row is Restaurant => row !== null)
     .map((restaurant) => {
-      const haystack = `${restaurant.name} ${restaurant.address}`
-        .normalize("NFKD")
-        .replace(/\p{Diacritic}/gu, "")
-        .toLowerCase();
-      const matches = terms.length === 0 || terms.every((term) => haystack.includes(term));
+      const haystack = `${restaurant.name} ${restaurant.address}`;
+      const matches = restaurantSearchMatches(query, haystack);
       const distanceKm = center
         ? haversineKm(center.lat, center.lng, restaurant.lat, restaurant.lng)
         : undefined;
@@ -398,8 +391,8 @@ export async function searchStoredRestaurants(
     })
     .filter((restaurant) => restaurant.matches)
     .sort((a, b) => {
-      const aName = a.name.toLowerCase();
-      const bName = b.name.toLowerCase();
+      const aName = restaurantSearchTerms(a.name).join(" ");
+      const bName = restaurantSearchTerms(b.name).join(" ");
       const normalizedQuery = terms.join(" ");
       const aExact = aName === normalizedQuery ? 0 : aName.startsWith(normalizedQuery) ? 1 : 2;
       const bExact = bName === normalizedQuery ? 0 : bName.startsWith(normalizedQuery) ? 1 : 2;
