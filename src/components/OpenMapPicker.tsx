@@ -253,6 +253,10 @@ export default function OpenMapPicker({
 
   const chooseRestaurant = (restaurant: SearchRestaurant) => {
     setSelected(restaurant);
+    // Text search can select a restaurant outside the current viewport. Load
+    // its corpus preview directly so newly added (including honestly unnamed)
+    // food photos appear in the selection card before opening the page.
+    void loadPreviews([restaurant]);
     setSearchText("");
     setSearchResults([]);
     setPlaceResults([]);
