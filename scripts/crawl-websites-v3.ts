@@ -52,7 +52,7 @@ function itemFingerprint(item: { name: string; description?: string; imageUrl?: 
   ])).digest("hex");
 }
 
-async function persistWebsiteResult(pool: pg.Pool, runId: string, target: WebsiteV3Target, result: WebsiteV3Result) {
+async function persistWebsiteResult(pool: pg.Pool, runId: string, target: WebsiteV3Target, result: WebsiteV3Result, options:{photoBackfill?:boolean}={}) {
   const client = await pool.connect();
   try {
     await client.query("begin");
@@ -93,7 +93,7 @@ async function persistWebsiteResult(pool: pg.Pool, runId: string, target: Websit
       );
     }
 
-    for (const url of [...new Set([...result.linkedPhotos, ...result.genericPhotos])].slice(0,160)) {
+    for (const url of [...new Set([...result.linkedPhotos, ...result.namedPhotos.map(photo=>photo.url), ...result.genericPhotos])].slice(0,160)) {
       const named=result.namedPhotos.find(photo=>photo.url===url);
       await client.query(
         `insert into website_assets(entity_id,website_id,page_url,asset_url,kind,source,metadata,active,last_seen_at)
@@ -123,14 +123,14 @@ async function persistWebsiteResult(pool: pg.Pool, runId: string, target: Websit
         [runId,target.entityId,target.websiteId,photo.url]
       );
     }
-    for (const url of result.pdfUrls) {
+    for (const url of options.photoBackfill?[]:result.pdfUrls) {
       await client.query(
         `insert into website_asset_jobs(run_id,entity_id,website_id,asset_url,kind)
          values($1,$2,$3,$4,'pdf') on conflict(run_id,website_id,asset_url,kind) do nothing`,
         [runId,target.entityId,target.websiteId,url]
       );
     }
-    for (const url of result.items.length ? [] : result.menuImageUrls) {
+    for (const url of options.photoBackfill||result.items.length ? [] : result.menuImageUrls) {
       await client.query(
         `insert into website_assets(entity_id,website_id,page_url,asset_url,kind,source,metadata,active,last_seen_at)
          values($1,$2,$3,$4,'image','website_v3',$5::jsonb,true,now())
@@ -273,6 +273,11 @@ async function reconcileNamedWebsitePhotos(pool: pg.Pool, runId: string) {
   for(const observation of observations){const group=byEntity.get(observation.entity_id)??[];group.push(observation);byEntity.set(observation.entity_id,group);}
   let matched=0,ambiguous=0,unmatched=0;
   const matchedByEntity=new Map<string,number>();
+  const pendingWrites:Array<Promise<unknown>>=[];
+  async function scheduleWrite(write:Promise<unknown>){
+    pendingWrites.push(write);
+    if(pendingWrites.length>=32)await Promise.all(pendingWrites.splice(0));
+  }
   for(const asset of assets){
     const menu=new Map<string,(typeof observations)[number]>();
     for(const observation of byEntity.get(asset.entity_id)??[]){const key=normalizeMenuItemName(observation.item_name);const current=menu.get(key);if(!current||Number(observation.confidence)>Number(current.confidence))menu.set(key,observation);}
@@ -282,20 +287,20 @@ async function reconcileNamedWebsitePhotos(pool: pg.Pool, runId: string) {
     const status=!top?"unmatched":second&&top.score===second.score?"ambiguous":"matched";
     if(status!=="matched"){
       if(status==="ambiguous")ambiguous++;else unmatched++;
-      await pool.query(`update website_assets set metadata=metadata||$3::jsonb,last_seen_at=now() where entity_id=$1 and asset_url=$2`,
-        [asset.entity_id,asset.asset_url,JSON.stringify({namedMatchStatus:status,matchedAt:new Date().toISOString()})]);
+      await scheduleWrite(pool.query(`update website_assets set metadata=metadata||$3::jsonb,last_seen_at=now() where entity_id=$1 and asset_url=$2`,
+        [asset.entity_id,asset.asset_url,JSON.stringify({namedMatchStatus:status,matchedAt:new Date().toISOString()})]));
       continue;
     }
     const observation=top.observation;
     if(observation.image_url===asset.asset_url){
-      await pool.query(`update website_assets set metadata=metadata||$3::jsonb,last_seen_at=now() where entity_id=$1 and asset_url=$2`,
-        [asset.entity_id,asset.asset_url,JSON.stringify({namedMatchStatus:"matched",matchedMenuName:observation.item_name,matchScore:top.score,matchedAt:new Date().toISOString()})]);
+      await scheduleWrite(pool.query(`update website_assets set metadata=metadata||$3::jsonb,last_seen_at=now() where entity_id=$1 and asset_url=$2`,
+        [asset.entity_id,asset.asset_url,JSON.stringify({namedMatchStatus:"matched",matchedMenuName:observation.item_name,matchScore:top.score,matchedAt:new Date().toISOString()})]));
       matched++;matchedByEntity.set(asset.entity_id,(matchedByEntity.get(asset.entity_id)??0)+1);
       continue;
     }
     const item={name:observation.item_name,description:observation.item_description??undefined,imageUrl:asset.asset_url,price:observation.price===null?undefined:Number(observation.price)};
     const fingerprint=itemFingerprint(item);
-    await pool.query(
+    await scheduleWrite(pool.query(
       `insert into website_menu_observations(entity_id,website_id,source_key,item_name,item_description,image_url,price,item_fingerprint,active,last_seen_at,evidence_url,extraction_method,confidence,last_v3_run_id,absent_successful_runs)
        values($1,$2,$3,$4,$5,$6,$7,$8,true,now(),$9,$10,$11,$12,0)
        on conflict(entity_id,source_key,item_fingerprint) do update set active=true,last_seen_at=now(),website_id=excluded.website_id,
@@ -303,11 +308,12 @@ async function reconcileNamedWebsitePhotos(pool: pg.Pool, runId: string) {
          last_v3_run_id=excluded.last_v3_run_id,absent_successful_runs=0`,
       [asset.entity_id,asset.website_id,observation.source_key,observation.item_name,observation.item_description??null,asset.asset_url,
        observation.price??null,fingerprint,asset.page_url,`${observation.extraction_method}+named_gallery_photo`,Math.max(Number(observation.confidence),0.9),runId]
-    );
-    await pool.query(`update website_assets set metadata=metadata||$3::jsonb,last_seen_at=now() where entity_id=$1 and asset_url=$2`,
-      [asset.entity_id,asset.asset_url,JSON.stringify({namedMatchStatus:"matched",matchedMenuName:observation.item_name,matchScore:top.score,matchedAt:new Date().toISOString()})]);
+    ));
+    await scheduleWrite(pool.query(`update website_assets set metadata=metadata||$3::jsonb,last_seen_at=now() where entity_id=$1 and asset_url=$2`,
+      [asset.entity_id,asset.asset_url,JSON.stringify({namedMatchStatus:"matched",matchedMenuName:observation.item_name,matchScore:top.score,matchedAt:new Date().toISOString()})]));
     matched++;matchedByEntity.set(asset.entity_id,(matchedByEntity.get(asset.entity_id)??0)+1);
   }
+  await Promise.all(pendingWrites);
   for(const [entityId,count] of matchedByEntity){
     await pool.query(`update website_crawl_v3_results set menu_linked_photo_count=greatest(menu_linked_photo_count,$3) where run_id=$1 and entity_id=$2`,[runId,entityId,count]);
     await pool.query(`update restaurant_websites set photo_count=greatest(photo_count,$2),updated_at=now() where entity_id=$1`,[entityId,count]);
@@ -333,7 +339,7 @@ async function finalizeRun(pool:pg.Pool,runId:string,assetsProcessed:number,name
 async function main(){
   loadEnv();
   delete process.env.SCRAPFLY_KEY;
-  const options=args(),market=options.market??"temecula-ca";
+  const options=args(),productCorpus=options["product-corpus"]==="true",market=productCorpus?"product-corpus-us":options.market??"temecula-ca";
   const limit=Math.min(5000,Math.max(1,Number(options.limit??5000)));
   const concurrency=Math.min(16,Math.max(1,Number(options.concurrency??8)));
   const renderEnabled=options["no-render"]!=="true";
@@ -347,10 +353,16 @@ async function main(){
     await pool.end();return;
   }
   if(options["run-id"]){throw new Error("V3 run resumption is automatic through durable jobs; omit --run-id");}
-  await pool.query(`select queue_web_crawl_v3_market($1,$2)`,[market,options.refresh==="true"]);
-  const leasedAll=(await pool.query(
-    `select j.id "jobId",j.entity_id "entityId",j.website_id "websiteId",j.attempts,j.lease_token "leaseToken",w.url,w.domain,e.name "restaurantName",e.address "restaurantAddress"
-     from lease_web_crawl_v3_jobs($1,$2,90) j join restaurant_websites w on w.id=j.website_id join restaurant_entities e on e.id=j.entity_id`,[market,limit]
+  if(productCorpus)await pool.query(`select queue_web_crawl_v3_product_corpus($1)`,[options.refresh==="true"]);
+  else await pool.query(`select queue_web_crawl_v3_market($1,$2)`,[market,options.refresh==="true"]);
+  const leaseSql=productCorpus
+    ? `select j.id "jobId",j.entity_id "entityId",j.website_id "websiteId",j.attempts,j.lease_token "leaseToken",w.url,w.domain,e.name "restaurantName",e.address "restaurantAddress",
+         array(select m.market_key from acquisition_market_entities m where m.entity_id=j.entity_id and m.active) "marketKeys"
+       from lease_web_crawl_v3_product_corpus($1,90) j join restaurant_websites w on w.id=j.website_id join restaurant_entities e on e.id=j.entity_id`
+    : `select j.id "jobId",j.entity_id "entityId",j.website_id "websiteId",j.attempts,j.lease_token "leaseToken",w.url,w.domain,e.name "restaurantName",e.address "restaurantAddress",
+         array(select mm.market_key from acquisition_market_entities mm where mm.entity_id=j.entity_id and mm.active) "marketKeys"
+       from lease_web_crawl_v3_jobs($1,$2,90) j join restaurant_websites w on w.id=j.website_id join restaurant_entities e on e.id=j.entity_id`;
+  const leasedAll=(await pool.query(leaseSql,productCorpus?[limit]:[market,limit]
   )).rows as WebsiteV3Target[];
   let leased=leasedAll;
   if(options["recovery-only"]==="true"){
@@ -360,7 +372,7 @@ async function main(){
     if(skipped.length)await pool.query(`update web_crawl_jobs set status='completed',lease_token=null,lease_expires_at=null,completed_at=now(),updated_at=now() where id=any($1::uuid[])`,[skipped]);
   }
   const run=(await pool.query(`insert into website_crawl_v3_runs(market_key,collector_version,configuration,leased_count)
-    values($1,'website-v3.1.0',$2::jsonb,$3) returning id`,[market,JSON.stringify({concurrency,renderEnabled,maxPages:8,paidOcrEnabled:(process.env.SEEFOOD_OCR_PROVIDERS??"").includes("mistral"),paidWebFallback:false}),leased.length])).rows[0];
+    values($1,'website-v3.2.0',$2::jsonb,$3) returning id`,[market,JSON.stringify({concurrency,renderEnabled,maxPages:12,productCorpus,photoBackfill:productCorpus,paidOcrEnabled:false,paidWebFallback:false}),leased.length])).rows[0];
   const runId=run.id as string;
   let finished=0;
   log.setLevel(log.LEVELS.INFO);
@@ -370,12 +382,12 @@ async function main(){
     async requestHandler({request}){
       const target=request.userData.target as WebsiteV3Target;
       const previous=domainTails.get(target.domain)??Promise.resolve();
-      const current=previous.then(async()=>{const result=await crawlWebsiteV3(target,{renderEnabled,maxPages:8,deepDiscovery:options["deep-discovery"]==="true"});await persistWebsiteResult(pool,runId,target,result);
+      const current=previous.then(async()=>{const result=await crawlWebsiteV3(target,{renderEnabled,maxPages:12,deepDiscovery:options["deep-discovery"]==="true"});await persistWebsiteResult(pool,runId,target,result,{photoBackfill:productCorpus});
         finished++;if(finished%10===0||finished===leased.length)console.log(JSON.stringify({progress:`${finished}/${leased.length}`,restaurant:target.restaurantName,status:result.status,items:result.items.length,pdfs:result.pdfUrls.length,methods:result.methods}));});
       domainTails.set(target.domain,current.catch(()=>{}));
       await current;
     },
-    async failedRequestHandler({request},error){const target=request.userData.target as WebsiteV3Target;await persistWebsiteResult(pool,runId,target,{status:"failed",items:[],namedPhotos:[],genericPhotos:[],linkedPhotos:[],menuImageUrls:[],pdfUrls:[],pages:[],platforms:[],methods:[],routeDecisions:[],elapsedMs:0,error:String(error)});finished++;}
+    async failedRequestHandler({request},error){const target=request.userData.target as WebsiteV3Target;await persistWebsiteResult(pool,runId,target,{status:"failed",items:[],namedPhotos:[],genericPhotos:[],linkedPhotos:[],menuImageUrls:[],pdfUrls:[],pages:[],platforms:[],methods:[],routeDecisions:[],elapsedMs:0,error:String(error)},{photoBackfill:productCorpus});finished++;}
   });
   try{
     await crawler.run(leased.map(target=>({url:target.url,uniqueKey:target.jobId,userData:{target}})));

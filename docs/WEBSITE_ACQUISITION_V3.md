@@ -1,6 +1,6 @@
 # Website Acquisition V3
 
-Updated August 3, 2026.
+Updated August 9, 2026.
 
 V3 is the durable website-acquisition path. It preserves useful evidence from
 the original collector and V2 while fixing the operational gaps found in the
@@ -24,7 +24,10 @@ was not unified into one reviewable corpus.
   is retained as low-priority evidence but does not consume immediate download
   and verification work.
 - Menu, gallery, galleries, photos, food, dishes, and cuisine pages are explicit
-  priority crawl targets. Official images with meaningful captions, alt text,
+  priority crawl targets. Small sites are explored broadly up to a hard
+  12-page ceiling; large sites spend that same budget on the priority pages
+  first. This finds useful content outside a fixed vocabulary without letting
+  large blogs, stores, or location directories run away. Official images with meaningful captions, alt text,
   or filenames become named candidates; interiors, storefronts, people, logos,
   drinks, events, and apparel are excluded from automatic dish matching.
 - Common responsive variants from Squarespace and Wix collapse to their stable
@@ -35,6 +38,11 @@ was not unified into one reviewable corpus.
   menu-dish match. Exact names, contained names, a small set of harmless cooking
   modifiers, and the common `avo`/`avocado` abbreviation are accepted. Shared
   words alone are not enough.
+- Byte-verified food photos that cannot be named safely may still be published
+  as unnamed Management photos for a photo-poor restaurant. Their nearby text
+  is selection evidence, not a dish claim. The publication path caps these at
+  two per restaurant and rejects obvious interiors, people, merchandise,
+  drinks, stale pages, foreign-country domains, and mismatched branch sites.
 - One failed observation never retires known-good evidence. Staleness requires
   two successful crawls that both establish absence.
 - V2 evidence is merged idempotently into the same durable observation layer.
@@ -73,6 +81,49 @@ npx tsx scripts/promote-website-observations.ts --market temecula-ca --publish
 The promotion command previews by default. `--publish` is required for writes.
 It rejects test fixtures and weak observations, deduplicates normalized dish
 names, byte-verifies every proposed image, and records publication snapshots.
+
+For a photo-only refresh of every website already attached to the live product:
+
+```bash
+npm run acquisition:rerun-product-corpus -- --limit 200 --concurrency 12
+npm run acquisition:promote-matched-photos -- --run-id <uuid>
+npm run acquisition:promote-unmatched-photos -- --run-id <uuid>
+npm run acquisition:measure-product-corpus -- --run-id <uuid>
+```
+
+The two promotion commands also preview by default. They never create or retire
+menu rows. Matched publication requires a byte-verified image, a unique exact
+name match, and an already-current menu item. Unmatched publication creates an
+honest restaurant-level photo with no invented dish name.
+
+## Live product corpus rerun
+
+The August 9 rerun revisited all 559 distinct active website routes selected
+for the 505 live-product entities that had at least one website. Final route
+outcomes were 311 completed with evidence, 229 completed without useful menu
+or photo evidence, 19 blocked by the site, and zero unresolved failures. One
+unusually deep winery page exposed a parser recursion bug; after the shallow
+text fix, the same route completed successfully.
+
+Across the run, 12,259 priority assets were attempted and 11,718 completed byte
+verification. Discovery remained deliberately broader than publication. The
+final reviewed publication produced 295 new photo rows across 40 restaurants:
+274 were attached to an existing exact menu item and 21 were useful official
+food photos kept honestly unnamed. No menu row or existing photo was retired.
+
+Net live-product results versus the fixed pre-run snapshot:
+
+- restaurants/entities with a useful photo: 243 to 264 (+21);
+- restaurants/entities with a named or menu-linked photo: 144 to 152 (+8);
+- restaurants/entities with a current-menu-linked photo: 132 to 140 (+8);
+- useful active photos: 21,913 to 22,239 (+326);
+- exact unique active image bytes: 17,367 to 17,659 (+292);
+- active Management photos: 18,488 to 18,814 (+326);
+- legitimate coverage removed: zero.
+
+The difference between attempted promotions and net new rows is expected:
+existing URLs and byte-identical images are updated or deduplicated rather than
+counted again. Rollback point: `rollback/pre-product-corpus-photo-rerun-20260809`.
 
 ## Temecula result
 

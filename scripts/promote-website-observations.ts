@@ -29,8 +29,8 @@ async function main(){
       jsonb_agg(jsonb_build_object('name',o.item_name,'description',o.item_description,'imageUrl',o.image_url,'price',o.price) order by o.confidence desc,o.last_seen_at desc) items
      from website_menu_observations o
      join restaurants r on r.entity_id=o.entity_id and r.status<>'test_fixture'
-     join acquisition_market_entities m on m.entity_id=o.entity_id and m.market_key=$1 and m.active
      where o.active and o.confidence>=0.78
+       and ($1='product-corpus-us' or exists(select 1 from acquisition_market_entities m where m.entity_id=o.entity_id and m.market_key=$1 and m.active))
        and ($3::uuid is null or o.last_v3_run_id=$3)
        and ($4::uuid[] is null or o.entity_id=any($4::uuid[]))
        and o.item_name!~* '^(extra|add|substitute|choice of)(?:$|[^a-z])'

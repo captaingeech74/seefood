@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attachNamedPhotosToMenuItems, canonicalizeWebsiteImageUrl, chooseAdaptiveRoute, discoverMenuImages, extractNamedWebsitePhotos, isTrustedCrawlUrl, namedPhotoDishMatchScore, normalizeMenuItemName, parseLooseMenuDom, parseSemanticMenuDom, parseSitemapMenuLinks, parseUnpricedMenuDom, safePublicUrl } from "../../crawler/websiteV3";
+import { attachNamedPhotosToMenuItems, canonicalizeWebsiteImageUrl, chooseAdaptiveRoute, discoverBoundedInternalLinks, discoverMenuImages, extractNamedWebsitePhotos, isTrustedCrawlUrl, namedPhotoDishMatchScore, normalizeMenuItemName, parseLooseMenuDom, parseSemanticMenuDom, parseSitemapMenuLinks, parseUnpricedMenuDom, safePublicUrl } from "../../crawler/websiteV3";
 import { extractPageAssets, parseCapturedMenuPayloads } from "../menuSources";
 
 describe("website acquisition V3 routing", () => {
@@ -90,6 +90,13 @@ describe("website acquisition V3 menu recovery", () => {
 });
 
 describe("website acquisition V3 official gallery photos", () => {
+  it("explores ordinary pages on a small site but removes hard crawl traps",()=>{
+    const html=`<a href="/story">Story</a><a href="/private-dining">Private dining</a><a href="/chef">Chef</a>
+      <a href="/privacy">Privacy</a><a href="/checkout">Checkout</a><a href="/gallery?utm_source=x">Gallery</a>`;
+    expect(discoverBoundedInternalLinks(html,"https://restaurant.example/")).toEqual([
+      "https://restaurant.example/story","https://restaurant.example/private-dining","https://restaurant.example/chef","https://restaurant.example/gallery",
+    ]);
+  });
   it("discovers bounded same-origin gallery and food pages", () => {
     const html=`<a href="/gallery">Gallery</a><a href="/our-food">Our Food</a><a href="/apparel">Shop</a>`;
     expect(extractPageAssets(html,"https://restaurant.example/").pageUrls).toEqual([
@@ -114,6 +121,13 @@ describe("website acquisition V3 official gallery photos", () => {
     expect(canonicalizeWebsiteImageUrl(`${original}/v1/fill/w_640,h_480,al_c,q_85/dinner.jpg`)).toBe(original);
   });
 
+  it("uses a Wix rendition filename as evidence before collapsing its URL",()=>{
+    const html=`<img src="https://static.wixstatic.com/media/a1b2c3~mv2.jpg/v1/fill/w_640,h_480/Beef-Broccoli.jpg" alt="">`;
+    expect(extractNamedWebsitePhotos(html,"https://restaurant.example/menu")).toEqual([
+      expect.objectContaining({url:"https://static.wixstatic.com/media/a1b2c3~mv2.jpg",label:"beef broccoli"}),
+    ]);
+  });
+
   it("rejects another branch selected through a same-site location parameter",()=>{
     expect(isTrustedCrawlUrl(
       "https://shawnodonnells.com/menu?location=Shawn%20O%27Donnell%27s%20Everett",
@@ -121,6 +135,47 @@ describe("website acquisition V3 official gallery photos", () => {
       "Shawn O'Donnell's Spokane",
       "719 N Monroe St, Spokane, WA 99201",
     )).toBe(false);
+  });
+
+  it("rejects an ordering storefront whose URL names a conflicting city",()=>{
+    expect(isTrustedCrawlUrl(
+      "https://blazepizza.olo.com/menu/blaze-pizza-menifee",
+      "https://www.blazepizza.com/",
+      "Blaze Pizza",
+      "32195 Temecula Pkwy, Temecula, CA 92592",
+    )).toBe(false);
+    expect(isTrustedCrawlUrl(
+      "https://order.toasttab.com/online/shawn-o-donnells-spokane",
+      "https://www.shawnodonnells.com/",
+      "Shawn O'Donnell's Spokane",
+      "719 N Monroe St, Spokane, WA 99201",
+    )).toBe(true);
+  });
+
+  it("rejects another branch page inside a same-site location directory",()=>{
+    expect(isTrustedCrawlUrl(
+      "https://goodtacos.com/restaurants/vista-way-oceanside/",
+      "https://goodtacos.com/",
+      "Los Tacos Temecula",
+      "27780 Jefferson Ave, Temecula, CA 92590",
+    )).toBe(false);
+  });
+
+  it("uses the acquisition market when the stored street address omits its city",()=>{
+    expect(isTrustedCrawlUrl(
+      "https://goodtacos.com/restaurants/vista-way-oceanside/",
+      "https://goodtacos.com/",
+      "Los Tacos",
+      "32065 Temecula Pkwy",
+      ["temecula-ca"],
+    )).toBe(false);
+    expect(isTrustedCrawlUrl(
+      "https://goodtacos.com/restaurants/temecula-parkway/",
+      "https://goodtacos.com/",
+      "Los Tacos",
+      "32065 Temecula Pkwy",
+      ["temecula-ca"],
+    )).toBe(true);
   });
 
   it("attaches a clearly named official photo only to its matching known dish", () => {
@@ -141,5 +196,13 @@ describe("website acquisition V3 official gallery photos", () => {
     expect(namedPhotoDishMatchScore("Hungarian Wax Peppers","Blistered Hungarian Peppers")).toBe(85);
     expect(namedPhotoDishMatchScore("Corned Beef Benedict","Corned Beef Scrambler")).toBe(0);
     expect(namedPhotoDishMatchScore("Avo Garden Scramble","Avocado Garden Scramble")).toBe(100);
+  });
+
+  it("reads menu headings without cloning an unusually deep page tree",()=>{
+    const deep=(name:string,price:number)=>`<h3>${name}${"<span>".repeat(2500)}detail${"</span>".repeat(2500)}</h3><p>$${price}</p>`;
+    const html=[deep("Deep Dish Pizza",18),deep("Garden Salad",12),deep("Chicken Pasta",20),deep("Chocolate Cake",10)].join("");
+    expect(parseLooseMenuDom(html)).toEqual(expect.arrayContaining([
+      expect.objectContaining({name:"Deep Dish Pizza"}),
+    ]));
   });
 });

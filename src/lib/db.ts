@@ -2607,7 +2607,8 @@ async function reconcileSourceBatch(
   placeId: string,
   source: string,
   items: MenuItemData[],
-  photos: DishPhoto[]
+  photos: DishPhoto[],
+  options:{partial?:boolean}={}
 ): Promise<string | null> {
   if (!(await isSourceEnabled(source))) return null;
   const snapshot = await beginSourceSnapshot(placeId, source);
@@ -2637,7 +2638,10 @@ async function reconcileSourceBatch(
       width: p.width,
       height: p.height,
       geminiLabel: p.dishName,
-      menuItemId: p.dishName ? nameToId.get(p.dishName) : undefined,
+      // Photo-only backfills may already have a verified current-menu target.
+      // Preserve it rather than requiring this partial snapshot to recreate
+      // the menu row just to attach the photo.
+      menuItemId: p.menuItemId ?? (p.dishName ? nameToId.get(p.dishName) : undefined),
       photoQualityScore: p.photoQualityScore,
       dishPopularityScore: p.dishPopularityScore,
       isHeroCandidate: p.isHeroCandidate,
@@ -2647,12 +2651,14 @@ async function reconcileSourceBatch(
       perceptualHash: p.perceptualHash,
     })), { snapshotId: snapshot.id });
 
-    if (sourceItems.length > 0) {
-      await retireMissingSourceRows("menu_items", placeId, source, sourceItems.map((item) => normalizeDishName(item.name)), "source_key");
-    } else {
-      await retireMissingSourceRows("menu_items", placeId, source, [], "source_key");
+    if(!options.partial){
+      if (sourceItems.length > 0) {
+        await retireMissingSourceRows("menu_items", placeId, source, sourceItems.map((item) => normalizeDishName(item.name)), "source_key");
+      } else {
+        await retireMissingSourceRows("menu_items", placeId, source, [], "source_key");
+      }
+      await retireMissingPhotos(placeId, source, photos);
     }
-    await retireMissingPhotos(placeId, source, photos);
     await finishSourceSnapshot({
       snapshotId: snapshot.id,
       entityId: snapshot.entityId,
@@ -2709,6 +2715,16 @@ export async function persistSourceMenuItems(
     perceptualHash: item.perceptualHash,
   }));
   return reconcileSourceBatch(placeId, source, items, photos);
+}
+
+/** Add a scoped photo-only evidence batch without implying that omitted menu
+ * or photo rows disappeared from the source. Used by corpus gallery backfills. */
+export async function persistSourcePhotos(
+  placeId:string,
+  source:DataSource,
+  photos:DishPhoto[],
+):Promise<string|null>{
+  return reconcileSourceBatch(placeId,source,[],photos,{partial:true});
 }
 
 /**
