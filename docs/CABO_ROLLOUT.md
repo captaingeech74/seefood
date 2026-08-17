@@ -57,6 +57,11 @@ Use these controls:
 
 ## Proposed operating stages
 
+Before importing Cabo, repair the crawler scheduler and Overture CLI entry point
+that still contain the repository's former `New project` path. Add one reporting
+view that separates market-managed, legitimate legacy, duplicate, invalid, and
+unassigned entities so Cabo cannot silently inflate the existing global total.
+
 1. Add explicit Mexico support to the market importer: country-aware address
    selection, Mexican address and phone formats, Unicode names, and an official
    visitor-zone boundary.
@@ -78,6 +83,38 @@ Use these controls:
 7. Prioritize a visitor-facing QA cohort for richness while preserving the
    complete verified map roster. Onsite QA measures correct venue recognition,
    useful visual choices, search, and thin-restaurant recovery.
+
+## Cabo-specific identity and UX risk
+
+Resorts frequently contain several real restaurants with one street address,
+one parent website, and nearly identical coordinates. They must not be merged
+merely because they share those fields. Preserve the resort as parent context
+and each named dining venue as its own restaurant identity. When phone GPS
+cannot distinguish co-located venues, show the diner a short named choice rather
+than confidently selecting the wrong restaurant.
+
+The website collector must also treat one resort domain as a possible source
+for multiple distinct restaurant and menu pages. A domain-level success for one
+venue does not complete every restaurant at that resort.
+
+## Lightweight success bar
+
+Avoid turning the rollout into another research program. Use only four gates:
+
+1. A practical reviewed sample supports the existing high-precision restaurant
+   identity threshold; obvious hotels, shops, beaches, and duplicate venues do
+   not publish as restaurants.
+2. Every published restaurant has valid coordinates and is available to nearby
+   GPS lookup; ambiguous co-located resort venues resolve through a named
+   choice.
+3. Every accepted restaurant with a credible website receives a bounded crawl
+   attempt, and the highest-value visitor cohort is enriched first.
+4. The final onsite QA reports correct-place recognition and whether the food
+   shown was useful. Failures remain visible in the report and backlog.
+
+An itinerary or hotel area from the visiting tester is helpful but not a build
+dependency. When available, use it only to prioritize the rich QA cohort, not
+to narrow the underlying verified Cabo roster.
 
 ## Reproducibility record
 
@@ -113,4 +150,3 @@ The final plain-language report should state:
   or overage occurred; and
 - which methods produced the useful gains so they can be repeated in the next
   market.
-
