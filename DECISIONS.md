@@ -2120,3 +2120,27 @@ accuracy. The allowance covers ordinary indoor drift and provider parcel or
 venue centroids without returning to the former multi-kilometer nearest-place
 behavior. Failed matches log only the reported accuracy and applied radius, not
 the diner's coordinates.
+
+## Plan Los Cabos as a zero-new-cost, reproducible international rollout (August 17, 2026)
+
+The next proposed market is the practical Los Cabos visitor zone: Cabo San
+Lucas, the Tourist Corridor, San José del Cabo, and nearby destination
+restaurants. Mexico's DENUE directory and Overture are complementary review
+backbones; neither raw source count is publication authority. Production must
+first become country-aware instead of applying its current US-only Overture
+address rule.
+
+The rollout may use free open data, public restaurant websites, and local
+processing, but it may not purchase a dataset, API, proxy, OCR service, or new
+hosting tier. Paid Google, Mistral, CAPTCHA-solving, and delivery-platform calls
+remain disabled. Image storage is food-only, byte-deduplicated, normalized, and
+measured. Database and R2 usage are recorded before and after every publication
+stage, with hard stops before existing included capacity could incur an
+overage.
+
+Every stage records source releases and hashes, market boundary, configuration,
+selection rules, outcomes and failure categories, data gains, storage impact,
+review results, publication and rollback IDs, and the idempotent rerun result.
+The purpose is not only to make Cabo useful, but to preserve enough evidence to
+repeat the methods that caused the gain. The working contract and completion
+report are in `docs/CABO_ROLLOUT.md`.
