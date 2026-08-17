@@ -54,12 +54,12 @@ interface CandidateRow {
   existing_restaurant: Record<string, unknown> | null;
 }
 
-async function candidates(client: pg.PoolClient, market: string): Promise<CandidateRow[]> {
+async function candidates(client: pg.PoolClient, market: string, source?: string): Promise<CandidateRow[]> {
   return (await client.query<CandidateRow>(`
     with market as (
       select distinct entity_id
       from acquisition_market_entities
-      where market_key=$1 and active
+      where market_key=$1 and active and ($2::text is null or source=$2)
     )
     select e.id,e.legacy_place_id,e.name,e.address,e.lat,e.lng,e.website,
       e.status entity_status,g.provider_id google_place_id,to_jsonb(r) existing_restaurant
@@ -92,12 +92,12 @@ async function candidates(client: pg.PoolClient, market: string): Promise<Candid
         )
       )
     order by e.name,e.id
-  `, [market])).rows;
+  `, [market, source ?? null])).rows;
 }
 
-async function preview(client: pg.PoolClient, market: string) {
+async function preview(client: pg.PoolClient, market: string, source?: string) {
   await client.query("begin transaction isolation level repeatable read read only");
-  const rows = await candidates(client, market);
+  const rows = await candidates(client, market, source);
   const marketTotal = Number((await client.query(
     "select count(distinct entity_id) count from acquisition_market_entities where market_key=$1 and active",
     [market]
@@ -109,6 +109,7 @@ async function preview(client: pg.PoolClient, market: string) {
   return {
     mode: "preview",
     market,
+    source: source ?? "all",
     policyVersion: POLICY_VERSION,
     activeMarketEntities: marketTotal,
     eligibleNotKnownClosed: rows.length,
@@ -119,10 +120,10 @@ async function preview(client: pg.PoolClient, market: string) {
   };
 }
 
-async function publish(client: pg.PoolClient, market: string) {
+async function publish(client: pg.PoolClient, market: string, source?: string) {
   await client.query("begin isolation level serializable");
   try {
-    const rows = await candidates(client, market);
+    const rows = await candidates(client, market, source);
     const marketTotal = Number((await client.query(
       "select count(distinct entity_id) count from acquisition_market_entities where market_key=$1 and active",
       [market]
@@ -196,7 +197,7 @@ async function publish(client: pg.PoolClient, market: string) {
       [run.id, alreadyLive, changed, JSON.stringify(after)]
     );
     await client.query("commit");
-    return { mode: "publish", runId: run.id, market, policyVersion: POLICY_VERSION, alreadyLive, published: changed, before, after };
+    return { mode: "publish", runId: run.id, market, source: source ?? "all", policyVersion: POLICY_VERSION, alreadyLive, published: changed, before, after };
   } catch (error) {
     await client.query("rollback");
     throw error;
@@ -303,6 +304,7 @@ async function status(client: pg.PoolClient, market: string) {
 async function main() {
   loadEnv();
   const market = argument("market", "temecula-ca")!;
+  const source = argument("source");
   const rollbackId = argument("rollback");
   const shouldPublish = process.argv.includes("--publish");
   const shouldShowStatus = process.argv.includes("--status");
@@ -320,8 +322,8 @@ async function main() {
       : rollbackId
       ? await rollback(client, rollbackId)
       : shouldPublish
-        ? await publish(client, market)
-        : await preview(client, market);
+        ? await publish(client, market, source)
+        : await preview(client, market, source);
     console.log(JSON.stringify(result, null, 2));
   } finally {
     client.release();

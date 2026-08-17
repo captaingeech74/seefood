@@ -6,6 +6,7 @@ export interface IdentityCandidate {
   address?: string | null;
   website?: string | null;
   phone?: string | null;
+  parentEntityId?: string | null;
 }
 
 export interface IncomingIdentity {
@@ -15,6 +16,7 @@ export interface IncomingIdentity {
   address?: string | null;
   website?: string | null;
   phone?: string | null;
+  parentEntityId?: string | null;
 }
 
 export interface IdentityEvidence {
@@ -115,7 +117,16 @@ export function identityEvidence(incoming: IncomingIdentity, candidate: Identity
   const domainEqual = Boolean(leftDomain && rightDomain && leftDomain === rightDomain);
   const phoneEqual = Boolean(leftPhone && rightPhone && leftPhone === rightPhone);
   const addressEqual = Boolean(leftAddress && rightAddress && leftAddress === rightAddress);
-  const eligible = meters <= 150 && (meters <= 50 || addressEqual) && (
+  // Named restaurants inside one resort commonly share the parent's domain,
+  // phone, street address, and coordinates. Shared parent context is evidence
+  // that they are deliberately separate subvenues, never evidence to merge
+  // two different names.
+  const distinctSharedParent = Boolean(
+    incoming.parentEntityId && candidate.parentEntityId
+    && incoming.parentEntityId === candidate.parentEntityId
+    && similarity < 0.85
+  );
+  const eligible = !distinctSharedParent && meters <= 150 && (meters <= 50 || addressEqual) && (
     (domainEqual && (similarity >= 0.35 || overlap))
     || (phoneEqual && (similarity >= 0.55 || overlap))
     || (addressEqual && (similarity >= 0.60 || overlap))
@@ -127,6 +138,7 @@ export function identityEvidence(incoming: IncomingIdentity, candidate: Identity
     overlap && "distinctive_name_overlap",
     similarity >= 0.85 && "strong_name_similarity",
     meters <= 50 && "within_50m",
+    distinctSharedParent && "distinct_resort_subvenue",
   ].filter((value): value is string => Boolean(value));
   const score = 5 * Number(domainEqual) + 5 * Number(phoneEqual) + 3 * Number(addressEqual)
     + 2 * similarity + Number(overlap) - Math.min(meters, 150) / 300;
@@ -155,4 +167,3 @@ export function resolveIdentity(incoming: IncomingIdentity, candidates: Identity
   }
   return { disposition: "match", evidence: eligible[0], alternatives: ranked.slice(0, 5) };
 }
-

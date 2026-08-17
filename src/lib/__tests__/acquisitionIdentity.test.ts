@@ -40,6 +40,25 @@ describe("national acquisition identity gates", () => {
   it("keeps a true omission as a new identity", () => {
     expect(resolveIdentity(incoming, [])).toEqual({ disposition: "new", evidence: null, alternatives: [] });
   });
+
+  it("does not merge differently named restaurants inside the same resort", () => {
+    const result = resolveIdentity({
+      ...incoming,
+      name: "Krystal",
+      parentEntityId: "riu-palace",
+    }, [{
+      id: "agave",
+      name: "Agave",
+      lat: incoming.lat,
+      lng: incoming.lng,
+      address: incoming.address,
+      website: incoming.website,
+      phone: incoming.phone,
+      parentEntityId: "riu-palace",
+    }]);
+    expect(result.disposition).toBe("new");
+    expect(result.alternatives[0]?.reasonCodes).toContain("distinct_resort_subvenue");
+  });
 });
 
 describe("visible website menu extraction", () => {

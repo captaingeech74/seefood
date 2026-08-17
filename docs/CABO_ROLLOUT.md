@@ -137,6 +137,56 @@ Every stage must leave enough evidence to explain why it worked or failed:
 Do not retain credentials, private data, unnecessary page bodies, or an
 unbounded raw crawl in the evidence record.
 
+## August 17 opening checkpoint
+
+The zero-cost opening stage is complete and reproducible:
+
+- A rollback tag, `rollback/pre-cabo-rollout-20260817`, was pushed before any
+  production-data change.
+- The Overture July 22, 2026 sample produced 14,168 raw place rows, 3,419
+  food-service candidates, and 1,059 website observations. The input SHA-256 is
+  `825264b8b361a11b2ec4be28b0bb5bef4465fe7b0df1dbfc332f78307af115e4` and
+  the reversible review batch is `e27b9ef1-ced4-4906-a78f-89026657c57d`.
+  Those records remain review data; they were not bulk-published.
+- The first live priority cohort is Hotel Riu Palace Baja California. RIU's
+  current official page lists eight named dining venues: Promenade, Krystal,
+  Yu Hi, Agave, Sofia, Guacamole, Elite Club, and Pepe's Food. Each is a
+  separate restaurant beneath one resort parent. Three were reconciled to
+  existing Overture identities; five were newly created. The official-source
+  batch is `0096e627-c141-40dc-9613-b42bdca53bd5` and the reversible publication
+  run is `351e5dbf-a9d4-490d-a2a1-d6529013962d`.
+  The normalized-evidence idempotency batch is
+  `d71f64d8-0452-4563-9344-d674a0a73fcc`; an immediate rerun made zero changes.
+- Six venues expose current first-party RIU food menus. After intentionally
+  excluding the shared wine catalog, they contain 85 current dishes and 82
+  byte-verified, menu-matched management photos. Every active photo has unique
+  bytes. Promenade and Pepe's Food are honest restaurant shells because RIU
+  offers no static dish menu for their buffet/grill; venue/interior images were
+  not mislabeled as dish photos.
+- Resort GPS ambiguity is explicit: when several named dining rooms share one
+  location, SeeFood opens a named choice instead of guessing the wrong one.
+- The moved repository path was repaired in the installed nightly LaunchAgent,
+  and Overture now launches through the relocatable virtual-environment Python
+  module rather than a wrapper containing the former path.
+- Database size after the stage was approximately 827 MB, up from the recorded
+  803 MB baseline. No new paid API, proxy, OCR, dataset, storage plan, or
+  hosting tier was used.
+
+### Google status
+
+Both Google keys still exist, and stored Google Place IDs were preserved.
+Google currently rejects live Places requests with `REQUEST_DENIED` because
+billing is not enabled on the Google Cloud project. That removes Google search,
+live place-detail verification, and Google-hosted photo delivery; it does not
+remove SeeFood's corpus, OpenFreeMap map, independent search, or saved IDs.
+
+Reconnecting Google is therefore not a zero-cost configuration repair. If the
+cost boundary changes, use it as an optional live search and identity-
+verification lane with strict Google Cloud quotas and SeeFood usage guards.
+Do not make it the durable menu/photo backbone: Google content storage and
+attribution rules are materially more restrictive than storing Place IDs and
+first-party restaurant evidence.
+
 ## Completion report
 
 The final plain-language report should state:

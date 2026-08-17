@@ -91,7 +91,7 @@ async function loadBoundary(url?: string | null): Promise<{ polygons: Polygon[];
   return { polygons, sha256: createHash("sha256").update(bytes).digest("hex") };
 }
 
-function parseFeature(line: string, bounds: Bounds, polygons?: Polygon[]): OvertureRow | null {
+function parseFeature(line: string, bounds: Bounds, countryCode: string, polygons?: Polygon[]): OvertureRow | null {
   let feature: any;
   try { feature = JSON.parse(line); } catch { return null; }
   const properties = feature?.properties ?? {};
@@ -101,7 +101,9 @@ function parseFeature(line: string, bounds: Bounds, polygons?: Polygon[]): Overt
   if (!Number.isFinite(lat) || !Number.isFinite(lng)
     || lng < bounds.west || lng > bounds.east || lat < bounds.south || lat > bounds.north) return null;
   if (polygons && !contains([lng,lat],polygons)) return null;
-  const addressRow = (properties.addresses ?? []).find((row: any) => row?.country === "US") ?? null;
+  const addressRow = (properties.addresses ?? []).find((row: any) =>
+    String(row?.country ?? "").toUpperCase() === countryCode.toUpperCase()
+  ) ?? null;
   if (!addressRow) return null;
   const name = properties?.names?.primary;
   const providerId = feature.id;
@@ -133,17 +135,21 @@ async function latestRelease(): Promise<string> {
   return catalog.latest;
 }
 
-function downloadInput(bounds: Bounds, release: string): string {
-  const overtureCli = join(__dirname, "..", "crawler", ".venv", "bin", "overturemaps");
-  if (!existsSync(overtureCli)) {
+function downloadInput(bounds: Bounds, release?: string): string {
+  const python = join(__dirname, "..", "crawler", ".venv", "bin", "python3");
+  if (!existsSync(python)) {
     throw new Error("Overture CLI is not installed. Run: crawler/.venv/bin/python3 -m pip install overturemaps");
   }
   const directory = mkdtempSync(join(tmpdir(), "seefood-overture-"));
   const destination = join(directory, "places.geojsonseq");
-  const command = ["download", "--bbox", `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`,
-    "-f", "geojsonseq", "-t", "place", "-r", release,
+  const command = ["-m", "overturemaps", "download", "--bbox", `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`,
+    "-f", "geojsonseq", "-t", "place",
     "--connect_timeout", "15", "--request_timeout", "180", "-o", destination];
-  const result = spawnSync(overtureCli, command, { stdio: "inherit" });
+  // Let the CLI resolve "latest" itself unless the operator pinned a release.
+  // Some CLI/STAC combinations reject the catalog's current release when it is
+  // redundantly passed with -r even though the same unpinned download works.
+  if (release) command.splice(9, 0, "-r", release);
+  const result = spawnSync(python, command, { stdio: "inherit" });
   if (result.status !== 0 || !existsSync(destination)) throw new Error(`Overture download failed with status ${result.status}`);
   return destination;
 }
@@ -158,12 +164,12 @@ async function main() {
   const client = databaseClient();
   await client.connect();
   await client.query("set statement_timeout = 0");
-  const marketResult = await client.query("select market_key,name,bounds,boundary_url from acquisition_markets where market_key=$1", [marketKey]);
+  const marketResult = await client.query("select market_key,name,bounds,boundary_url,country_code from acquisition_markets where market_key=$1", [marketKey]);
   if (!marketResult.rowCount) throw new Error(`Unknown acquisition market: ${marketKey}`);
-  const market = marketResult.rows[0] as { market_key: string; name: string; bounds: Bounds; boundary_url: string | null };
+  const market = marketResult.rows[0] as { market_key: string; name: string; bounds: Bounds; boundary_url: string | null; country_code: string };
   const boundary = await loadBoundary(market.boundary_url);
   const release = String(args.release ?? await latestRelease());
-  const input = args.input ? String(args.input) : downloadInput(market.bounds, release);
+  const input = args.input ? String(args.input) : downloadInput(market.bounds, args.release ? release : undefined);
   const inputHash = await sha256File(input);
 
   const existingBatch = await client.query(
@@ -238,7 +244,7 @@ async function main() {
     for await (const line of createInterface({ input: createReadStream(input), crlfDelay: Infinity })) {
       if (!line.trim()) continue;
       stats.inputRecords++;
-      const row = parseFeature(line, market.bounds, boundary?.polygons);
+      const row = parseFeature(line, market.bounds, market.country_code, boundary?.polygons);
       if (!row) continue;
       stats.eligible++;
       pending.push(row);

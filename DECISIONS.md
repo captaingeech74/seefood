@@ -2144,3 +2144,23 @@ review results, publication and rollback IDs, and the idempotent rerun result.
 The purpose is not only to make Cabo useful, but to preserve enough evidence to
 repeat the methods that caused the gain. The working contract and completion
 report are in `docs/CABO_ROLLOUT.md`.
+# August 17, 2026 — Cabo opens with a review backbone and a resort-rich cohort
+
+- Los Cabos uses country-aware Overture imports (`MX`) and retains the complete
+  candidate frame in review. Candidate count is not presented as live
+  restaurant coverage.
+- Named restaurants inside a resort are separate entities beneath a resort
+  parent even when domain, address, phone, and coordinates are identical.
+  On-site GPS ambiguity produces a named choice instead of an automatic guess.
+- Hotel Riu Palace Baja California is the first live Cabo cohort. Six official
+  RIU food menus are imported; the common wine catalog is deliberately excluded
+  because SeeFood helps people choose food and repeated bottle listings would
+  inflate dish/photo strength. Buffet/interior imagery is not presented as a
+  dish photo.
+- Google remains disabled while its Cloud project has no billing. Reconnection
+  would be a cost-policy change, not a missing-key repair. If later approved,
+  Google is an optional live discovery/verification lane with hard quotas, not
+  the durable restaurant menu/photo corpus.
+- Canonical market reporting separates managed-market, legacy-live-unassigned,
+  probable-duplicate, invalid, and inactive-unassigned entities. Global totals
+  must not hide these categories.

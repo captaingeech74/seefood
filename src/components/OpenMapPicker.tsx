@@ -32,6 +32,7 @@ export default function OpenMapPicker({
   const [restaurants, setRestaurants] = useState<SearchRestaurant[]>([]);
   const [previews, setPreviews] = useState<Record<string, MapPreview>>({});
   const [selected, setSelected] = useState<SearchRestaurant | null>(null);
+  const [overlapChoices, setOverlapChoices] = useState<SearchRestaurant[]>([]);
   const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState<SearchRestaurant[]>([]);
   const [placeResults, setPlaceResults] = useState<GeocoderResult[]>([]);
@@ -152,7 +153,10 @@ export default function OpenMapPicker({
         const point = map.project([restaurant.lng, restaurant.lat]);
         const key = shouldCluster
           ? `${Math.floor(point.x / 62)}:${Math.floor(point.y / 62)}`
-          : restaurant.id;
+          // Even in an uncrowded viewport, one resort can contain several
+          // named restaurants at the same provider/GPS coordinate. Group only
+          // that inseparable point so a tap can open the named venue choice.
+          : `venue:${restaurant.lat.toFixed(5)}:${restaurant.lng.toFixed(5)}`;
         markerGroups.set(key, [...(markerGroups.get(key) ?? []), restaurant]);
       }
 
@@ -166,9 +170,15 @@ export default function OpenMapPicker({
           element.type = "button";
           element.className = "open-map-cluster";
           element.textContent = String(group.length);
-          element.setAttribute("aria-label", `${group.length} restaurants; zoom in`);
+          element.setAttribute("aria-label", `${group.length} restaurants at this location`);
           element.addEventListener("click", () => {
-            map.easeTo({ center: [center.lng, center.lat], zoom: Math.min(17, map.getZoom() + 2) });
+            const spread = group.reduce((max, restaurant) => Math.max(max,
+              Math.hypot(restaurant.lat - center.lat, restaurant.lng - center.lng)), 0);
+            if (spread < 0.00012 || map.getZoom() >= 17) {
+              setOverlapChoices([...group].sort((a, b) => a.name.localeCompare(b.name)));
+            } else {
+              map.easeTo({ center: [center.lng, center.lat], zoom: Math.min(18, map.getZoom() + 2) });
+            }
           });
           return new MapMarker({ element })
             .setLngLat([center.lng, center.lat])
@@ -252,6 +262,7 @@ export default function OpenMapPicker({
   }, [searchText]);
 
   const chooseRestaurant = (restaurant: SearchRestaurant) => {
+    setOverlapChoices([]);
     setSelected(restaurant);
     // Text search can select a restaurant outside the current viewport. Load
     // its corpus preview directly so newly added (including honestly unnamed)
@@ -349,7 +360,7 @@ export default function OpenMapPicker({
         </div>
       )}
 
-      {recoveryMode && !selected && restaurants.length > 0 && (
+      {recoveryMode && !selected && overlapChoices.length === 0 && restaurants.length > 0 && (
         <div
           className="absolute z-10 inset-x-0 bottom-0 px-4 pt-12 pb-[max(22px,env(safe-area-inset-bottom))] pointer-events-none"
           style={{ background: "linear-gradient(to top, rgba(10,10,10,0.98) 0%, rgba(10,10,10,0.78) 68%, transparent 100%)" }}
@@ -357,6 +368,31 @@ export default function OpenMapPicker({
           <h1 className="mx-auto max-w-xl text-center text-[25px] font-bold tracking-[-0.03em]">
             Where would you like to See Food?
           </h1>
+        </div>
+      )}
+
+      {overlapChoices.length > 0 && !selected && (
+        <div className="absolute z-20 bottom-0 left-0 right-0 px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+          <div className="max-w-xl mx-auto rounded-3xl bg-[#111]/95 backdrop-blur-2xl border border-white/10 p-4 shadow-2xl max-h-[48vh] overflow-y-auto">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <h2 className="font-bold text-[17px]">Which restaurant are you in?</h2>
+              <button type="button" onClick={() => setOverlapChoices([])} className="text-white/55 px-2 py-1" aria-label="Close choices">✕</button>
+            </div>
+            <p className="text-white/45 text-[12px] mb-3">These dining rooms share the same location.</p>
+            {overlapChoices.map((restaurant) => (
+              <button
+                key={restaurant.id}
+                type="button"
+                onClick={() => setSelected(restaurant)}
+                className="w-full text-left px-3 py-3 rounded-xl border-t border-white/8 hover:bg-white/5"
+              >
+                <span className="block font-semibold text-[14px]">{restaurant.name}</span>
+                <span className="block text-white/45 text-[11px] mt-0.5">
+                  {restaurant.readiness === "shell" ? "Restaurant found · photos needed" : "Menu or food photos available"}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

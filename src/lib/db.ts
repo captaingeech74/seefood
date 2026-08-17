@@ -257,6 +257,7 @@ function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): nu
 
 interface StoredRestaurantRow {
   place_id: string;
+  entity_id?: string | null;
   slug: string | null;
   name: string;
   address: string | null;
@@ -339,7 +340,7 @@ export async function findStoredNearbyRestaurant(
   const lngDelta = maxDistanceKm / Math.max(20, 111 * Math.cos(lat * Math.PI / 180));
   const { data, error } = await supabase
     .from("restaurants")
-    .select("place_id,slug,name,address,lat,lng,status")
+    .select("place_id,entity_id,slug,name,address,lat,lng,status")
     .not("lat", "is", null)
     .not("lng", "is", null)
     .neq("status", "inactive")
@@ -350,15 +351,32 @@ export async function findStoredNearbyRestaurant(
     .limit(200);
   if (error) throw error;
 
-  const nearest = (data ?? [])
-    .map((row) => storedRowToRestaurant(row as StoredRestaurantRow))
-    .filter((row): row is Restaurant => row !== null)
-    .map((restaurant) => ({
-      restaurant,
+  const ranked = (data ?? [])
+    .map((row) => ({ row: row as StoredRestaurantRow, restaurant: storedRowToRestaurant(row as StoredRestaurantRow) }))
+    .filter((value): value is { row: StoredRestaurantRow; restaurant: Restaurant } => value.restaurant !== null)
+    .map(({ row, restaurant }) => ({
+      row, restaurant,
       distance: haversineKm(lat, lng, restaurant.lat, restaurant.lng),
     }))
     .filter(({ distance }) => distance <= maxDistanceKm)
-    .sort((a, b) => a.distance - b.distance)[0]?.restaurant ?? null;
+    .sort((a, b) => a.distance - b.distance);
+  const entityIds = ranked.map(({ row }) => row.entity_id).filter((id): id is string => Boolean(id));
+  if (entityIds.length > 1) {
+    const { data: entities } = await supabase.from("restaurant_entities")
+      .select("id,parent_entity_id")
+      .in("id", entityIds);
+    const parentByEntity = new Map((entities ?? []).map((entity) => [entity.id, entity.parent_entity_id as string | null]));
+    const nearestParent = ranked[0]?.row.entity_id ? parentByEntity.get(ranked[0].row.entity_id) : null;
+    if (nearestParent) {
+      const sameResort = ranked.filter(({ row, distance }) =>
+        distance <= 0.1 && row.entity_id && parentByEntity.get(row.entity_id) === nearestParent
+      );
+      // Phone GPS cannot distinguish named dining rooms inside one resort.
+      // Returning no automatic winner opens the labeled nearby-choice map.
+      if (sameResort.length > 1) return null;
+    }
+  }
+  const nearest = ranked[0]?.restaurant ?? null;
   return nearest ? (await withRestaurantReadiness([nearest]))[0] : null;
 }
 

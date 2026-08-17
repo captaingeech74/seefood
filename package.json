@@ -26,6 +26,8 @@
     "acquisition:measure-product-corpus": "tsx scripts/measure-product-corpus.ts",
     "acquisition:rollback": "tsx scripts/rollback-acquisition-batch.ts",
     "market:publish": "tsx scripts/publish-market-restaurants.ts",
+    "market:portfolio": "tsx scripts/report-restaurant-portfolio.ts",
+    "acquisition:riu-palace-baja": "tsx scripts/import-riu-palace-baja.ts",
     "photo-dedupe": "tsx scripts/photo-dedupe.ts",
     "photo-quarantine": "node scripts/quarantine-reactivated-photos.mjs",
     "ingest-fixture-photos": "tsx scripts/ingest-fixture-photos.ts",
