@@ -12,12 +12,14 @@ type GeocoderResult = { id: string; label: string; lat: number; lng: number; typ
 type MapPreview = { topPhoto: DishPhoto; dishes: DishPhoto[]; totalDishCount: number };
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+const EMPTY_CHOICES: Restaurant[] = [];
 
 export default function OpenMapPicker({
   lat,
   lng,
   recoveryMode = false,
   initialView,
+  initialChoices = EMPTY_CHOICES,
   onViewChange,
   onSelectRestaurant,
   onClose,
@@ -64,6 +66,17 @@ export default function OpenMapPicker({
       // Photo previews improve the pins, but are not required for map search.
     }
   }, []);
+
+  useEffect(() => {
+    if (!recoveryMode || initialChoices.length < 2) return;
+    const choices = [...initialChoices].sort((a, b) => a.name.localeCompare(b.name));
+    setOverlapChoices(choices);
+    setRestaurants((current) => {
+      const seen = new Set(current.map((restaurant) => restaurant.id));
+      return [...current, ...choices.filter((restaurant) => !seen.has(restaurant.id))];
+    });
+    void loadPreviews(choices.filter((restaurant) => restaurant.readiness !== "shell"));
+  }, [initialChoices, loadPreviews, recoveryMode]);
 
   const loadViewport = useCallback(async () => {
     const map = mapRef.current;
@@ -153,9 +166,9 @@ export default function OpenMapPicker({
         const point = map.project([restaurant.lng, restaurant.lat]);
         const key = shouldCluster
           ? `${Math.floor(point.x / 62)}:${Math.floor(point.y / 62)}`
-          // Even in an uncrowded viewport, one resort can contain several
-          // named restaurants at the same provider/GPS coordinate. Group only
-          // that inseparable point so a tap can open the named venue choice.
+          // Even in an uncrowded viewport, multiple venues can share one
+          // provider/GPS coordinate. This is universal to malls, airports,
+          // food halls, resorts, and shared street addresses.
           : `venue:${restaurant.lat.toFixed(5)}:${restaurant.lng.toFixed(5)}`;
         markerGroups.set(key, [...(markerGroups.get(key) ?? []), restaurant]);
       }
@@ -378,7 +391,7 @@ export default function OpenMapPicker({
               <h2 className="font-bold text-[17px]">Which restaurant are you in?</h2>
               <button type="button" onClick={() => setOverlapChoices([])} className="text-white/55 px-2 py-1" aria-label="Close choices">✕</button>
             </div>
-            <p className="text-white/45 text-[12px] mb-3">These dining rooms share the same location.</p>
+            <p className="text-white/45 text-[12px] mb-3">Your location could match more than one nearby restaurant.</p>
             {overlapChoices.map((restaurant) => (
               <button
                 key={restaurant.id}

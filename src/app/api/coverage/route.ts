@@ -8,6 +8,7 @@ interface GeocodeResult {
 }
 
 async function geocode(query: string): Promise<GeocodeResult | null> {
+  if (process.env.GOOGLE_COVERAGE_TOOLS_ENABLED !== "true") return null;
   const key = process.env.GOOGLE_MAPS_API_KEY?.trim();
   if (!key) return null;
   const params = new URLSearchParams({ address: query, key });
@@ -45,6 +46,7 @@ async function geocode(query: string): Promise<GeocodeResult | null> {
 }
 
 async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  if (process.env.GOOGLE_COVERAGE_TOOLS_ENABLED !== "true") return null;
   const key = process.env.GOOGLE_MAPS_API_KEY?.trim();
   if (!key) return null;
   const params = new URLSearchParams({ latlng: `${lat},${lng}`, key });

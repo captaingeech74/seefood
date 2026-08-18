@@ -89,9 +89,12 @@ unassigned entities so Cabo cannot silently inflate the existing global total.
 Resorts frequently contain several real restaurants with one street address,
 one parent website, and nearly identical coordinates. They must not be merged
 merely because they share those fields. Preserve the resort as parent context
-and each named dining venue as its own restaurant identity. When phone GPS
-cannot distinguish co-located venues, show the diner a short named choice rather
-than confidently selecting the wrong restaurant.
+and each named dining venue as its own restaurant identity. Restaurant selection
+does not use a resort-specific exception: every location uses the same GPS
+confidence rule. A clearly closer venue opens automatically; when phone accuracy
+cannot distinguish plausible nearby restaurants, SeeFood immediately shows a
+short named choice. The same fallback covers malls, airports, food halls, and
+ordinary shared addresses.
 
 The website collector must also treat one resort domain as a possible source
 for multiple distinct restaurant and menu pages. A domain-level success for one
@@ -163,8 +166,9 @@ The zero-cost opening stage is complete and reproducible:
   bytes. Promenade and Pepe's Food are honest restaurant shells because RIU
   offers no static dish menu for their buffet/grill; venue/interior images were
   not mislabeled as dish photos.
-- Resort GPS ambiguity is explicit: when several named dining rooms share one
-  location, SeeFood opens a named choice instead of guessing the wrong one.
+- GPS ambiguity is universal rather than resort-specific: a clearly closer
+  restaurant opens automatically, while genuinely indistinguishable nearby
+  venues immediately open a named choice without requiring a cluster tap.
 - The moved repository path was repaired in the installed nightly LaunchAgent,
   and Overture now launches through the relocatable virtual-environment Python
   module rather than a wrapper containing the former path.
@@ -180,10 +184,12 @@ billing is not enabled on the Google Cloud project. That removes Google search,
 live place-detail verification, and Google-hosted photo delivery; it does not
 remove SeeFood's corpus, OpenFreeMap map, independent search, or saved IDs.
 
-Reconnecting Google is therefore not a zero-cost configuration repair. If the
-cost boundary changes, use it as an optional live search and identity-
-verification lane with strict Google Cloud quotas and SeeFood usage guards.
-Do not make it the durable menu/photo backbone: Google content storage and
+Google restaurant discovery is now technically isolated from Google maps,
+photos, coverage tools, and diagnostics. The discovery lane fails closed behind
+an application counter capped at 60 requests per day and 1,800 per month, well
+below the current 5,000-request monthly Nearby Search allowance. Google Cloud
+quotas remain a required independent stop before the production flag is enabled.
+Do not make Google the durable menu/photo backbone: Google content storage and
 attribution rules are materially more restrictive than storing Place IDs and
 first-party restaurant evidence.
 

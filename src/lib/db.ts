@@ -21,6 +21,7 @@ import {
 import { interpretContributionGoldContract } from "./contributionContract.mjs";
 import { normalizeMerchantItems, type MerchantProvider } from "./merchantProviders";
 import { restaurantSearchMatches, restaurantSearchTerms } from "./restaurantSearch";
+import { resolveNearbyCandidates } from "./restaurantPolicy";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -334,8 +335,13 @@ export async function getStoredRestaurant(placeId: string): Promise<Restaurant |
 export async function findStoredNearbyRestaurant(
   lat: number,
   lng: number,
-  maxDistanceKm = 3
-): Promise<Restaurant | null> {
+  maxDistanceKm = 3,
+  reportedAccuracyMeters?: number
+): Promise<
+  | { kind: "none" }
+  | { kind: "match"; restaurant: Restaurant }
+  | { kind: "ambiguous"; restaurants: Restaurant[] }
+> {
   const latDelta = maxDistanceKm / 111;
   const lngDelta = maxDistanceKm / Math.max(20, 111 * Math.cos(lat * Math.PI / 180));
   const { data, error } = await supabase
@@ -352,32 +358,27 @@ export async function findStoredNearbyRestaurant(
   if (error) throw error;
 
   const ranked = (data ?? [])
-    .map((row) => ({ row: row as StoredRestaurantRow, restaurant: storedRowToRestaurant(row as StoredRestaurantRow) }))
-    .filter((value): value is { row: StoredRestaurantRow; restaurant: Restaurant } => value.restaurant !== null)
-    .map(({ row, restaurant }) => ({
-      row, restaurant,
+    .map((row) => storedRowToRestaurant(row as StoredRestaurantRow))
+    .filter((restaurant): restaurant is Restaurant => restaurant !== null)
+    .map((restaurant) => ({
+      restaurant,
       distance: haversineKm(lat, lng, restaurant.lat, restaurant.lng),
     }))
     .filter(({ distance }) => distance <= maxDistanceKm)
     .sort((a, b) => a.distance - b.distance);
-  const entityIds = ranked.map(({ row }) => row.entity_id).filter((id): id is string => Boolean(id));
-  if (entityIds.length > 1) {
-    const { data: entities } = await supabase.from("restaurant_entities")
-      .select("id,parent_entity_id")
-      .in("id", entityIds);
-    const parentByEntity = new Map((entities ?? []).map((entity) => [entity.id, entity.parent_entity_id as string | null]));
-    const nearestParent = ranked[0]?.row.entity_id ? parentByEntity.get(ranked[0].row.entity_id) : null;
-    if (nearestParent) {
-      const sameResort = ranked.filter(({ row, distance }) =>
-        distance <= 0.1 && row.entity_id && parentByEntity.get(row.entity_id) === nearestParent
-      );
-      // Phone GPS cannot distinguish named dining rooms inside one resort.
-      // Returning no automatic winner opens the labeled nearby-choice map.
-      if (sameResort.length > 1) return null;
-    }
+  const resolution = resolveNearbyCandidates(
+    ranked.map(({ restaurant, distance }) => ({ value: restaurant, distanceKm: distance })),
+    reportedAccuracyMeters
+  );
+  if (resolution.kind === "none") return resolution;
+  if (resolution.kind === "match") {
+    const [restaurant] = await withRestaurantReadiness([resolution.value]);
+    return { kind: "match", restaurant };
   }
-  const nearest = ranked[0]?.restaurant ?? null;
-  return nearest ? (await withRestaurantReadiness([nearest]))[0] : null;
+  return {
+    kind: "ambiguous",
+    restaurants: await withRestaurantReadiness(resolution.values),
+  };
 }
 
 export async function searchStoredRestaurants(

@@ -62,6 +62,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
   // only used on re-open, not the first cold explore entry, which centers fresh.
   const [lastMapView, setLastMapView] = useState<MapView | null>(null);
   const [mapRecoveryMode, setMapRecoveryMode] = useState(false);
+  const [nearbyChoices, setNearbyChoices] = useState<Restaurant[]>([]);
 
   const fetchDishes = useCallback(async (r: Restaurant) => {
     setDishesLoading(true);
@@ -128,8 +129,18 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         const params = new URLSearchParams({ lat: String(lat), lng: String(lng) });
         if (accuracy !== undefined) params.set("accuracy", String(accuracy));
         const res = await fetch(`/api/restaurant?${params}`, { cache: "no-store" });
+        if (res.status === 409) {
+          const payload = await res.json() as { choices?: Restaurant[] };
+          if ((payload.choices?.length ?? 0) > 1) {
+            setNearbyChoices(payload.choices ?? []);
+            setMapRecoveryMode(true);
+            setState("map_open");
+            return;
+          }
+        }
         if (!res.ok) throw new Error("No restaurant found");
         const data: Restaurant = await res.json();
+        setNearbyChoices([]);
         setRestaurant(data);
         syncUrlToRestaurant(data);
         setState("loading_dishes");
@@ -139,6 +150,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         // restaurant. Let them resolve the ambiguity on the nearby map
         // instead of presenting a dead-end error.
         setMapRecoveryMode(true);
+        setNearbyChoices([]);
         setState("map_open");
       }
     },
@@ -224,6 +236,7 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
   const handleSelectRestaurant = useCallback(
     (placeId: string, _name: string) => {
       setMapRecoveryMode(false);
+      setNearbyChoices([]);
       fetchRestaurantByPlaceId(placeId);
     },
     [fetchRestaurantByPlaceId]
@@ -277,10 +290,12 @@ export default function SeeFoodApp({ initialPlaceId }: { initialPlaceId?: string
         lng={userLng || -122.4194}
         recoveryMode={mapRecoveryMode}
         initialView={lastMapView}
+        initialChoices={nearbyChoices}
         onViewChange={setLastMapView}
         onSelectRestaurant={handleSelectRestaurant}
         onClose={() => {
           setMapRecoveryMode(false);
+          setNearbyChoices([]);
           setState(restaurant ? "ready" : "error");
         }}
       />

@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const API_KEY = process.env.GOOGLE_MAPS_API_KEY!.trim();
 
@@ -6,6 +6,9 @@ const API_KEY = process.env.GOOGLE_MAPS_API_KEY!.trim();
 // Client requests /api/photo?ref=<photo_reference>&maxwidth=800 instead of the raw
 // maps.googleapis.com URL with an embedded key.
 export async function GET(req: NextRequest) {
+  if (process.env.GOOGLE_MAPS_ENABLED !== "true") {
+    return NextResponse.json({ error: "Google photo delivery is disabled" }, { status: 404 });
+  }
   const ref = req.nextUrl.searchParams.get("ref");
   const maxwidth = req.nextUrl.searchParams.get("maxwidth") || "800";
   if (!ref) return new Response("Missing ref", { status: 400 });

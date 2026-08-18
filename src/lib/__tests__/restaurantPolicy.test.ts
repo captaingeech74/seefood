@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { onsiteRestaurantRadiusKm, recoveryMapZoom, shouldClusterRestaurantPins } from "../restaurantPolicy";
+import {
+  onsiteRestaurantRadiusKm,
+  recoveryMapZoom,
+  resolveNearbyCandidates,
+  shouldClusterRestaurantPins,
+} from "../restaurantPolicy";
 
 describe("restaurant publication and location policy", () => {
   it("uses a venue-tolerant on-site radius while keeping lookup local", () => {
@@ -53,5 +58,30 @@ describe("restaurant publication and location policy", () => {
       { lat: 33.52, lng: -117.11 },
       { lat: 33.54, lng: -117.09 },
     ])).toBe(17);
+  });
+
+  it("automatically chooses a restaurant that is clearly closer", () => {
+    expect(resolveNearbyCandidates([
+      { value: "nearest", distanceKm: 0.012 },
+      { value: "runner-up", distanceKm: 0.09 },
+    ], 30)).toEqual({ kind: "match", value: "nearest" });
+  });
+
+  it("returns plausible named choices when GPS cannot distinguish venues", () => {
+    expect(resolveNearbyCandidates([
+      { value: "food-hall-a", distanceKm: 0.018 },
+      { value: "food-hall-b", distanceKm: 0.021 },
+      { value: "across-town", distanceKm: 0.3 },
+    ], 65)).toEqual({
+      kind: "ambiguous",
+      values: ["food-hall-a", "food-hall-b"],
+    });
+  });
+
+  it("treats identical coordinates as ambiguous without resort metadata", () => {
+    expect(resolveNearbyCandidates([
+      { value: "mall-a", distanceKm: 0.025 },
+      { value: "mall-b", distanceKm: 0.025 },
+    ], 10)).toEqual({ kind: "ambiguous", values: ["mall-a", "mall-b"] });
   });
 });

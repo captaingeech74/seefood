@@ -20,7 +20,7 @@ MSAs, and finally all 387 MSAs.
 ## Current State
 
 - Production: <https://seefood-rho.vercel.app>
-- Repository: `/Users/ace/Documents/New project/seefood`
+- Repository: `/Users/ace/Documents/seefood/seefood`
 - Production branch: `main`; a push to `main` triggers Vercel deployment.
 - Baseline handoff commit for the current lead: `857242f`.
 - Stack: Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Supabase
@@ -81,6 +81,14 @@ MSAs, and finally all 387 MSAs.
   hosted GPU endpoint, and Mistral OCR 4 is supported but paid calls remain off
   unless deliberately configured. Neither challenger becomes the default until
   it wins a SeeFood menu-PDF bakeoff.
+- GPS-first restaurant selection is venue-neutral. A materially clearer nearest
+  restaurant opens automatically; genuine uncertainty returns a short plausible
+  choice set that opens immediately. Resorts, malls, airports, food halls, and
+  shared addresses use the same confidence rule.
+- Google restaurant discovery is isolated behind
+  `GOOGLE_PLACES_DISCOVERY_ENABLED`. Its database guard fails closed at 60 calls
+  per day and 1,800 per month. Google maps, photos, coverage tools, and live
+  diagnostics remain separate and disabled unless explicitly configured.
 
 ## Read Order
 

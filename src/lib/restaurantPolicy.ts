@@ -13,6 +13,59 @@ export function shouldClusterRestaurantPins(restaurantCount: number): boolean {
   return restaurantCount > 120;
 }
 
+export interface NearbyCandidate<T> {
+  value: T;
+  distanceKm: number;
+}
+
+export type NearbyResolution<T> =
+  | { kind: "none" }
+  | { kind: "match"; value: T }
+  | { kind: "ambiguous"; values: T[] };
+
+/**
+ * Resolve an on-site GPS fix without making venue-type assumptions. Phone GPS
+ * accuracy is a radius, not an exact point, so a nearest restaurant only wins
+ * when it is both materially and proportionally closer than the runner-up.
+ * Otherwise we return the small set of restaurants the user could plausibly
+ * be standing in. Resorts, malls, airports, food halls, and ordinary street
+ * clusters all follow this same rule.
+ */
+export function resolveNearbyCandidates<T>(
+  candidates: NearbyCandidate<T>[],
+  reportedAccuracyMeters?: number,
+  maxChoices = 8
+): NearbyResolution<T> {
+  const ranked = [...candidates]
+    .filter(({ distanceKm }) => Number.isFinite(distanceKm) && distanceKm >= 0)
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+  if (ranked.length === 0) return { kind: "none" };
+  if (ranked.length === 1) return { kind: "match", value: ranked[0].value };
+
+  const accuracyMeters = Number.isFinite(reportedAccuracyMeters)
+    ? Math.max(20, Math.min(200, reportedAccuracyMeters as number))
+    : 75;
+  const nearestMeters = ranked[0].distanceKm * 1000;
+  const runnerUpMeters = ranked[1].distanceKm * 1000;
+  const gapMeters = runnerUpMeters - nearestMeters;
+  const requiredGapMeters = Math.max(30, accuracyMeters * 0.6);
+  const distanceRatio = runnerUpMeters / Math.max(15, nearestMeters);
+
+  if (gapMeters >= requiredGapMeters && distanceRatio >= 1.8) {
+    return { kind: "match", value: ranked[0].value };
+  }
+
+  const plausibleGapMeters = Math.max(40, Math.min(150, accuracyMeters * 0.85));
+  const plausible = ranked
+    .filter(({ distanceKm }) => distanceKm * 1000 <= nearestMeters + plausibleGapMeters)
+    .slice(0, Math.max(2, maxChoices))
+    .map(({ value }) => value);
+
+  return plausible.length > 1
+    ? { kind: "ambiguous", values: plausible }
+    : { kind: "match", value: ranked[0].value };
+}
+
 export interface MapCoordinate {
   lat: number;
   lng: number;

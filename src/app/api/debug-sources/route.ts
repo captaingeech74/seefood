@@ -20,6 +20,9 @@ import { getScrapflyUsage } from "@/lib/scrapflyUsage";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
+  if (process.env.GOOGLE_DIAGNOSTICS_ENABLED !== "true") {
+    return NextResponse.json({ error: "Live Google diagnostics are disabled" }, { status: 404 });
+  }
   const { searchParams } = new URL(req.url);
   const placeId = searchParams.get("placeId") ?? "";
 

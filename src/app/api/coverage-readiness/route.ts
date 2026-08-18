@@ -16,6 +16,7 @@ interface GeocodedScope {
 }
 
 async function geocodeScope(query: string, scope: CoverageScope): Promise<GeocodedScope | null> {
+  if (process.env.GOOGLE_COVERAGE_TOOLS_ENABLED !== "true") return null;
   const key = process.env.GOOGLE_MAPS_API_KEY?.trim();
   if (!key) return null;
   const address = scope === "metro" ? `${query} metropolitan area, USA` : scope === "state" ? `${query}, USA` : query;

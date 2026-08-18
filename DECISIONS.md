@@ -2138,6 +2138,26 @@ measured. Database and R2 usage are recorded before and after every publication
 stage, with hard stops before existing included capacity could incur an
 overage.
 
+## Use one GPS-confidence rule and isolate free Google discovery (August 17, 2026)
+
+Nearby restaurant selection is venue-neutral. The server ranks every real live
+restaurant inside the accuracy-aware on-site radius. It automatically selects
+the nearest only when that restaurant is both materially and proportionally
+closer than the runner-up relative to the phone's reported accuracy. Otherwise
+it returns only the small plausible choice set. The client opens that named
+choice immediately; a user does not have to discover and tap a numbered marker.
+Resorts, malls, airports, food halls, and ordinary shared addresses use exactly
+the same rule. Parent/resort metadata remains identity context, not location-
+selection logic.
+
+Google restaurant identification is a separate optional lane behind
+`GOOGLE_PLACES_DISCOVERY_ENABLED`. It does not enable the Google map, Google
+photos, coverage geocoding, or diagnostic calls. The database atomically denies
+discovery after 60 requests in one day or 1,800 in one calendar month, and any
+guard failure denies the external request. Production may enable the lane only
+after Google Cloud has an independent quota below the applicable free allowance.
+Budget alerts are informational and are never treated as a spending stop.
+
 Every stage records source releases and hashes, market boundary, configuration,
 selection rules, outcomes and failure categories, data gains, storage impact,
 review results, publication and rollback IDs, and the idempotent rerun result.

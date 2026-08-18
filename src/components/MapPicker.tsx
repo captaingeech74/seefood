@@ -16,6 +16,7 @@ export interface MapPickerProps {
   lng: number;
   recoveryMode?: boolean;
   initialView?: MapView | null;
+  initialChoices?: Restaurant[];
   onViewChange?: (view: MapView) => void;
   onSelectRestaurant: (placeId: string, name: string) => void;
   onClose: () => void;

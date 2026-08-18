@@ -20,7 +20,9 @@ export async function GET(req: NextRequest) {
 
     if (placeId) {
       restaurant = await getStoredRestaurant(placeId);
-      if (!restaurant) restaurant = await getRestaurantDetails(placeId);
+      if (!restaurant && process.env.GOOGLE_PLACES_DISCOVERY_ENABLED === "true") {
+        restaurant = await getRestaurantDetails(placeId);
+      }
     } else if (lat && lng) {
       const latitude = parseFloat(lat);
       const longitude = parseFloat(lng);
@@ -45,9 +47,21 @@ export async function GET(req: NextRequest) {
         reportedAccuracyMeters: reportedAccuracy === undefined ? null : Math.round(reportedAccuracy),
         radiusMeters: Math.round(maxDistanceKm * 1000),
       };
-      restaurant = await findStoredNearbyRestaurant(latitude, longitude, maxDistanceKm);
-      if (!restaurant && process.env.GOOGLE_MAPS_ENABLED === "true") {
-        restaurant = await findNearbyRestaurant(latitude, longitude);
+      const storedResolution = await findStoredNearbyRestaurant(
+        latitude,
+        longitude,
+        maxDistanceKm,
+        reportedAccuracy
+      );
+      if (storedResolution.kind === "ambiguous") {
+        return NextResponse.json(
+          { error: "Restaurant location is ambiguous", choices: storedResolution.restaurants },
+          { status: 409, headers: { "Cache-Control": "no-store, must-revalidate" } }
+        );
+      }
+      restaurant = storedResolution.kind === "match" ? storedResolution.restaurant : null;
+      if (!restaurant && process.env.GOOGLE_PLACES_DISCOVERY_ENABLED === "true") {
+        restaurant = await findNearbyRestaurant(latitude, longitude, maxDistanceKm);
       }
     } else {
       return NextResponse.json(

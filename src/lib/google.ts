@@ -7,6 +7,7 @@ import {
   isImageContentType,
   isTransientPhotoFetchStatus,
 } from "./photoFingerprint";
+import { claimGooglePlacesDiscoveryRequest } from "./googleUsageGuard";
 
 const API_KEY   = process.env.GOOGLE_MAPS_API_KEY!.trim();
 const VISION_KEY = (process.env.VISION_API_KEY || API_KEY).trim();
@@ -1009,17 +1010,32 @@ function placeToRestaurant(place: GooglePlace): Restaurant {
   };
 }
 
+function locationDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRadians = Math.PI / 180;
+  const dLat = (lat2 - lat1) * toRadians;
+  const dLng = (lng2 - lng1) * toRadians;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * toRadians) * Math.cos(lat2 * toRadians) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(a)));
+}
+
 // ── Public place lookup helpers ───────────────────────────────────────────────
 
 export async function findNearbyRestaurant(
   lat: number,
-  lng: number
+  lng: number,
+  maxDistanceKm = 0.5
 ): Promise<Restaurant | null> {
+  if (process.env.GOOGLE_PLACES_DISCOVERY_ENABLED !== "true") return null;
+  if (!await claimGooglePlacesDiscoveryRequest()) return null;
   const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&rankby=distance&type=restaurant&key=${API_KEY}`;
   const res = await fetch(url);
   const data = await res.json();
   if (!data.results?.length) return null;
-  return placeToRestaurant(data.results[0] as GooglePlace);
+  const restaurant = placeToRestaurant(data.results[0] as GooglePlace);
+  return locationDistanceKm(lat, lng, restaurant.lat, restaurant.lng) <= maxDistanceKm
+    ? restaurant
+    : null;
 }
 
 // LRay's Kitchen is a manually-curated demo fixture (see `status: "test_fixture"`
@@ -1030,7 +1046,9 @@ export async function findNearbyRestaurant(
 export async function getRestaurantDetails(
   placeId: string
 ): Promise<Restaurant | null> {
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,photos,place_id,rating,user_ratings_total,price_level,opening_hours&key=${API_KEY}`;
+  if (process.env.GOOGLE_PLACES_DISCOVERY_ENABLED !== "true") return null;
+  if (!await claimGooglePlacesDiscoveryRequest()) return null;
+  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,place_id&key=${API_KEY}`;
   const res = await fetch(url, { cache: "no-store" });
   const data = await res.json();
   if (!data.result) return null;
@@ -1042,14 +1060,7 @@ export async function getRestaurantDetails(
     lat: p.geometry.location.lat,
     lng: p.geometry.location.lng,
     placeId: p.place_id,
-    ...(placeId === FIXTURE_PLACE_ID
-      ? FIXTURE_OVERRIDE
-      : {
-          rating: p.rating,
-          reviewCount: p.user_ratings_total,
-          priceLevel: p.price_level,
-          isOpen: p.opening_hours?.open_now,
-        }),
+    ...(placeId === FIXTURE_PLACE_ID ? FIXTURE_OVERRIDE : {}),
   };
 }
 
@@ -1097,6 +1108,7 @@ export async function fetchStreamingCandidates(
   placeId: string,
   restaurantName = ""
 ): Promise<StreamingCandidates | null> {
+  if (process.env.GOOGLE_MAPS_ENABLED !== "true") return null;
   const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=photos,reviews,geometry,website,formatted_address&key=${API_KEY}`;
   const detailsRes = await fetch(detailsUrl);
   const data = await detailsRes.json();

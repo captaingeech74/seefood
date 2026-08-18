@@ -39,5 +39,10 @@ export default function RestaurantPicker(props: MapPickerProps) {
     );
   }
 
-  return useOpenMap ? <OpenMapPicker {...props} /> : <MapPicker {...props} />;
+  // The open picker owns the universal named-choice fallback. Even if the
+  // legacy Google map is forced for exploration, a genuine GPS ambiguity must
+  // open the same deterministic venue choice rather than silently guessing.
+  return useOpenMap || Boolean(props.initialChoices?.length)
+    ? <OpenMapPicker {...props} />
+    : <MapPicker {...props} />;
 }
