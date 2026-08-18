@@ -72,6 +72,7 @@ export default function PhotoSourceSheet({
         accept="image/*"
         capture="environment"
         className="hidden"
+        onClick={(event) => event.stopPropagation()}
         onChange={handleChange}
       />
       <input
@@ -79,6 +80,7 @@ export default function PhotoSourceSheet({
         type="file"
         accept="image/*"
         className="hidden"
+        onClick={(event) => event.stopPropagation()}
         onChange={handleChange}
       />
 

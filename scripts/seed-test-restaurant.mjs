@@ -36,7 +36,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 const PLACE_ID = "ChIJa7SNNcl_24ARGN-49KRUqPI"; // qutamicatering, Temecula — real Place, not an active restaurant
 const NAME = "LRay's Kitchen";
-const ADDRESS = "42200, Temecula, CA";
+const ADDRESS = "40900 Via Los Altos, Temecula, CA 92591";
 
 // Real, stable, freely-licensed food photos (foodish-api.com). Real
 // descriptions per dish (not placeholder text) so Dish Detail looks like a

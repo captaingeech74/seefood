@@ -6,6 +6,7 @@ import { getVisitorId, trackEvent } from "@/lib/analytics";
 import PhotoSourceSheet from "./PhotoSourceSheet";
 import { contributionDraftKey, parseContributionDraft } from "@/lib/contributionDraft";
 import { optimizeImageFile } from "@/lib/clientImageOptimization";
+import { isDirectBackdropEvent } from "@/lib/modalEvents";
 
 interface SuggestDishModalProps {
   restaurant: Restaurant;
@@ -132,7 +133,12 @@ export default function SuggestDishModal({ restaurant, initialName, onClose, onA
   };
 
   return (
-    <div className="fixed inset-0 z-[110] bg-black/80 flex items-end justify-center fade-in" onClick={close}>
+    <div
+      className="fixed inset-0 z-[110] bg-black/80 flex items-end justify-center fade-in"
+      onClick={(event) => {
+        if (isDirectBackdropEvent(event.target, event.currentTarget)) close();
+      }}
+    >
       <div
         className="w-full max-w-3xl glass rounded-t-3xl px-6 pt-6 slide-up max-h-[88vh] overflow-y-auto"
         style={{ background: "rgba(10,10,10,0.96)", paddingBottom: "max(28px, env(safe-area-inset-bottom))" }}
