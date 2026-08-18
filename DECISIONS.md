@@ -2154,9 +2154,16 @@ Google restaurant identification is a separate optional lane behind
 `GOOGLE_PLACES_DISCOVERY_ENABLED`. It does not enable the Google map, Google
 photos, coverage geocoding, or diagnostic calls. The database atomically denies
 discovery after 60 requests in one day or 1,800 in one calendar month, and any
-guard failure denies the external request. Production may enable the lane only
-after Google Cloud has an independent quota below the applicable free allowance.
-Budget alerts are informational and are never treated as a spending stop.
+guard failure denies the external request. Google marks the legacy Places
+request quotas non-adjustable, so the atomic database guard is the enforceable
+usage stop rather than a Cloud quota. On August 17, production enabled only this
+lane using project `gen-lang-client-0239416035` and a private key restricted to
+Places API. The account remains an un-upgraded free trial and cannot charge
+unless manually activated; 1,800 monthly calls remain far below Google's
+displayed no-cost allowance. Google maps and photo delivery remain explicitly
+disabled. A scheduled pre-expiry audit must confirm $0 charges and disable the
+lane if any billing risk appears. Budget alerts are informational and are never
+treated as a spending stop.
 
 Every stage records source releases and hashes, market boundary, configuration,
 selection rules, outcomes and failure categories, data gains, storage impact,
@@ -2177,10 +2184,9 @@ report are in `docs/CABO_ROLLOUT.md`.
   because SeeFood helps people choose food and repeated bottle listings would
   inflate dish/photo strength. Buffet/interior imagery is not presented as a
   dish photo.
-- Google remains disabled while its Cloud project has no billing. Reconnection
-  would be a cost-policy change, not a missing-key repair. If later approved,
-  Google is an optional live discovery/verification lane with hard quotas, not
-  the durable restaurant menu/photo corpus.
+- Google is enabled only as a tightly capped live discovery/verification
+  fallback. It remains separate from the Google map and photo lanes, which stay
+  disabled. Google is not the durable restaurant menu/photo corpus.
 - Canonical market reporting separates managed-market, legacy-live-unassigned,
   probable-duplicate, invalid, and inactive-unassigned entities. Global totals
   must not hide these categories.

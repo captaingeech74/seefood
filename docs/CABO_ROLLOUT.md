@@ -178,17 +178,22 @@ The zero-cost opening stage is complete and reproducible:
 
 ### Google status
 
-Both Google keys still exist, and stored Google Place IDs were preserved.
-Google currently rejects live Places requests with `REQUEST_DENIED` because
-billing is not enabled on the Google Cloud project. That removes Google search,
-live place-detail verification, and Google-hosted photo delivery; it does not
-remove SeeFood's corpus, OpenFreeMap map, independent search, or saved IDs.
+Stored Google Place IDs remain preserved. On August 17, 2026, the narrow live
+restaurant-discovery fallback was restored in project
+`gen-lang-client-0239416035` with a new private key restricted to the legacy
+Places API. This restores last-resort nearby restaurant identification and
+basic place verification when SeeFood's own corpus has no on-site match. It
+does not restore Google-hosted maps or photos.
 
 Google restaurant discovery is now technically isolated from Google maps,
 photos, coverage tools, and diagnostics. The discovery lane fails closed behind
 an application counter capped at 60 requests per day and 1,800 per month, well
-below the current 5,000-request monthly Nearby Search allowance. Google Cloud
-quotas remain a required independent stop before the production flag is enabled.
+below Google's displayed monthly no-cost allowance. Google marks the legacy
+Places request quotas non-adjustable, so SeeFood's atomic database counter is
+the enforceable usage stop. The Google account remains an un-upgraded free
+trial and cannot charge unless manually upgraded; a scheduled pre-expiry audit
+will disable discovery if any billing risk appears. Production explicitly keeps
+`GOOGLE_MAPS_ENABLED=false` and `NEXT_PUBLIC_GOOGLE_MAPS_ENABLED=false`.
 Do not make Google the durable menu/photo backbone: Google content storage and
 attribution rules are materially more restrictive than storing Place IDs and
 first-party restaurant evidence.

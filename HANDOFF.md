@@ -87,8 +87,9 @@ MSAs, and finally all 387 MSAs.
   shared addresses use the same confidence rule.
 - Google restaurant discovery is isolated behind
   `GOOGLE_PLACES_DISCOVERY_ENABLED`. Its database guard fails closed at 60 calls
-  per day and 1,800 per month. Google maps, photos, coverage tools, and live
-  diagnostics remain separate and disabled unless explicitly configured.
+  per day and 1,800 per month. Production discovery is enabled with a private
+  server key restricted to the legacy Places API. Google maps, photos, coverage
+  tools, and live diagnostics remain separate and disabled.
 
 ## Read Order
 
@@ -314,12 +315,19 @@ The August 7 production incident was caused by disabled Google Maps billing,
 not a failed Vercel deployment or database outage. Google Maps/Places search
 rendered `BillingNotEnabledMapError`, and Google photo proxy requests returned
 502. Product discovery now reads SeeFood's own `restaurants` corpus first and
-has a corpus-backed search route; Google Maps and Google-hosted photos are
-explicit optional lanes controlled by `NEXT_PUBLIC_GOOGLE_MAPS_ENABLED` and
-`GOOGLE_MAPS_ENABLED`. With both unset/false, the product remains navigable and
-all independently hosted photos render; Google-only restaurants show a clear
-`No photos yet` state. Do not silently re-enable either flag until the Google
-project is healthy.
+has a corpus-backed search route. On August 17, the narrow Places restaurant-
+discovery fallback was restored in Google project `gen-lang-client-0239416035`
+using a private key restricted to Places API and the separate flag
+`GOOGLE_PLACES_DISCOVERY_ENABLED=true`. The account remains an un-upgraded free
+trial, so it cannot charge unless somebody manually activates the full account.
+Google's console marks the legacy Places request quotas non-adjustable; the
+independent production database gate is therefore the enforceable usage stop:
+60 requests/day and 1,800/calendar month, denying requests on any guard error.
+This is well below Google's displayed monthly no-cost allowance. A scheduled
+audit runs before the 90-day trial ends. Google Maps and Google-hosted photos
+remain explicitly disabled by `NEXT_PUBLIC_GOOGLE_MAPS_ENABLED=false` and
+`GOOGLE_MAPS_ENABLED=false`; the product remains navigable through OpenFreeMap,
+corpus search, and independently hosted photos.
 
 Website V3.1 menu recovery is implemented and production evidence is published
 for a reviewed subset. The recovery added same-origin sitemap/conventional-path
