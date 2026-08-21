@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
     const attempt = await getContributionAttempt(attemptId);
     if (
       !attempt ||
+      !["behavioral_prompt_candidate", "current_menu_item"].includes(attempt.targetClass) ||
       !contributionAttemptMatches(attempt, {
         restaurantId: placeId,
         menuItemId,
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
         experimentKey: CONTRIBUTION_EXPERIMENT,
         variantKey: CONTRIBUTION_VARIANT,
         surface: "known_dish",
-        targetClass: "behavioral_prompt_candidate",
+        targetClass: attempt.targetClass,
       })
     ) {
       return NextResponse.json(
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
         },
       });
     }
-    if (attempt.status !== "created") {
+    if (attempt.status !== "started") {
       return NextResponse.json(
         { error: "That upload attempt is closed; please start a new one" },
         { status: 409 }
@@ -107,12 +108,6 @@ export async function POST(req: NextRequest) {
     const target = await getCurrentContributionTarget(placeId, menuItemId);
     if (!target) {
       return NextResponse.json({ error: "That menu item is no longer current" }, { status: 409 });
-    }
-    if (!target.behavioralPromptCandidate) {
-      return NextResponse.json(
-        { error: "This dish is no longer eligible for contributions" },
-        { status: 409 }
-      );
     }
     await updateContributionAttempt({
       attemptId,
@@ -124,13 +119,17 @@ export async function POST(req: NextRequest) {
       eventName: "rights_grant_recorded",
       eventSource: "server",
       outcome: "observed",
-    });
+    }).catch((error) =>
+      console.error("[contribution-funnel] rights receipt failed", error)
+    );
     await recordContributionFunnelEvent({
       attemptId,
       eventName: "server_upload_received",
       eventSource: "server",
       outcome: "observed",
-    });
+    }).catch((error) =>
+      console.error("[contribution-funnel] upload receipt failed", error)
+    );
   } catch (error) {
     console.error("[contribution-funnel] authoritative receipt failed", error);
     return NextResponse.json(
@@ -153,21 +152,16 @@ export async function POST(req: NextRequest) {
     await updateContributionAttempt({ attemptId, status: "rejected" }).catch(() => {});
     return NextResponse.json({ error: "That photo is already on SeeFood." }, { status: 409 });
   }
-  try {
-    await recordContributionFunnelEvent({
-      attemptId,
-      eventName: "duplicate_result",
-      eventSource: "server",
-      // The synchronous SHA check can reject an exact duplicate, but it cannot
-      // honestly clear perceptual/near duplicates. Keep that review pending.
-      outcome: "pending",
-    });
-  } catch {
-    return NextResponse.json(
-      { error: "Upload audit is temporarily unavailable; please retry" },
-      { status: 503 }
-    );
-  }
+  await recordContributionFunnelEvent({
+    attemptId,
+    eventName: "duplicate_result",
+    eventSource: "server",
+    // The synchronous SHA check can reject an exact duplicate, but it cannot
+    // honestly clear perceptual/near duplicates. Keep that review pending.
+    outcome: "pending",
+  }).catch((error) =>
+    console.error("[contribution-funnel] duplicate pending receipt failed", error)
+  );
   const optimized = await optimizeImage(original).catch(() => null);
   if (!optimized) {
     await recordContributionFunnelEvent({
@@ -181,19 +175,14 @@ export async function POST(req: NextRequest) {
     await updateContributionAttempt({ attemptId, status: "client_failed" }).catch(() => {});
     return NextResponse.json({ error: "We could not process that image." }, { status: 422 });
   }
-  try {
-    await recordContributionFunnelEvent({
-      attemptId,
-      eventName: "server_optimization_result",
-      eventSource: "server",
-      outcome: "success",
-    });
-  } catch {
-    return NextResponse.json(
-      { error: "Upload audit is temporarily unavailable; please retry" },
-      { status: 503 }
-    );
-  }
+  await recordContributionFunnelEvent({
+    attemptId,
+    eventName: "server_optimization_result",
+    eventSource: "server",
+    outcome: "success",
+  }).catch((error) =>
+    console.error("[contribution-funnel] optimization receipt failed", error)
+  );
   const key = `user-uploads/${placeId}/${attemptId}.webp`;
 
   const url = await uploadPhotoBuffer(optimized.buffer, optimized.contentType, key);
@@ -209,23 +198,18 @@ export async function POST(req: NextRequest) {
     await updateContributionAttempt({ attemptId, status: "storage_failed" }).catch(() => {});
     return NextResponse.json({ error: "Upload failed — please try again" }, { status: 502 });
   }
-  try {
-    await recordContributionFunnelEvent({
-      attemptId,
-      eventName: "storage_result",
-      eventSource: "server",
-      outcome: "success",
-    });
-  } catch {
-    return NextResponse.json(
-      { error: "Saved securely, but audit recording failed; please retry" },
-      { status: 503 }
-    );
-  }
+  await recordContributionFunnelEvent({
+    attemptId,
+    eventName: "storage_result",
+    eventSource: "server",
+    outcome: "success",
+  }).catch((error) =>
+    console.error("[contribution-funnel] storage receipt failed", error)
+  );
 
   const tier = (tierRaw === "1" || tierRaw === "2" || tierRaw === "3" ? parseInt(String(tierRaw), 10) : 2) as 1 | 2 | 3;
   const target = await getCurrentContributionTarget(placeId, menuItemId);
-  if (!target || !target.behavioralPromptCandidate) {
+  if (!target) {
     await recordContributionFunnelEvent({
       attemptId,
       eventName: "post_storage_target_result",
@@ -237,19 +221,14 @@ export async function POST(req: NextRequest) {
     await updateContributionAttempt({ attemptId, status: "record_failed" }).catch(() => {});
     return NextResponse.json({ error: "That menu item is no longer current" }, { status: 409 });
   }
-  try {
-    await recordContributionFunnelEvent({
-      attemptId,
-      eventName: "post_storage_target_result",
-      eventSource: "server",
-      outcome: "success",
-    });
-  } catch {
-    return NextResponse.json(
-      { error: "Saved securely, but audit recording failed; please retry" },
-      { status: 503 }
-    );
-  }
+  await recordContributionFunnelEvent({
+    attemptId,
+    eventName: "post_storage_target_result",
+    eventSource: "server",
+    outcome: "success",
+  }).catch((error) =>
+    console.error("[contribution-funnel] target receipt failed", error)
+  );
 
   const photo = await savePendingKnownDishPhoto({
     attemptId,
@@ -286,19 +265,25 @@ export async function POST(req: NextRequest) {
       eventName: "photo_record_result",
       eventSource: "server",
       outcome: "success",
-    });
+    }).catch((error) =>
+      console.error("[contribution-funnel] photo receipt failed", error)
+    );
     await recordContributionFunnelEvent({
       attemptId,
       eventName: "moderation_result",
       eventSource: "server",
       outcome: "pending",
-    });
+    }).catch((error) =>
+      console.error("[contribution-funnel] moderation receipt failed", error)
+    );
     await recordContributionFunnelEvent({
       attemptId,
       eventName: "item_match_result",
       eventSource: "server",
       outcome: "pending",
-    });
+    }).catch((error) =>
+      console.error("[contribution-funnel] item receipt failed", error)
+    );
     await updateContributionAttempt({ attemptId, status: "pending_review" });
   } catch (error) {
     console.error("[contribution-funnel] final receipt failed", error);

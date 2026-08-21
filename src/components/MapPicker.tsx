@@ -66,8 +66,8 @@ type SearchRestaurant = Restaurant & { distanceKm?: number };
 const TEST_FIXTURE = {
   placeId: "ChIJa7SNNcl_24ARGN-49KRUqPI",
   name: "LRay's Kitchen",
-  lat: 33.5273381,
-  lng: -117.1147095,
+  lat: 33.5276698,
+  lng: -117.1172185,
 };
 
 function PriceLevel({ level }: { level: number }) {

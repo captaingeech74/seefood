@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clientOutcomeAllowed,
   classifyContributionTraffic,
+  classifyContributionTarget,
   contributionAttemptMatches,
   contributionAnalysisEligibility,
   contributionTargetClasses,
@@ -87,6 +88,27 @@ describe("contribution funnel safety", () => {
     expect(contributionAnalysisEligibility("fixture")).toBe("excluded_fixture");
     expect(contributionAnalysisEligibility("staff")).toBe("excluded_staff");
     expect(contributionAnalysisEligibility("automation")).toBe("excluded_automation");
+  });
+
+  it("allows every current menu item while keeping research eligibility narrow", () => {
+    expect(
+      classifyContributionTarget({
+        behavioralPromptCandidate: true,
+        trafficClass: "public_unverified",
+      })
+    ).toEqual({
+      targetClass: "behavioral_prompt_candidate",
+      analysisEligibility: "eligible_external",
+    });
+    expect(
+      classifyContributionTarget({
+        behavioralPromptCandidate: false,
+        trafficClass: "public_unverified",
+      })
+    ).toEqual({
+      targetClass: "current_menu_item",
+      analysisEligibility: "excluded_ineligible_entity",
+    });
   });
 
   it("separates behavioral eligibility from gold comparison eligibility", () => {

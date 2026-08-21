@@ -10,8 +10,8 @@ import {
   CONTRIBUTION_EXPERIMENT,
   CONTRIBUTION_VARIANT,
   classifyContributionTraffic,
+  classifyContributionTarget,
   clientOutcomeAllowed,
-  contributionAnalysisEligibility,
   isUuid,
   type ClientContributionEvent,
 } from "@/lib/contributionFunnel";
@@ -47,12 +47,6 @@ export async function POST(req: NextRequest) {
     if (!target) {
       return NextResponse.json({ error: "That menu item is no longer current" }, { status: 409 });
     }
-    if (!target.behavioralPromptCandidate) {
-      return NextResponse.json(
-        { error: "This dish is not eligible for contribution measurement" },
-        { status: 409 }
-      );
-    }
     const trafficClass = classifyContributionTraffic({
       entityStatus: target.entityStatus,
       requestedClass: new Set(
@@ -65,7 +59,10 @@ export async function POST(req: NextRequest) {
         : null,
       userAgent: req.headers.get("user-agent"),
     });
-    const analysisEligibility = contributionAnalysisEligibility(trafficClass);
+    const { targetClass, analysisEligibility } = classifyContributionTarget({
+      behavioralPromptCandidate: target.behavioralPromptCandidate,
+      trafficClass,
+    });
     await createContributionAttempt({
       attemptId,
       visitorId,
@@ -76,7 +73,7 @@ export async function POST(req: NextRequest) {
       entityStatus: target.entityStatus,
       experimentKey: CONTRIBUTION_EXPERIMENT,
       variantKey: CONTRIBUTION_VARIANT,
-      targetClass: "behavioral_prompt_candidate",
+      targetClass,
       analysisEligibility,
     });
     await recordContributionFunnelEvent({
@@ -89,14 +86,18 @@ export async function POST(req: NextRequest) {
           : analysisEligibility === "unverified"
             ? "unverified"
             : "ineligible",
-    });
+    }).catch((error) =>
+      console.error("[contribution-funnel] eligibility receipt failed", error)
+    );
     await recordContributionFunnelEvent({
       attemptId,
       eventName,
       eventSource: "client",
       outcome,
-    });
-    return NextResponse.json({ recorded: true, trafficClass });
+    }).catch((error) =>
+      console.error("[contribution-funnel] client receipt failed", error)
+    );
+    return NextResponse.json({ recorded: true, trafficClass, targetClass });
   } catch (error) {
     console.error("[contribution-funnel] receipt failed", error);
     return NextResponse.json(

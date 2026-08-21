@@ -2190,3 +2190,16 @@ report are in `docs/CABO_ROLLOUT.md`.
 - Canonical market reporting separates managed-market, legacy-live-unassigned,
   probable-duplicate, invalid, and inactive-unassigned entities. Global totals
   must not hide these categories.
+
+# August 21, 2026 — Product photo intake is independent of research eligibility
+
+- Any active, current menu item may receive a Customer photo. DataLab sampling
+  rules may determine whether an attempt belongs in experimental analysis, but
+  they may never block the diner-facing contribution flow.
+- Funnel-event telemetry is supporting evidence. After the durable attempt and
+  photo records are safe, a telemetry failure must not discard an otherwise
+  valid contribution.
+- Reveal preserves the complete dish with `object-fit: contain`, uses a
+  responsive viewport-height envelope instead of a large fixed reservation,
+  and leaves native browser pinch zoom enabled. SeeFood does not disable page
+  zoom at the viewport level.

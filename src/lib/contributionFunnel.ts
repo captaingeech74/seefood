@@ -103,6 +103,34 @@ export type ContributionAnalysisEligibility =
   | "excluded_automation"
   | "excluded_ineligible_entity";
 
+export type ContributionTargetClass =
+  | "behavioral_prompt_candidate"
+  | "current_menu_item";
+
+/**
+ * Product contribution eligibility and experiment eligibility are separate.
+ * Every current menu item may receive a customer photo; only the narrower
+ * behavioral cohort is counted in the archived DL-007 experiment baseline.
+ */
+export function classifyContributionTarget(input: {
+  behavioralPromptCandidate: boolean;
+  trafficClass: ContributionTrafficClass;
+}): {
+  targetClass: ContributionTargetClass;
+  analysisEligibility: ContributionAnalysisEligibility;
+} {
+  if (!input.behavioralPromptCandidate) {
+    return {
+      targetClass: "current_menu_item",
+      analysisEligibility: "excluded_ineligible_entity",
+    };
+  }
+  return {
+    targetClass: "behavioral_prompt_candidate",
+    analysisEligibility: contributionAnalysisEligibility(input.trafficClass),
+  };
+}
+
 export function contributionAnalysisEligibility(
   trafficClass: ContributionTrafficClass
 ): ContributionAnalysisEligibility {

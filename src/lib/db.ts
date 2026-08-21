@@ -624,7 +624,7 @@ export async function createContributionAttempt(input: {
   entityStatus: string | null;
   experimentKey: string;
   variantKey: string;
-  targetClass: "behavioral_prompt_candidate";
+  targetClass: "behavioral_prompt_candidate" | "current_menu_item";
   analysisEligibility: string;
 }): Promise<void> {
   const { data: existing, error: readError } = await supabase
@@ -646,7 +646,7 @@ export async function createContributionAttempt(input: {
     ) {
       throw new Error("Contribution attempt identity mismatch");
     }
-    if (existing.status !== "created") {
+    if (existing.status !== "started") {
       throw new Error("Contribution attempt is terminal; retry with a new attempt");
     }
     return;

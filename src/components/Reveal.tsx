@@ -25,17 +25,11 @@ interface RevealProps {
 const SWIPE_THRESHOLD = 60; // px of finger travel to commit a navigation
 const ANIM_MS = 300;
 
-// The image is always capped well short of full-bleed (Kyle: "the image
-// should always be constrained to never exceed a certain vertical height
-// where it would throw off the arrangement") — this guarantees the top
-// cluster (vote button / dots / name) and the bottom info block always have
-// somewhere to sit, in the worst case of a near-square viewport + portrait
-// photo, without needing per-photo math. Below this cap, object-contain
-// still shrinks further for wide/short photos, and the top/bottom clusters
-// hug wherever the image actually ends up (measured via imgBounds).
-const RESERVED_TOP = 170;
-const RESERVED_BOTTOM = 150;
-const IMG_MAX_HEIGHT = `max(200px, calc(100dvh - ${RESERVED_TOP + RESERVED_BOTTOM}px))`;
+// Use the viewport aggressively without cropping the dish. The middle term
+// grows with the screen, the upper bound prevents the image from crowding out
+// controls on tall displays, and the lower bound keeps compact phones useful.
+// Native browser pinch zoom remains available for closer inspection.
+const IMG_MAX_HEIGHT = "clamp(260px, calc(100dvh - 220px), 82dvh)";
 const TOP_CLUSTER_GAP = 16; // gap between the image's top edge and the cluster above it
 const TOP_CLUSTER_FLOOR = 76; // never let the cluster's bottom edge creep above the top bar
 const BOTTOM_INFO_GAP = 12; // gap between the image's bottom edge and the info block below it
@@ -290,6 +284,14 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   }, []);
 
   const onTouchStart = (e: React.TouchEvent) => {
+    // Two-finger gestures belong to the browser's native pinch zoom, not the
+    // dish carousel. Ignoring them also prevents an accidental dish change at
+    // the end of a zoom gesture.
+    if (e.touches.length !== 1) {
+      setIsDragging(false);
+      dragAxisRef.current = null;
+      return;
+    }
     if (isHAnimating) return;
     if (pendingVerticalRef.current) commitPendingVertical();
     startXRef.current = e.touches[0].clientX;
@@ -298,6 +300,13 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
     setIsDragging(true);
   };
   const onTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) {
+      setIsDragging(false);
+      dragAxisRef.current = null;
+      setDragX(0);
+      setDragY(0);
+      return;
+    }
     if (!isDragging) return;
     const dx = e.touches[0].clientX - startXRef.current;
     const dy = e.touches[0].clientY - startYRef.current;
@@ -309,6 +318,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   };
   const onTouchEnd = (e: React.TouchEvent) => {
     if (!isDragging) return;
+    if (e.touches.length > 0) return;
     setIsDragging(false);
     const axis = dragAxisRef.current;
     dragAxisRef.current = null;
@@ -857,8 +867,8 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
           bottom, so it hugs short/horizontal photos instead of floating far
           beneath them — clamped with a ceiling so a near-full-height photo
           still leaves this block fully on-screen above the safe area. No
-          longer needs a fade-to-black gradient: with RESERVED_BOTTOM always
-          held clear, this block never actually overlaps the photo. */}
+          longer needs a fade-to-black gradient: the responsive image envelope
+          still keeps this block clear of the photo. */}
       {!detailOpen && (
         <div
           className="absolute inset-x-0 z-10 max-w-2xl mx-auto px-5 pt-3 pointer-events-none"
