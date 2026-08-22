@@ -18,6 +18,8 @@ describe("restaurant publication and location policy", () => {
   it("shows every individual restaurant until pins become unwieldy", () => {
     expect(shouldClusterRestaurantPins(120)).toBe(false);
     expect(shouldClusterRestaurantPins(121)).toBe(true);
+    expect(shouldClusterRestaurantPins(300, 14.9)).toBe(true);
+    expect(shouldClusterRestaurantPins(300, 15)).toBe(false);
   });
 
   it("zooms closer for genuinely dense restaurant groups", () => {

@@ -9,8 +9,16 @@ export function onsiteRestaurantRadiusKm(reportedAccuracyMeters?: number): numbe
   return Math.max(0.25, Math.min(0.5, (reportedAccuracyMeters + 180) / 1000));
 }
 
-export function shouldClusterRestaurantPins(restaurantCount: number): boolean {
-  return restaurantCount > 120;
+/**
+ * Keep clustering as a low-zoom overview aid, not a permanent obstacle.
+ * At neighborhood/street zoom individual restaurants win, while MapLibre's
+ * label collision engine handles the remaining visual density.
+ */
+export function shouldClusterRestaurantPins(
+  restaurantCount: number,
+  zoom = 14
+): boolean {
+  return restaurantCount > 120 && zoom < 15;
 }
 
 export interface NearbyCandidate<T> {

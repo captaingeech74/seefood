@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Map as MapLibreMap, Marker } from "maplibre-gl";
+import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
 import type { MapPickerProps } from "@/components/MapPicker";
 import type { DishPhoto, Restaurant } from "@/lib/types";
 import { formatAddress } from "@/lib/labels";
@@ -12,6 +12,10 @@ type GeocoderResult = { id: string; label: string; lat: number; lng: number; typ
 type MapPreview = { topPhoto: DishPhoto; dishes: DishPhoto[]; totalDishCount: number };
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+const DEFAULT_PITCH = 35;
+const LABEL_SOURCE_ID = "seefood-restaurant-labels";
+const LABEL_LAYER_ID = "seefood-restaurant-labels-layer";
+const CLUSTER_CELL_PX = 48;
 const EMPTY_CHOICES: Restaurant[] = [];
 
 export default function OpenMapPicker({
@@ -41,6 +45,12 @@ export default function OpenMapPicker({
   const [searching, setSearching] = useState(false);
   const [showSearchArea, setShowSearchArea] = useState(false);
   const [mapError, setMapError] = useState(false);
+  const [mapZoom, setMapZoom] = useState(initialView?.zoom ?? (recoveryMode ? 15 : 14));
+  const restaurantsRef = useRef<SearchRestaurant[]>([]);
+
+  useEffect(() => {
+    restaurantsRef.current = restaurants;
+  }, [restaurants]);
 
   const loadPreviews = useCallback(async (rows: SearchRestaurant[]) => {
     if (!rows.length) return;
@@ -118,9 +128,65 @@ export default function OpenMapPicker({
         style: STYLE_URL,
         center: [start.lng, start.lat],
         zoom: start.zoom,
+        // A gentle tilt adds depth while remaining mostly overhead. Native
+        // two-finger gestures can still flatten or increase it.
+        pitch: DEFAULT_PITCH,
       });
       map.addControl(new maplibre.NavigationControl({ showCompass: false }), "bottom-right");
       map.on("load", () => {
+        map.addSource(LABEL_SOURCE_ID, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+        const firstBaseLabel = map.getStyle().layers.find(
+          (layer) => layer.type === "symbol"
+        )?.id;
+        // Place SeeFood labels before the basemap's labels so restaurant
+        // names get first choice of collision-free space. Roads and terrain
+        // remain below them; ordinary map labels gracefully yield nearby.
+        map.addLayer({
+          id: LABEL_LAYER_ID,
+          type: "symbol",
+          source: LABEL_SOURCE_ID,
+          minzoom: 13.5,
+          layout: {
+            "text-field": ["get", "name"],
+            "text-size": 12,
+            "text-font": ["Noto Sans Regular"],
+            "text-variable-anchor": [
+              "top", "bottom", "left", "right",
+              "top-left", "top-right", "bottom-left", "bottom-right",
+            ],
+            "text-radial-offset": 2.6,
+            "text-justify": "auto",
+            "text-max-width": 13,
+            "text-padding": 4,
+            "text-allow-overlap": false,
+            "text-ignore-placement": false,
+            "text-pitch-alignment": "viewport",
+            "text-rotation-alignment": "viewport",
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": "rgba(10,10,10,0.96)",
+            "text-halo-width": 2,
+            "text-halo-blur": 0.5,
+          },
+        }, firstBaseLabel);
+        map.on("click", LABEL_LAYER_ID, (event) => {
+          const id = event.features?.[0]?.properties?.id;
+          if (typeof id !== "string") return;
+          const restaurant = restaurantsRef.current.find(
+            (candidate) => (candidate.placeId || candidate.id) === id
+          );
+          if (restaurant) setSelected(restaurant);
+        });
+        map.on("mouseenter", LABEL_LAYER_ID, () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", LABEL_LAYER_ID, () => {
+          map.getCanvas().style.cursor = "";
+        });
         const userLocation = document.createElement("div");
         userLocation.className = "open-map-user-location";
         userLocation.setAttribute("aria-label", "Your location");
@@ -132,6 +198,7 @@ export default function OpenMapPicker({
       });
       map.on("moveend", () => {
         const center = map.getCenter();
+        setMapZoom(map.getZoom());
         onViewChange?.({ lat: center.lat, lng: center.lng, zoom: map.getZoom() });
         setShowSearchArea(true);
       });
@@ -160,12 +227,12 @@ export default function OpenMapPicker({
 
     void import("maplibre-gl").then(({ Marker: MapMarker }) => {
       if (map !== mapRef.current) return;
-      const shouldCluster = shouldClusterRestaurantPins(restaurants.length);
+      const shouldCluster = shouldClusterRestaurantPins(restaurants.length, mapZoom);
       const markerGroups = new Map<string, SearchRestaurant[]>();
       for (const restaurant of restaurants) {
         const point = map.project([restaurant.lng, restaurant.lat]);
         const key = shouldCluster
-          ? `${Math.floor(point.x / 62)}:${Math.floor(point.y / 62)}`
+          ? `${Math.floor(point.x / CLUSTER_CELL_PX)}:${Math.floor(point.y / CLUSTER_CELL_PX)}`
           // Even in an uncrowded viewport, multiple venues can share one
           // provider/GPS coordinate. This is universal to malls, airports,
           // food halls, resorts, and shared street addresses.
@@ -173,6 +240,7 @@ export default function OpenMapPicker({
         markerGroups.set(key, [...(markerGroups.get(key) ?? []), restaurant]);
       }
 
+      const labeledRestaurants: SearchRestaurant[] = [];
       markersRef.current = [...markerGroups.values()].map((group) => {
         if (group.length > 1) {
           const center = group.reduce((current, restaurant) => ({
@@ -213,25 +281,29 @@ export default function OpenMapPicker({
           element.style.backgroundImage = `url(${JSON.stringify(preview.topPhoto.url).slice(1, -1)})`;
         }
         element.addEventListener("click", () => setSelected(restaurant));
-        if (!recoveryMode) {
-          return new MapMarker({ element, anchor: "bottom" })
-            .setLngLat([restaurant.lng, restaurant.lat])
-            .addTo(map);
-        }
-
-        const labeledMarker = document.createElement("div");
-        labeledMarker.className = "open-map-labeled-marker";
-        labeledMarker.addEventListener("click", () => setSelected(restaurant));
-        const label = document.createElement("span");
-        label.className = "open-map-pin-label";
-        label.textContent = restaurant.name;
-        labeledMarker.append(label, element);
-        return new MapMarker({ element: labeledMarker, anchor: "bottom" })
+        labeledRestaurants.push(restaurant);
+        return new MapMarker({ element, anchor: "bottom" })
           .setLngLat([restaurant.lng, restaurant.lat])
           .addTo(map);
       });
+
+      const labelSource = map.getSource(LABEL_SOURCE_ID) as GeoJSONSource | undefined;
+      labelSource?.setData({
+        type: "FeatureCollection",
+        features: labeledRestaurants.map((restaurant) => ({
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [restaurant.lng, restaurant.lat],
+          },
+          properties: {
+            id: restaurant.placeId || restaurant.id,
+            name: restaurant.name,
+          },
+        })),
+      });
     });
-  }, [previews, ready, recoveryMode, restaurants, selected?.id]);
+  }, [mapZoom, previews, ready, restaurants, selected?.id]);
 
   useEffect(() => {
     const query = searchText.trim();

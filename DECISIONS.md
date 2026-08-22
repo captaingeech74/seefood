@@ -2203,3 +2203,17 @@ report are in `docs/CABO_ROLLOUT.md`.
   responsive viewport-height envelope instead of a large fixed reservation,
   and leaves native browser pinch zoom enabled. SeeFood does not disable page
   zoom at the viewport level.
+
+# August 22, 2026 — Favor structured dish linkage and readable individual map pins
+
+- Jilbertos Mexican Food is a useful reference case: its strong experience
+  comes from a current structured DoorDash menu with direct dish-to-photo
+  linkage and byte-verified images, not from its restaurant website. The
+  scalable lesson is the acquisition shape—trusted identity, current structured
+  items, direct photo linkage, and food-only filtering—rather than a one-off
+  restaurant exception.
+- The open map begins at a gentle 35-degree pitch. Large result sets cluster
+  only below street-level zoom; from zoom 15 onward, individual restaurants
+  win. Restaurant names use collision-aware variable placement near their
+  fixed pins, allowing a small shift or temporary omission instead of unreadable
+  overlap. Exact co-located venues still retain the named ambiguity choice.
