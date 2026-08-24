@@ -2217,3 +2217,23 @@ report are in `docs/CABO_ROLLOUT.md`.
   win. Restaurant names use collision-aware variable placement near their
   fixed pins, allowing a small shift or temporary omission instead of unreadable
   overlap. Exact co-located venues still retain the named ambiguity choice.
+
+# August 24, 2026 — Keep the map instance stable; prefer structured delivery evidence without source lock-in
+
+- A remembered map view is an initial reopening position, not a controlled
+  camera prop. A pan or zoom may save the new view, but must not remount the map
+  or rebuild markers unless the overview/street clustering boundary changes.
+  Restaurant-name labels remain collision-aware and render as the top map-style
+  layer with a strong halo so pitched basemap artwork cannot obscure them.
+- DoorDash is the first structured delivery acquisition attempt when a confident
+  store match is available. At this snapshot it supplies 10,919 active photos
+  across 154 active restaurants; every photo is attached to a menu item.
+  Grubhub supplies another 7,378 fully attached photos across 133 restaurants.
+  This makes structured provider menus the strongest current scalable backbone
+  for dish identity and visual breadth.
+- DoorDash is not an exclusive display winner. Its median stored image is about
+  0.48 megapixels, the same as Grubhub, while official sites and Google can
+  supply larger or otherwise better evidence. SeeFood keeps provenance, merges
+  sources, deduplicates bytes and near-duplicates, and selects the best photo per
+  dish using linkage, image quality, diner feedback, and Management/Customer
+  usefulness. A source name alone never outranks a demonstrably better photo.

@@ -30,6 +30,7 @@ export default function OpenMapPicker({
 }: MapPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const markerClassRef = useRef<typeof import("maplibre-gl").Marker | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const userMarkerRef = useRef<Marker | null>(null);
   const requestRef = useRef(0);
@@ -45,7 +46,12 @@ export default function OpenMapPicker({
   const [searching, setSearching] = useState(false);
   const [showSearchArea, setShowSearchArea] = useState(false);
   const [mapError, setMapError] = useState(false);
-  const [mapZoom, setMapZoom] = useState(initialView?.zoom ?? (recoveryMode ? 15 : 14));
+  // The remembered view is a launch position, not a controlled camera prop.
+  // Updating it after a pan must never recreate the live map.
+  const initialViewRef = useRef(initialView);
+  const [streetZoom, setStreetZoom] = useState(
+    (initialView?.zoom ?? (recoveryMode ? 15 : 14)) >= 15
+  );
   const restaurantsRef = useRef<SearchRestaurant[]>([]);
 
   useEffect(() => {
@@ -122,7 +128,8 @@ export default function OpenMapPicker({
     let disposed = false;
     void import("maplibre-gl").then((maplibre) => {
       if (disposed || !containerRef.current) return;
-      const start = initialView ?? { lat, lng, zoom: recoveryMode ? 15 : 14 };
+      markerClassRef.current = maplibre.Marker;
+      const start = initialViewRef.current ?? { lat, lng, zoom: recoveryMode ? 15 : 14 };
       const map = new maplibre.Map({
         container: containerRef.current,
         style: STYLE_URL,
@@ -138,12 +145,10 @@ export default function OpenMapPicker({
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
         });
-        const firstBaseLabel = map.getStyle().layers.find(
-          (layer) => layer.type === "symbol"
-        )?.id;
-        // Place SeeFood labels before the basemap's labels so restaurant
-        // names get first choice of collision-free space. Roads and terrain
-        // remain below them; ordinary map labels gracefully yield nearby.
+        // This is intentionally the final style layer. Variable anchors still
+        // prevent SeeFood names from colliding with each other, while the top
+        // render position prevents pitched buildings and basemap artwork from
+        // painting over a restaurant name.
         map.addLayer({
           id: LABEL_LAYER_ID,
           type: "symbol",
@@ -163,16 +168,17 @@ export default function OpenMapPicker({
             "text-padding": 4,
             "text-allow-overlap": false,
             "text-ignore-placement": false,
+            "symbol-z-order": "viewport-y",
             "text-pitch-alignment": "viewport",
             "text-rotation-alignment": "viewport",
           },
           paint: {
             "text-color": "#ffffff",
             "text-halo-color": "rgba(10,10,10,0.96)",
-            "text-halo-width": 2,
-            "text-halo-blur": 0.5,
+            "text-halo-width": 3,
+            "text-halo-blur": 0.35,
           },
-        }, firstBaseLabel);
+        });
         map.on("click", LABEL_LAYER_ID, (event) => {
           const id = event.features?.[0]?.properties?.id;
           if (typeof id !== "string") return;
@@ -198,7 +204,9 @@ export default function OpenMapPicker({
       });
       map.on("moveend", () => {
         const center = map.getCenter();
-        setMapZoom(map.getZoom());
+        // Re-group only when crossing the overview/street threshold. Keeping
+        // every fractional camera movement out of React avoids marker churn.
+        setStreetZoom(map.getZoom() >= 15);
         onViewChange?.({ lat: center.lat, lng: center.lng, zoom: map.getZoom() });
         setShowSearchArea(true);
       });
@@ -216,32 +224,34 @@ export default function OpenMapPicker({
       userMarkerRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
+      markerClassRef.current = null;
     };
-  }, [initialView, lat, lng, loadViewport, onViewChange, recoveryMode]);
+  }, [lat, lng, loadViewport, onViewChange, recoveryMode]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = [];
+    const MapMarker = markerClassRef.current;
+    if (!MapMarker) return;
+    const previousMarkers = markersRef.current;
+    const shouldCluster = shouldClusterRestaurantPins(
+      restaurants.length,
+      streetZoom ? 15 : 14
+    );
+    const markerGroups = new Map<string, SearchRestaurant[]>();
+    for (const restaurant of restaurants) {
+      const point = map.project([restaurant.lng, restaurant.lat]);
+      const key = shouldCluster
+        ? `${Math.floor(point.x / CLUSTER_CELL_PX)}:${Math.floor(point.y / CLUSTER_CELL_PX)}`
+        // Even in an uncrowded viewport, multiple venues can share one
+        // provider/GPS coordinate. This is universal to malls, airports,
+        // food halls, resorts, and shared street addresses.
+        : `venue:${restaurant.lat.toFixed(5)}:${restaurant.lng.toFixed(5)}`;
+      markerGroups.set(key, [...(markerGroups.get(key) ?? []), restaurant]);
+    }
 
-    void import("maplibre-gl").then(({ Marker: MapMarker }) => {
-      if (map !== mapRef.current) return;
-      const shouldCluster = shouldClusterRestaurantPins(restaurants.length, mapZoom);
-      const markerGroups = new Map<string, SearchRestaurant[]>();
-      for (const restaurant of restaurants) {
-        const point = map.project([restaurant.lng, restaurant.lat]);
-        const key = shouldCluster
-          ? `${Math.floor(point.x / CLUSTER_CELL_PX)}:${Math.floor(point.y / CLUSTER_CELL_PX)}`
-          // Even in an uncrowded viewport, multiple venues can share one
-          // provider/GPS coordinate. This is universal to malls, airports,
-          // food halls, resorts, and shared street addresses.
-          : `venue:${restaurant.lat.toFixed(5)}:${restaurant.lng.toFixed(5)}`;
-        markerGroups.set(key, [...(markerGroups.get(key) ?? []), restaurant]);
-      }
-
-      const labeledRestaurants: SearchRestaurant[] = [];
-      markersRef.current = [...markerGroups.values()].map((group) => {
+    const labeledRestaurants: SearchRestaurant[] = [];
+    const nextMarkers = [...markerGroups.values()].map((group) => {
         if (group.length > 1) {
           const center = group.reduce((current, restaurant) => ({
             lat: current.lat + restaurant.lat / group.length,
@@ -285,25 +295,26 @@ export default function OpenMapPicker({
         return new MapMarker({ element, anchor: "bottom" })
           .setLngLat([restaurant.lng, restaurant.lat])
           .addTo(map);
-      });
-
-      const labelSource = map.getSource(LABEL_SOURCE_ID) as GeoJSONSource | undefined;
-      labelSource?.setData({
-        type: "FeatureCollection",
-        features: labeledRestaurants.map((restaurant) => ({
-          type: "Feature",
-          geometry: {
-            type: "Point",
-            coordinates: [restaurant.lng, restaurant.lat],
-          },
-          properties: {
-            id: restaurant.placeId || restaurant.id,
-            name: restaurant.name,
-          },
-        })),
-      });
     });
-  }, [mapZoom, previews, ready, restaurants, selected?.id]);
+
+    const labelSource = map.getSource(LABEL_SOURCE_ID) as GeoJSONSource | undefined;
+    labelSource?.setData({
+      type: "FeatureCollection",
+      features: labeledRestaurants.map((restaurant) => ({
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [restaurant.lng, restaurant.lat],
+        },
+        properties: {
+          id: restaurant.placeId || restaurant.id,
+          name: restaurant.name,
+        },
+      })),
+    });
+    previousMarkers.forEach((marker) => marker.remove());
+    markersRef.current = nextMarkers;
+  }, [previews, ready, restaurants, selected?.id, streetZoom]);
 
   useEffect(() => {
     const query = searchText.trim();

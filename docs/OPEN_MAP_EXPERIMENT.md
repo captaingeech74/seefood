@@ -26,6 +26,13 @@ position exists, the lower-priority name waits until the user pans or zooms
 instead of drawing on top of another name. Clicking either the pin or its name
 selects the restaurant.
 
+The name layer is the final map-style layer, with a strong dark halo, so
+pitched buildings, roads, and other basemap artwork cannot paint over a
+restaurant name. The remembered camera is launch-only state: panning updates
+the saved view without destroying or rebuilding the live map. Marker grouping
+is recalculated only when the camera crosses the overview/street zoom boundary,
+not for every fractional movement.
+
 Large result sets cluster only in broad overview views below zoom 15. At street
 and neighborhood zoom, individual restaurants are shown even when the result
 set is large. Exact shared coordinates still produce a named choice group so
