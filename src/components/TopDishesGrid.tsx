@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DishPhoto } from "@/lib/types";
 import { dedupeToPrimary } from "@/lib/dishGrouping";
+import { formatPhotoSourceList } from "@/lib/labels";
 import DishTile from "./DishTile";
 
 const INITIAL_VISIBLE = 30;
@@ -68,6 +69,10 @@ export default function TopDishesGrid({
   const rankedList = useMemo(
     () => [...primary.filter((dish) => dish.tier !== 3), ...primary.filter((dish) => dish.tier === 3)],
     [primary]
+  );
+  const photoSourceList = useMemo(
+    () => formatPhotoSourceList(dishes.map((dish) => dish.source)),
+    [dishes]
   );
 
   const maxVisible = Math.min(rankedList.length, MAX_VISIBLE);
@@ -228,12 +233,14 @@ export default function TopDishesGrid({
         </div>
       )}
 
-      <p
-        className="text-center text-white/30 text-[11px] mt-6 font-medium"
-        style={{ paddingBottom: "max(4px, env(safe-area-inset-bottom))" }}
-      >
-        Photos via Google · Grubhub · Menufy · Restaurant
-      </p>
+      {photoSourceList && (
+        <p
+          className="text-center text-white/30 text-[11px] mt-6 font-medium"
+          style={{ paddingBottom: "max(4px, env(safe-area-inset-bottom))" }}
+        >
+          Photos via {photoSourceList}
+        </p>
+      )}
     </div>
   );
 }

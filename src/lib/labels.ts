@@ -12,6 +12,10 @@ export const SOURCE_LABELS: Record<DataSource, string> = {
   user_suggested: "SeeFood",
 };
 
+export function formatPhotoSourceList(sources: DataSource[]): string {
+  return [...new Set(sources.map((source) => SOURCE_LABELS[source]))].join(" · ");
+}
+
 /**
  * Display-format a stored address without touching the stored value:
  * - drops a leading component that is only a street number (some records
