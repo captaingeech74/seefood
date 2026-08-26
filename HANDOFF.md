@@ -55,6 +55,12 @@ MSAs, and finally all 387 MSAs.
   prominent-text, promotional, and duplicate images; keep genuine food. If the
   food is useful but the supplied dish label is doubtful, retain the photo while
   detaching that unsafe dish claim instead of throwing the image away.
+- Product photo reads now require an active, orderable, non-quarantined row.
+  Legacy generic Schema.org images are adaptively quarantined only when a
+  restaurant already has seven positively identified photos; photo-poor
+  candidates stay staged for review. The August 26 run quarantined 1,505 weak
+  rows across 43 restaurants without losing a positively identified photo.
+  See `docs/WEBSITE_ACQUISITION_V3.md`.
 - Merchant ingestion has one provider-neutral reconciliation path for Google
   Business Profile, Square, Toast, Clover, and Flipdish payloads. Provider
   adapters normalize into the same provenance-preserving corpus pipeline.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DishPhoto } from "../types";
 import { heroScore, normalizePhotoAuthor, trustLabel, withPhotoSignals } from "../photoSignals";
+import { canReactivateQuarantinedPhoto } from "../photoFingerprint";
 
 const base: DishPhoto = {
   id: "photo-1",
@@ -42,5 +43,15 @@ describe("normalized photo signals", () => {
       primaryVotes: 3,
     });
     expect(heroScore(standout, 5)).toBeGreaterThan(heroScore(ordinary, 1));
+  });
+});
+
+describe("photo quarantine durability", () => {
+  it("allows a successfully verified image to recover from a transient quarantine", () => {
+    expect(canReactivateQuarantinedPhoto("verification_pending", "content-hash")).toBe(true);
+  });
+
+  it("does not republish unsupported website imagery just because the same bytes were fetched again", () => {
+    expect(canReactivateQuarantinedPhoto("unsupported_generic_website_image", "content-hash")).toBe(false);
   });
 });

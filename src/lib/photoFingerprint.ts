@@ -6,6 +6,16 @@ export interface PhotoFingerprint {
   perceptualHash: string;
 }
 
+/**
+ * These rows were rejected because their content is not supported as a food
+ * photo, not because an image download temporarily failed. Re-observing the
+ * same bytes is therefore not new evidence and must not silently republish it.
+ * A deliberate rollback/review can still restore the row.
+ */
+const DURABLE_CONTENT_QUARANTINE_REASONS = new Set([
+  "unsupported_generic_website_image",
+]);
+
 export function isImageContentType(contentType: string | null): boolean {
   return !!contentType?.toLowerCase().startsWith("image/");
 }
@@ -23,6 +33,9 @@ export function canReactivateQuarantinedPhoto(
   priorDedupeReason: string | null | undefined,
   incomingContentHash: string | null | undefined
 ): boolean {
+  if (priorDedupeReason && DURABLE_CONTENT_QUARANTINE_REASONS.has(priorDedupeReason)) {
+    return false;
+  }
   return !priorDedupeReason || Boolean(incomingContentHash);
 }
 

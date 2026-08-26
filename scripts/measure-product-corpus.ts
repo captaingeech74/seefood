@@ -10,11 +10,11 @@ async function main(){loadEnv();const runId=argument("run-id")??null,password=en
     count(distinct r.entity_id)::int entities,
     count(distinct r.entity_id) filter(where exists(select 1 from restaurant_websites w where w.entity_id=r.entity_id and w.active))::int with_website,
     count(distinct r.entity_id) filter(where exists(select 1 from menu_items mi where mi.restaurant_id=r.place_id and mi.active))::int with_menu,
-    count(distinct r.entity_id) filter(where exists(select 1 from photos p where p.restaurant_id=r.place_id and p.active and p.is_orderable and not p.is_storefront))::int with_useful_photo,
+    count(distinct r.entity_id) filter(where exists(select 1 from photos p where p.restaurant_id=r.place_id and p.active and p.is_orderable and p.dedupe_reason is null and not p.is_storefront))::int with_useful_photo,
     count(distinct r.entity_id) filter(where exists(select 1 from photos p where p.restaurant_id=r.place_id and p.active and (p.menu_item_id is not null or p.canonical_dish_id is not null)))::int with_named_or_matched_photo,
     count(distinct r.entity_id) filter(where exists(select 1 from photos p where p.restaurant_id=r.place_id and p.active and p.menu_item_id is not null))::int with_menu_matched_photo,
-    (select count(*)::int from photos p join restaurants rr on rr.place_id=p.restaurant_id where rr.status<>'test_fixture' and p.active and p.is_orderable and not p.is_storefront) useful_photos,
-    (select count(distinct p.content_hash)::int from photos p join restaurants rr on rr.place_id=p.restaurant_id where rr.status<>'test_fixture' and p.active and p.is_orderable and not p.is_storefront and p.content_hash is not null) exact_unique_photo_bytes,
+    (select count(*)::int from photos p join restaurants rr on rr.place_id=p.restaurant_id where rr.status<>'test_fixture' and p.active and p.is_orderable and p.dedupe_reason is null and not p.is_storefront) useful_photos,
+    (select count(distinct p.content_hash)::int from photos p join restaurants rr on rr.place_id=p.restaurant_id where rr.status<>'test_fixture' and p.active and p.is_orderable and p.dedupe_reason is null and not p.is_storefront and p.content_hash is not null) exact_unique_photo_bytes,
     (select count(*)::int from photos p join restaurants rr on rr.place_id=p.restaurant_id where rr.status<>'test_fixture' and p.active and p.photo_author_type='management') management_photos,
     (select count(*)::int from photos p join restaurants rr on rr.place_id=p.restaurant_id where rr.status<>'test_fixture' and p.active and p.source='common_crawl') unmatched_official_photos
    from restaurants r where r.status<>'test_fixture'`)).rows[0];

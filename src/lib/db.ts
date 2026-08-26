@@ -148,6 +148,8 @@ export async function getCorpusSnapshot(placeId: string): Promise<CorpusSnapshot
       .select("*")
       .eq("restaurant_id", placeId)
       .eq("active", true)
+      .eq("is_orderable", true)
+      .is("dedupe_reason", null)
       .order("tier", { ascending: true })
       .order("id", { ascending: true }),
     supabase.from("menu_items").select("id,name,description").eq("restaurant_id", placeId).eq("active", true),
@@ -1126,6 +1128,8 @@ export async function getCoverageMetrics(
         .select("restaurant_id,source,menu_item_id,canonical_dish_id")
         .in("restaurant_id", ids)
         .eq("active", true)
+        .eq("is_orderable", true)
+        .is("dedupe_reason", null)
         .range(from, from + 999);
       if (error) throw error;
       photos.push(...((data ?? []) as CoveragePhotoRow[]));
@@ -1232,6 +1236,8 @@ export async function getMapPhotosForPlaceIds(
       .select("*")
       .in("restaurant_id", placeIds)
       .eq("active", true)
+      .eq("is_orderable", true)
+      .is("dedupe_reason", null)
       .order("tier", { ascending: true })
       .order("id", { ascending: true }),
     supabase.from("menu_items").select("id,name,description,restaurant_id").in("restaurant_id", placeIds),

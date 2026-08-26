@@ -43,6 +43,12 @@ was not unified into one reviewable corpus.
   is selection evidence, not a dish claim. The publication path caps these at
   two per restaurant and rejects obvious interiors, people, merchandise,
   drinks, stale pages, foreign-country domains, and mismatched branch sites.
+- Generic website imagery is not display evidence merely because it came from
+  Schema.org or an official corporate site. It must be positively supported as
+  relevant food before publication. Legacy generic imagery may be reversibly
+  quarantined once a restaurant already has seven positively identified photos;
+  photo-poor restaurants keep their candidates staged for content review so
+  legitimate unmatched food is not lost.
 - One failed observation never retires known-good evidence. Staleness requires
   two successful crawls that both establish absence.
 - V2 evidence is merged idempotently into the same durable observation layer.
@@ -149,6 +155,21 @@ Rollback point: `rollback/pre-website-v3-20260803`.
 
 LRay's Kitchen remains a protected `test_fixture` and was excluded from
 publication.
+
+## Legacy generic-image quarantine
+
+On August 26, the adaptive legacy audit found 1,505 active, orderable Schema.org
+images across 43 already well-covered restaurants that had no menu-item link,
+canonical dish, dish label, or hero evidence. The rows represented 1,198 exact
+image byte identities. They were reversibly quarantined under run
+`8686c893-314b-4ff3-8838-7ca29ebef016`; no positively identified photo and no
+restaurant-level photo coverage was lost. Crunchy Munchy changed from 76 visible
+photos to its 23 DoorDash menu-linked photos. The product read path now requires
+both display eligibility and the absence of a quarantine reason, and a later
+crawl cannot republish the same content-rejected bytes without deliberate
+review or rollback.
+
+Rollback point: `rollback/pre-generic-website-photo-quarantine-20260826`.
 
 ## Official-gallery validation
 

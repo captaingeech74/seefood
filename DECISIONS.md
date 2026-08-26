@@ -2237,3 +2237,26 @@ report are in `docs/CABO_ROLLOUT.md`.
   sources, deduplicates bytes and near-duplicates, and selects the best photo per
   dish using linkage, image quality, diner feedback, and Management/Customer
   usefulness. A source name alone never outranks a demonstrably better photo.
+
+# August 26, 2026 — Photo eligibility is a gate, not merely a ranking
+
+- A weak image placed after stronger photos is still a product-quality failure
+  if it eventually appears. Ranking determines order only after a photo has
+  qualified for display.
+- Menu-linked provider photos, safely named photos, and positively reviewed
+  unmatched food are display evidence. A generic Schema.org or official-site
+  image is not food evidence on source alone.
+- When a restaurant already has at least seven positively identified photos,
+  unsupported legacy Schema.org imagery may be reversibly quarantined. At
+  photo-poor restaurants the same broad rule does not apply; candidates remain
+  staged until content review can rescue genuine unmatched food.
+- DoorDash's typical roughly half-megapixel item image is suitable for the
+  current mobile-first product when it renders cleanly. Its size is usually a
+  performance and storage advantage, not a quality penalty. Source resolution
+  should be judged against actual display needs rather than rewarded in
+  isolation.
+- Quarantine run `8686c893-314b-4ff3-8838-7ca29ebef016` removed 1,505 unsupported
+  visible rows from 43 already-covered restaurants, including 53 from Crunchy
+  Munchy. It removed zero positively identified photos and emptied zero
+  restaurants. Rollback tag:
+  `rollback/pre-generic-website-photo-quarantine-20260826`.
