@@ -2283,7 +2283,7 @@ report are in `docs/CABO_ROLLOUT.md`.
 - The first production repair disabled five clearly mismatched DoorDash feeds:
   1,050 active wrong menu claims and 807 active wrong photos. Each repair is
   logged in source runs `3307`–`3311` with its previous state. Gourmet Italia
-  was rebuilt as 50 official dishes and 25 byte-verified official food photos,
+  was rebuilt as 50 official dishes and 22 byte-verified official food photos,
   with its address restored to 27499 Ynez Road. Red Robin retained its valid
   147-item feed and stronger canonical record; its duplicate shell was disabled.
   Rollback tag: `rollback/pre-provider-identity-repair-20260827`.

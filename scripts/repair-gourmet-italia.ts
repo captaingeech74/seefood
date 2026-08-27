@@ -73,7 +73,6 @@ const GALLERY: Array<{ dish: string; asset: string }> = [
   ["Rigatoni alla Norma", "c3c5f8_2e4d1371c09c4a0c907e49c965a8219a~mv2.jpg"],
   ["Gourmet Italia Salad", "c3c5f8_6e8f1f90ccb64d0ea89e150aca97f363~mv2.jpg"],
   ["Gourmet Italia Salad", "c3c5f8_95342c5a35f545f8937df8253f6fb894~mv2.jpg"],
-  ["Fettuccine Alfredo", "c3c5f8_62b1deeb892d40e88277c72f866bb602~mv2_d_4256_2832_s_4_2.jpg"],
   ["Pollo Parmigiana", "c3c5f8_f281072aa0d4461a81dd83312288b491~mv2.jpg"],
   ["Housemade Ravioli", "c3c5f8_fe65797e31ee41a395840ba632e8d807~mv2.jpg"],
   ["Pollo Limone", "c3c5f8_0e6fff55f7a24ae4b8feb472b895c305~mv2.jpg"],
@@ -85,12 +84,16 @@ const GALLERY: Array<{ dish: string; asset: string }> = [
   ["Fusilli al Filetto", "c3c5f8_028d8343cf594bb09a64945e06bd78a7~mv2.jpg"],
   ["Calamari Fritti w/ Cherry Peppers", "c3c5f8_2cb8c70ce15542ab8157ee1b7e23fd9a~mv2.webp"],
   ["Antipasto Italiano", "c3c5f8_959a5ee5e78147f2a35248d1dbe10728~mv2.jpg"],
-  ["Pollo Parmigiana", "c3c5f8_2daa8def3be84ce39bcc114b1202387b~mv2.jpg"],
   ["Gourmet Italia's Olive Tapenade", "c3c5f8_f9381d8a6379466484a9b3cf221f7c62~mv2.jpg"],
-  ["Gourmet Italia's Olive Tapenade", "c3c5f8_87780383fa644f62806b6627e4a22733~mv2.jpg"],
   ["Spaghetti Carbonara", "c3c5f8_1f36d0e9b0de435dbfe72c2d6c714838~mv2.webp"],
   ["Seafood Pasta Special", "c3c5f8_e1a43e4b7f9a450585fc801e780705ed~mv2.jpg"],
 ].map(([dish, asset]) => ({ dish, asset }));
+
+const REJECTED_GALLERY_ASSETS = [
+  "c3c5f8_62b1deeb892d40e88277c72f866bb602~mv2_d_4256_2832_s_4_2.jpg", // candle, not Alfredo
+  "c3c5f8_2daa8def3be84ce39bcc114b1202387b~mv2.jpg", // weak wide duplicate of a strong close dish
+  "c3c5f8_87780383fa644f62806b6627e4a22733~mv2.jpg", // weak wide duplicate of a strong close dish
+].map((asset) => `https://static.wixstatic.com/media/${asset}`);
 
 function loadEnv() {
   const path = join(__dirname, "..", ".env.local");
@@ -168,6 +171,12 @@ async function main() {
     await db.query("update restaurants set address=$2,website=$3,updated_at=now() where place_id=$1", [PLACE_ID, ADDRESS, "https://www.gourmetitaliatemecula.com/"]);
     await db.query("update restaurant_entities set address=$2,updated_at=now() where id=(select entity_id from restaurants where place_id=$1)", [PLACE_ID, ADDRESS]);
     await db.query("update restaurant_identities set address=$2,last_seen_at=now() where entity_id=(select entity_id from restaurants where place_id=$1) and provider='google'", [PLACE_ID, ADDRESS]);
+    await db.query(
+      `update photos set active=false,is_orderable=false,is_hero_candidate=false,
+           dedupe_reason='official_gallery_visual_reject',deduped_at=now()
+        where restaurant_id=$1 and origin_url=any($2::text[])`,
+      [PLACE_ID, REJECTED_GALLERY_ASSETS]
+    );
     await db.query("commit");
     const menuRows = (await db.query("select id,name from menu_items where restaurant_id=$1 and active", [PLACE_ID])).rows;
     const menuId = new Map(menuRows.map((row) => [row.name, Number(row.id)]));
