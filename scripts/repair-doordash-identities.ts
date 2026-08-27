@@ -33,12 +33,12 @@ type RestaurantRow = {
 };
 
 function cityFrom(row: RestaurantRow): string | undefined {
-  const parts = row.address?.split(",").map((part) => part.trim()).filter(Boolean) ?? [];
-  if (parts.length >= 2) return parts.at(-2);
   const slug = decodeURIComponent(row.doordash_store_url.split("/store/")[1] ?? "");
   for (const city of ["temecula", "murrieta", "spokane", "san-diego", "cabo-san-lucas"]) {
     if (slug.includes(city)) return city.replaceAll("-", " ");
   }
+  const cityBeforeState = row.address?.match(/,\s*([^,]+),\s*[A-Z]{2}(?:\s+\d{5})?(?:,\s*USA)?\s*$/i)?.[1];
+  if (cityBeforeState) return cityBeforeState.trim();
   return undefined;
 }
 
