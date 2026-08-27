@@ -1471,7 +1471,7 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
   const placeId = restaurant.placeId ?? restaurant.id;
   const { data: existing } = await supabase
     .from("restaurants")
-    .select("slug,entity_id")
+    .select("slug,entity_id,address")
     .eq("place_id", placeId)
     .maybeSingle();
 
@@ -1481,6 +1481,8 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
   // with no separation, so without this guard every benchmark run
   // permanently baked its run-tag into the restaurant's stored name.
   const cleanName = restaurant.name.replace(/\s*\[bench-[^\]]*\]\s*$/i, "").trim();
+  const suppliedAddress = restaurant.address?.trim() || null;
+  const effectiveAddress = suppliedAddress ?? existing?.address ?? null;
 
   let entityId = existing?.entity_id as string | null | undefined;
   if (!entityId && !isSeeFoodRestaurantId(placeId)) {
@@ -1498,7 +1500,7 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
         legacy_place_id: isSeeFoodRestaurantId(placeId) ? null : placeId,
         name: cleanName,
         normalized_name: cleanName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(),
-        address: restaurant.address,
+        address: effectiveAddress,
         lat: restaurant.lat,
         lng: restaurant.lng,
       })
@@ -1507,13 +1509,13 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
     entityId = createdEntity?.id;
   }
 
-  const baseSlug = existing?.slug ?? slugifyRestaurant(cleanName, restaurant.address);
+  const baseSlug = existing?.slug ?? slugifyRestaurant(cleanName, effectiveAddress ?? "");
   const row = {
     place_id: placeId,
     name: cleanName,
     lat: restaurant.lat,
     lng: restaurant.lng,
-    address: restaurant.address,
+    address: effectiveAddress,
     entity_id: entityId ?? null,
     updated_at: new Date().toISOString(),
   };
@@ -1536,7 +1538,7 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
     await supabase.from("restaurant_entities").update({
         name: cleanName,
         normalized_name: cleanName.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(),
-        address: restaurant.address,
+        ...(effectiveAddress ? { address: effectiveAddress } : {}),
         lat: restaurant.lat,
         lng: restaurant.lng,
         updated_at: new Date().toISOString(),
@@ -1547,7 +1549,7 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
         provider: "google",
         provider_id: placeId,
         name: cleanName,
-        address: restaurant.address,
+        address: effectiveAddress,
         lat: restaurant.lat,
         lng: restaurant.lng,
         confidence: 1,

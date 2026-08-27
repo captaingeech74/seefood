@@ -22,6 +22,7 @@ const SAMPLE_URLS = [
   "https://www.doordash.com/store/ebullition-pub-and-grill-temecula-32380025/",
   "https://www.doordash.com/store/francescas-italian-kitchen-temecula-32578269/",
   "https://www.doordash.com/store/the-old-town-deli-temecula-temecula-40461423/",
+  "https://www.doordash.com/store/red-robin-gourmet-burgers-and-brews-temecula-272657/",
 ];
 
 describe("findDoorDashStoreUrlInSitemap", () => {
@@ -70,8 +71,41 @@ describe("findDoorDashStoreUrlInSitemap", () => {
     expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Old Town Pub & Grub", "Temecula")).toBeNull();
   });
 
+  it("does not treat a generic adjective as a unique restaurant brand", () => {
+    expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Gourmet Italia", "Temecula")).toBeNull();
+  });
+
   it("does not match on a single generic word alone", () => {
     expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Cafe", "Temecula")).toBeNull();
+  });
+
+  it("does not revalidate a generic-only cached name against a larger brand", () => {
+    expect(findDoorDashStoreUrlInSitemap(
+      ["https://www.doordash.com/store/albertos-mexican-food-temecula-123/"],
+      "Mexican Food",
+      "Temecula"
+    )).toBeNull();
+  });
+
+  it("accepts exact multi-word generic brands without extra provider brand words", () => {
+    expect(findDoorDashStoreUrlInSitemap(
+      ["https://www.doordash.com/store/le-coffee-shop-temecula-123/"],
+      "Le Coffee Shop",
+      "Temecula"
+    )).toBe("https://www.doordash.com/store/le-coffee-shop-temecula-123/");
+    expect(findDoorDashStoreUrlInSitemap(
+      ["https://www.doordash.com/store/california-pizza-kitchen-temecula-123/"],
+      "California Pizza Kitchen at Temecula",
+      "Temecula"
+    )).toBe("https://www.doordash.com/store/california-pizza-kitchen-temecula-123/");
+  });
+
+  it("accepts only explicit confirmed provider-name aliases", () => {
+    expect(findDoorDashStoreUrlInSitemap(
+      ["https://www.doordash.com/store/thailand-to-go-temecula-123/"],
+      "Thailand ToGo (Thai Street Food)",
+      "Temecula"
+    )).toBe("https://www.doordash.com/store/thailand-to-go-temecula-123/");
   });
 
   it("returns null when the city has no matches at all", () => {

@@ -116,10 +116,18 @@ function normalizeWords(s: string): string[] {
 }
 
 const GENERIC_RESTAURANT_WORDS = new Set([
-  "bakery", "bar", "bbq", "brew", "cafe", "chinese", "coffee", "company",
-  "diner", "food", "greek", "grill", "house", "indian", "italian", "kitchen",
+  "and", "bakery", "bar", "bbq", "brew", "cafe", "chinese", "coffee", "company",
+  "california", "diner", "food", "gastronomy", "gourmet", "greek", "grill", "house", "indian", "italian", "kitchen",
   "mexican", "old", "pizza", "pub", "restaurant", "shop", "sushi", "taco",
   "thai", "town", "works",
+]);
+
+// Confirmed provider-side naming differences. Keep these explicit: a known
+// alias is safer than weakening identity rules for every restaurant.
+const DOORDASH_NAME_ALIASES = new Map<string, string[][]>([
+  ["breakfast club temecula", [["breakfast", "tias"]]],
+  ["nuristan halal market restaurant", [["nuristan", "halal", "food"]]],
+  ["thailand togo", [["thailand"]]],
 ]);
 
 function restaurantNameWords(name: string, city?: string): {
@@ -148,16 +156,37 @@ export function findDoorDashStoreUrlInSitemap(
 ): string | null {
   const { all: nameWords, distinctive } = restaurantNameWords(restaurantName, city);
   if (nameWords.length === 0) return null;
-  // Generic cuisine/location words are not enough identity to safely select
-  // one business from a city-wide sitemap.
-  if (distinctive.length === 0 && urls.length !== 1) return null;
-  // A previously verified one-URL cache entry can be revalidated by an exact
-  // generic name, but generic words may not discover a new city-wide match.
-  const matchWords = distinctive.length > 0 ? distinctive : nameWords;
-
   const cityLower = city?.toLowerCase().replace(/[^a-z0-9]/g, "");
   const candidates = cityLower ? urls.filter((u) => u.toLowerCase().includes(cityLower)) : urls;
   if (candidates.length === 0) return null;
+
+  const aliasKey = normalizeWords(restaurantName.replace(/\s*\([^)]*\)\s*$/g, ""))
+    .filter((word) => word !== "and")
+    .join(" ");
+  const aliases = DOORDASH_NAME_ALIASES.get(aliasKey) ?? [];
+  const aliasMatches = candidates.filter((url) => {
+    const slugWords = normalizeWords(decodeURIComponent(url.split("/store/")[1] ?? ""));
+    return aliases.some((alias) => alias.every((word) => slugWords.includes(word)));
+  });
+  if (aliasMatches.length === 1) return aliasMatches[0];
+
+  // Generic cuisine/location words are never enough identity. A cached URL
+  // is evidence of a previous decision, not proof that decision was correct.
+  // The one exception is an exact multi-word generic brand with no extra
+  // brand token in the provider slug (for example "Le Coffee Shop").
+  if (distinctive.length === 0) {
+    const cityWords = new Set(normalizeWords(city ?? ""));
+    const exactNameWords = nameWords.filter((word) => !cityWords.has(word));
+    if (exactNameWords.length < 2) return null;
+    const exact = candidates.filter((url) => {
+      const slugWords = normalizeWords(decodeURIComponent(url.split("/store/")[1] ?? ""))
+        .filter((word) => !/^\d+$/.test(word) && !cityWords.has(word) && word !== "identity");
+      return exactNameWords.every((word) => slugWords.includes(word)) &&
+        slugWords.every((word) => exactNameWords.includes(word));
+    });
+    return exact.length === 1 ? exact[0] : null;
+  }
+  const matchWords = distinctive;
 
   let best: { url: string; score: number; fullScore: number; extraWords: number } | null = null;
   let ambiguousBest = false;
@@ -202,23 +231,11 @@ export function findDoorDashStoreUrlInSitemap(
   const sharesLeadingBrandWord =
     best &&
     normalizeWords(decodeURIComponent(best.url.split("/store/")[1] ?? "")).includes(leadingBrandWord);
-  const leadingBrandMatches = new Set(candidates.filter((url) =>
-    normalizeWords(decodeURIComponent(url.split("/store/")[1] ?? "")).includes(leadingBrandWord)
-  )).size;
-  // Providers sometimes replace a restaurant's descriptor entirely
-  // ("Ebullition Brew Works and Gastronomy" → "Ebullition Pub and Grill").
-  // A long, distinctive leading brand word is safe when it occurs in exactly
-  // one city candidate, even though the generic descriptors do not overlap.
-  const uniquelyIdentifiedByLeadingBrand =
-    leadingBrandWord.length >= 7 && leadingBrandMatches === 1;
   if (
     best &&
     !ambiguousBest &&
     sharesLeadingBrandWord &&
-    (
-      best.score >= Math.max(1, Math.ceil(matchWords.length * 0.8)) ||
-      uniquelyIdentifiedByLeadingBrand
-    )
+    best.score >= Math.max(1, Math.ceil(matchWords.length * 0.8))
   ) {
     return best.url;
   }

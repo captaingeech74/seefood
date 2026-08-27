@@ -24,6 +24,8 @@
     "acquisition:promote-matched-photos": "tsx scripts/promote-matched-website-photos.ts",
     "acquisition:promote-unmatched-photos": "tsx scripts/promote-unmatched-website-photos.ts",
     "acquisition:measure-product-corpus": "tsx scripts/measure-product-corpus.ts",
+    "acquisition:repair-doordash-identities": "tsx scripts/repair-doordash-identities.ts",
+    "repair:gourmet-italia": "tsx scripts/repair-gourmet-italia.ts",
     "acquisition:rollback": "tsx scripts/rollback-acquisition-batch.ts",
     "market:publish": "tsx scripts/publish-market-restaurants.ts",
     "market:portfolio": "tsx scripts/report-restaurant-portfolio.ts",

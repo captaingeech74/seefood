@@ -31,6 +31,10 @@ MSAs, and finally all 387 MSAs.
   discovery is city-bounded and ambiguity-safe; Grubhub now supplies a
   delivery location, reads its current first-party menu responses, and
   byte-verifies every candidate photo before persistence.
+- DoorDash now verifies identity twice: first against the sitemap store name,
+  then against the business name declared by the fetched provider page. The
+  August 27 repair removed five wrong attachments and rebuilt Gourmet Italia
+  from its official menu and named gallery.
 - DL-001's aggregate-only input and its first restaurant-row-scoped bundle were
   correctly stopped. The main thread owns a forced-read-only, credential-free
   entity-scoped evidence exporter at `scripts/export-datalab-dl001.mjs`; its
@@ -151,6 +155,8 @@ useful; no source should silently overwrite another source's evidence.
   production when the user asks to build or deploy.
 - Explain outcomes to Kyle in plain language, including what changed, why it
   mattered, and any remaining limitation.
+- Keep updates dense and brief. Lead with key numbers, decisions, conclusions,
+  actions, and recommendations; omit the breadcrumb trail unless Kyle asks.
 
 ## Known Boundaries
 

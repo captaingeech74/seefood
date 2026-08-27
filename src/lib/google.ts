@@ -192,6 +192,23 @@ export function parseNextFlightMenuItems(
   return deduplicateItems(items);
 }
 
+/** Read the restaurant name DoorDash itself declares in the store-page
+ * breadcrumb. This is a second identity check after sitemap discovery: a
+ * valid menu payload is not useful unless it belongs to the requested venue. */
+export function extractDoorDashStoreName(html: string): string | null {
+  const chunkRe = /self\.__next_f\.push\(\[\d+,"((?:[^"\\]|\\.)*)"\]\)/g;
+  let combined = "";
+  for (const match of html.matchAll(chunkRe)) {
+    try { combined += JSON.parse(`"${match[1]}"`); } catch { /* skip malformed chunks */ }
+  }
+  const storeCrumb = /\{"name":"((?:[^"\\]|\\.)*)","target":"https:\/\/www\.doordash\.com\/store\/[^"?]+\/?"\}/g;
+  const names: string[] = [];
+  for (const match of combined.matchAll(storeCrumb)) {
+    try { names.push(JSON.parse(`"${match[1]}"`)); } catch { /* skip malformed names */ }
+  }
+  return names.at(-1)?.trim() || null;
+}
+
 /** Recursively walks DoorDash menu data (either __NEXT_DATA__ or RSC flight payload) looking for menu item objects. */
 export function extractDoorDashItems(obj: unknown, out: MenuItemData[]): void {
   if (!obj || typeof obj !== "object") return;

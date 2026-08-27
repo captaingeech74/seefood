@@ -62,7 +62,7 @@ interface SourceCrawlResult {
   items: import("../src/lib/types").MenuItemData[];
   providerUrl?: string;
   responseHash?: string;
-  failureStage?: "discovery" | "fetch" | "parse" | "image_verification";
+  failureStage?: "discovery" | "fetch" | "identity_validation" | "parse" | "image_verification";
   error?: string;
   metadata?: Record<string, unknown>;
 }
@@ -268,6 +268,23 @@ async function main() {
       };
     }
 
+    const { extractDoorDashStoreName } = await import("../src/lib/google");
+    const providerName = extractDoorDashStoreName(storeResult.html);
+    const providerIdentityMatches = providerName
+      ? Boolean(findDoorDashStoreUrlInSitemap([
+          `https://www.doordash.com/store/${providerName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${city}-identity/`,
+        ], target.name, city))
+      : false;
+    if (!providerIdentityMatches) {
+      console.log(`  [doordash] rejecting provider identity: requested="${target.name}" provider="${providerName ?? "unknown"}"`);
+      await saveDoorDashStoreUrl(target.placeId, null).catch(() => {});
+      return {
+        items: [], providerUrl: storeUrl, failureStage: "identity_validation",
+        error: "provider_identity_mismatch",
+        metadata: { providerName, expectedName: target.name, sitemapUrlCount },
+      };
+    }
+
     // DoorDash store pages now ship menu data as Next.js App Router RSC
     // "flight" chunks, not the old Pages Router __NEXT_DATA__ blob (confirmed
     // live July 2026 — see DECISIONS.md). Try the current format first, fall
@@ -293,7 +310,7 @@ async function main() {
       responseHash: responseHash(storeResult.html),
       failureStage: items.length === 0 ? "parse" : undefined,
       error: items.length === 0 ? "menu_payload_empty" : undefined,
-      metadata: { responseBytes: Buffer.byteLength(storeResult.html), sitemapUrlCount },
+      metadata: { responseBytes: Buffer.byteLength(storeResult.html), sitemapUrlCount, providerName },
     };
   }
 

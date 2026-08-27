@@ -2260,3 +2260,30 @@ report are in `docs/CABO_ROLLOUT.md`.
   Munchy. It removed zero positively identified photos and emptied zero
   restaurants. Rollback tag:
   `rollback/pre-generic-website-photo-quarantine-20260826`.
+
+# August 27, 2026 — Provider identity must be true before content can count
+
+- Gourmet Italia exposed a systemic identity error: the word “gourmet” matched
+  it to Red Robin's DoorDash store, and raw menu/photo counts then mislabeled
+  the wrong content as a rich restaurant. Generic descriptors can never prove
+  restaurant identity, even when they produce one apparently unique result.
+- DoorDash discovery now requires a strong restaurant-name match and then a
+  second match against the business name declared by the fetched provider
+  page. Confirmed provider renames are narrow explicit aliases; they do not
+  weaken the general rule. Failed identity checks clear the cached provider URL
+  and persist no menu or photo evidence.
+- Existing provider-identity failures are disabled at the source layer with a
+  logged, reproducible repair. Useful content remains with its correct venue.
+  An honest sparse restaurant is preferable to a confidently wrong rich one.
+- Restaurant updates use nonempty-wins address merging. A blank crawl input may
+  not erase or defeat a known address.
+- Founder communication preference: report key numbers, decisions, conclusions,
+  actions, and recommendations in dense plain language. Do not narrate the full
+  reasoning trail unless requested.
+- The first production repair disabled five clearly mismatched DoorDash feeds:
+  1,050 active wrong menu claims and 807 active wrong photos. Each repair is
+  logged in source runs `3307`–`3311` with its previous state. Gourmet Italia
+  was rebuilt as 50 official dishes and 25 byte-verified official food photos,
+  with its address restored to 27499 Ynez Road. Red Robin retained its valid
+  147-item feed and stronger canonical record; its duplicate shell was disabled.
+  Rollback tag: `rollback/pre-provider-identity-repair-20260827`.

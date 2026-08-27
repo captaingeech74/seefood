@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 // import still needs a value present so the module doesn't throw on load.
 process.env.GOOGLE_MAPS_API_KEY ??= "test-key";
 
-const { parseNextFlightMenuItems, extractDoorDashItems } = await import("../google");
+const { parseNextFlightMenuItems, extractDoorDashItems, extractDoorDashStoreName } = await import("../google");
 
 // Real shape recorded from BJ's Restaurant & Brewhouse's live DoorDash store
 // page (July 2026) — confirms DoorDash's store pages moved from the old
@@ -95,5 +95,18 @@ describe("parseNextFlightMenuItems", () => {
   it("does not choke on a malformed/truncated push() chunk", () => {
     const html = `<script>self.__next_f.push([1,"{\\"broken`;
     expect(parseNextFlightMenuItems(html, extractDoorDashItems)).toEqual([]);
+  });
+});
+
+describe("extractDoorDashStoreName", () => {
+  it("reads the provider-declared store breadcrumb", () => {
+    const payload = String.raw`1:{"breadcrumbs":[{"name":"Home","target":"https://www.doordash.com/"},{"name":"Red Robin Gourmet Burgers and Brews","target":"https://www.doordash.com/store/red-robin-temecula-123/"}]}`;
+    const escaped = JSON.stringify(payload).slice(1, -1);
+    expect(extractDoorDashStoreName(`<script>self.__next_f.push([1,"${escaped}"])</script>`))
+      .toBe("Red Robin Gourmet Burgers and Brews");
+  });
+
+  it("fails closed when the page does not declare a store identity", () => {
+    expect(extractDoorDashStoreName("<html></html>")).toBeNull();
   });
 });
