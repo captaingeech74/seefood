@@ -2302,3 +2302,14 @@ report are in `docs/CABO_ROLLOUT.md`.
 - This deterministic review does not claim semantic food recognition. Add a
   guarded, cost-controlled machine-vision gate later if public abuse warrants
   it; do not imply that a person will inspect submissions.
+
+# August 28, 2026 — Restaurant galleries balance rank with visual fit
+
+- The hero remains the top-ranked dish. Remaining dishes retain their ranked
+  Reveal order but are placed into the currently shortest responsive gallery
+  column. This keeps high-value dishes near the top without forcing portrait
+  and landscape photos into one shared row height.
+- Gallery layout may make a nearby lower-ranked dish appear slightly higher in
+  the neighboring column when that removes large empty blocks. It may not
+  discard dishes, change their underlying rank, crop them differently, or
+  alter the order users encounter inside Reveal.

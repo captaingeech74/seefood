@@ -4,11 +4,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DishPhoto } from "@/lib/types";
 import { dedupeToPrimary } from "@/lib/dishGrouping";
 import { formatPhotoSourceList } from "@/lib/labels";
+import { balanceGalleryColumns } from "@/lib/galleryLayout";
 import DishTile from "./DishTile";
 
 const INITIAL_VISIBLE = 30;
 const BATCH_SIZE = 20;
 const MAX_VISIBLE = 100;
+
+function viewportColumnCount() {
+  if (typeof window === "undefined") return 2;
+  if (window.innerWidth >= 1024) return 4;
+  if (window.innerWidth >= 640) return 3;
+  return 2;
+}
 
 /**
  * PRD §4.2 — the landing view. Masonry grid, hero tile for #1, confidence
@@ -53,11 +61,19 @@ export default function TopDishesGrid({
   restaurantName?: string;
 }) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+  const [columnCount, setColumnCount] = useState(2);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE);
   }, [resetKey]);
+
+  useEffect(() => {
+    const syncColumns = () => setColumnCount(viewportColumnCount());
+    syncColumns();
+    window.addEventListener("resize", syncColumns);
+    return () => window.removeEventListener("resize", syncColumns);
+  }, []);
 
   // Dishes arrive pre-sorted by priority score from the server; dedupe to
   // one tile per dish, then bucket by tier without re-sorting within each.
@@ -169,17 +185,25 @@ export default function TopDishesGrid({
   // identified yet so there's nothing real to tier). Tapping still opens
   // the Reveal.
   if (!finalized) {
+    const streamingColumns = balanceGalleryColumns(primary, columnCount);
     return (
       <div className="px-4 pt-3 pb-12 fade-up">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 items-start gap-2.5">
-          {primary.map((dish, i) => (
-            <DishTile
-              key={dish.id}
-              dish={dish}
-              variantCount={variantCounts.get(dish.id) ?? 1}
-              sourceMix={sourceMixes.get(dish.id)}
-              onOpen={() => onOpenReveal(primary, i, dishes)}
-            />
+        <div className="flex items-start gap-2.5">
+          {streamingColumns.map((column, columnIndex) => (
+            <div key={columnIndex} className="min-w-0 flex-1">
+              {column.map((dish) => {
+                const rankedIndex = primary.indexOf(dish);
+                return (
+                  <DishTile
+                    key={dish.id}
+                    dish={dish}
+                    variantCount={variantCounts.get(dish.id) ?? 1}
+                    sourceMix={sourceMixes.get(dish.id)}
+                    onOpen={() => onOpenReveal(primary, rankedIndex, dishes)}
+                  />
+                );
+              })}
+            </div>
           ))}
         </div>
       </div>
@@ -188,6 +212,7 @@ export default function TopDishesGrid({
 
   const hero = rankedList[0];
   const visibleRest = rankedList.slice(1, visibleCount);
+  const visibleColumns = balanceGalleryColumns(visibleRest, columnCount);
 
   return (
     <div className="px-4 pt-3 pb-12 fade-up">
@@ -207,18 +232,25 @@ export default function TopDishesGrid({
       )}
 
       {visibleRest.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 items-start gap-2.5">
-          {visibleRest.map((dish, i) => (
-            <DishTile
-              key={dish.id}
-              dish={dish}
-              popularityRank={dish.managementPopularityRank && dish.managementPopularityRank <= 3
-                ? dish.managementPopularityRank as 1 | 2 | 3
-                : undefined}
-              variantCount={variantCounts.get(dish.id) ?? 1}
-              sourceMix={sourceMixes.get(dish.id)}
-              onOpen={() => onOpenReveal(rankedList, i + 1, dishes)}
-            />
+        <div className="flex items-start gap-2.5">
+          {visibleColumns.map((column, columnIndex) => (
+            <div key={columnIndex} className="min-w-0 flex-1">
+              {column.map((dish) => {
+                const rankedIndex = rankedList.indexOf(dish);
+                return (
+                  <DishTile
+                    key={dish.id}
+                    dish={dish}
+                    popularityRank={dish.managementPopularityRank && dish.managementPopularityRank <= 3
+                      ? dish.managementPopularityRank as 1 | 2 | 3
+                      : undefined}
+                    variantCount={variantCounts.get(dish.id) ?? 1}
+                    sourceMix={sourceMixes.get(dish.id)}
+                    onOpen={() => onOpenReveal(rankedList, rankedIndex, dishes)}
+                  />
+                );
+              })}
+            </div>
           ))}
         </div>
       )}
