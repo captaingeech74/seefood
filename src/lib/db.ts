@@ -701,7 +701,7 @@ export async function reviewPendingContribution(input: {
 }): Promise<{ publicationEligible: boolean }> {
   const { data: photo, error: readError } = await supabase
     .from("photos")
-    .select("rights_status,rights_version,rights_scope,active,published_at")
+    .select("restaurant_id,rights_status,rights_version,rights_scope,active,published_at")
     .eq("contribution_attempt_id", input.attemptId)
     .maybeSingle();
   if (readError) throw readError;
@@ -724,6 +724,9 @@ export async function reviewPendingContribution(input: {
   if (error) throw error;
   if (Boolean(data) !== decision.publicationEligible) {
     throw new Error("Terminal review decision mismatch");
+  }
+  if (decision.publicationEligible) {
+    await refreshRestaurantPhotoSignals(photo.restaurant_id);
   }
   return { publicationEligible: decision.publicationEligible };
 }
@@ -750,15 +753,23 @@ export async function updateContributionAttempt(input: {
 
 export async function getContributionPhotoByAttempt(
   attemptId: string
-): Promise<{ photoId: number; moderationStatus: string | null } | null> {
+): Promise<{
+  photoId: number;
+  moderationStatus: string | null;
+  active: boolean;
+} | null> {
   const { data, error } = await supabase
     .from("photos")
-    .select("id,moderation_status")
+    .select("id,moderation_status,active")
     .eq("contribution_attempt_id", attemptId)
     .maybeSingle();
   if (error) throw error;
   return data
-    ? { photoId: Number(data.id), moderationStatus: data.moderation_status }
+    ? {
+        photoId: Number(data.id),
+        moderationStatus: data.moderation_status,
+        active: data.active === true,
+      }
     : null;
 }
 

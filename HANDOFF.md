@@ -452,3 +452,13 @@ availability; the legacy funnel remains collapsed for diagnosis.
 
 Follow `docs/HOW_TO_HAND_OFF.md` for the next lead transition. Update this file
 in place; do not accumulate competing handoff snapshots.
+
+## Customer photo intake (August 28, 2026)
+
+Known-dish uploads no longer enter an unstaffed human-review queue. Valid,
+current-dish, rights-granted, exact-unique images are automatically published
+as Customer photos in the same request. The contribution chooser is not gated
+by analytics receipts, and a finished attempt ID is never reused. Production
+photo `76829` (Birthday BLT at LRay's Kitchen) was the sole modern stuck upload;
+it was visually verified during incident diagnosis and released through the
+existing automated terminal-review contract.

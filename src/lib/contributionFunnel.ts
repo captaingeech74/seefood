@@ -167,6 +167,26 @@ export function terminalContributionReview(input: {
   } as const;
 }
 
+/**
+ * Fully automatic review for a photo submitted from a known dish screen.
+ * This is intentionally deterministic and free: successful decoding proves
+ * it is a real image, the server-owned current-menu target proves attachment,
+ * and the byte hash proves exact uniqueness. It does not pretend a person is
+ * waiting in a moderation queue.
+ */
+export function automatedKnownDishReview(input: {
+  imageDecoded: boolean;
+  currentMenuTarget: boolean;
+  exactDuplicate: boolean;
+}) {
+  return {
+    moderation: input.imageDecoded ? ("approved" as const) : ("rejected" as const),
+    itemMatch: input.currentMenuTarget ? ("exact" as const) : ("unmatched" as const),
+    duplicateReview: input.exactDuplicate ? ("duplicate" as const) : ("unique" as const),
+    rightsScope: CONTRIBUTION_RIGHTS_SCOPE,
+  } as const;
+}
+
 export function isUuid(value: unknown): value is string {
   return (
     typeof value === "string" &&

@@ -2287,3 +2287,18 @@ report are in `docs/CABO_ROLLOUT.md`.
   with its address restored to 27499 Ynez Road. Red Robin retained its valid
   147-item feed and stronger canonical record; its duplicate shell was disabled.
   Rollback tag: `rollback/pre-provider-identity-repair-20260827`.
+
+# August 28, 2026 — Customer photo review is automatic and telemetry is non-blocking
+
+- SeeFood has no human photo-review operation. A known-dish upload is decided
+  automatically in the request: the server verifies a decodable image, a
+  current restaurant/menu-item attachment, the stored rights grant, and exact
+  byte uniqueness. Passing photos publish immediately as Customer photos;
+  failures are rejected or returned for retry rather than left in a human queue.
+- Contribution analytics may never prevent the photo chooser from opening.
+  Every completed upload attempt is terminal and its UUID must be rotated before
+  another contribution; reusing a verified attempt caused the misleading
+  “Photo sharing is temporarily unavailable” alert.
+- This deterministic review does not claim semantic food recognition. Add a
+  guarded, cost-controlled machine-vision gate later if public abuse warrants
+  it; do not imply that a person will inspect submissions.

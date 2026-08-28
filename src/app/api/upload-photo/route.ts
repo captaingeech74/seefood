@@ -5,6 +5,7 @@ import {
   getCurrentContributionTarget,
   hasDuplicatePhoto,
   recordContributionFunnelEvent,
+  reviewPendingContribution,
   savePendingKnownDishPhoto,
   updateContributionAttempt,
 } from "@/lib/db";
@@ -15,13 +16,16 @@ import {
   CONTRIBUTION_EXPERIMENT,
   CONTRIBUTION_RIGHTS_VERSION,
   CONTRIBUTION_VARIANT,
+  automatedKnownDishReview,
   contributionAttemptMatches,
   isUuid,
 } from "@/lib/contributionFunnel";
 
 // Known-current-dish contribution intake. The client supplies a stable menu
-// item and a versioned rights grant; the resulting record stays inactive and
-// unpublished until moderation, item matching, and duplicate review pass.
+// item and a versioned rights grant. Review is fully automated: image decode
+// and optimization establish a valid image, the selected current menu item
+// establishes the exact attachment, and the server hash check establishes
+// exact-byte uniqueness. There is no human moderation queue.
 export const maxDuration = 30;
 const MAX_BYTES = 8 * 1024 * 1024; // 8MB
 
@@ -91,10 +95,22 @@ export async function POST(req: NextRequest) {
     }
     const existing = await getContributionPhotoByAttempt(attemptId);
     if (existing) {
+      let active = existing.active;
+      if (!active && attempt.status === "pending_review") {
+        const retried = await reviewPendingContribution({
+          attemptId,
+          ...automatedKnownDishReview({
+            imageDecoded: true,
+            currentMenuTarget: true,
+            exactDuplicate: false,
+          }),
+        });
+        active = retried.publicationEligible;
+      }
       return NextResponse.json({
         receipt: {
           attemptId,
-          status: existing.moderationStatus ?? "pending",
+          status: active ? "published" : existing.moderationStatus ?? "rejected",
           idempotentReplay: true,
         },
       });
@@ -152,16 +168,6 @@ export async function POST(req: NextRequest) {
     await updateContributionAttempt({ attemptId, status: "rejected" }).catch(() => {});
     return NextResponse.json({ error: "That photo is already on SeeFood." }, { status: 409 });
   }
-  await recordContributionFunnelEvent({
-    attemptId,
-    eventName: "duplicate_result",
-    eventSource: "server",
-    // The synchronous SHA check can reject an exact duplicate, but it cannot
-    // honestly clear perceptual/near duplicates. Keep that review pending.
-    outcome: "pending",
-  }).catch((error) =>
-    console.error("[contribution-funnel] duplicate pending receipt failed", error)
-  );
   const optimized = await optimizeImage(original).catch(() => null);
   if (!optimized) {
     await recordContributionFunnelEvent({
@@ -268,31 +274,57 @@ export async function POST(req: NextRequest) {
     }).catch((error) =>
       console.error("[contribution-funnel] photo receipt failed", error)
     );
-    await recordContributionFunnelEvent({
-      attemptId,
-      eventName: "moderation_result",
-      eventSource: "server",
-      outcome: "pending",
-    }).catch((error) =>
-      console.error("[contribution-funnel] moderation receipt failed", error)
-    );
-    await recordContributionFunnelEvent({
-      attemptId,
-      eventName: "item_match_result",
-      eventSource: "server",
-      outcome: "pending",
-    }).catch((error) =>
-      console.error("[contribution-funnel] item receipt failed", error)
-    );
     await updateContributionAttempt({ attemptId, status: "pending_review" });
+    const automatedReview = await reviewPendingContribution({
+      attemptId,
+      ...automatedKnownDishReview({
+        imageDecoded: true,
+        currentMenuTarget: true,
+        exactDuplicate: false,
+      }),
+    });
+    if (!automatedReview.publicationEligible) {
+      throw new Error("Automated contribution review rejected a valid upload");
+    }
   } catch (error) {
     console.error("[contribution-funnel] final receipt failed", error);
     return NextResponse.json(
-      { error: "Your photo is safely pending review, but its receipt is incomplete" },
+      { error: "We could not finish the automatic photo check; please retry" },
       { status: 503 }
     );
   }
   return NextResponse.json({
-    receipt: { attemptId, status: "pending_review", idempotentReplay: false },
+    receipt: { attemptId, status: "published", idempotentReplay: false },
+    photo: {
+      id: `corpus-${photo.photoId}`,
+      url,
+      dishName: typeof dishName === "string" && dishName ? dishName : null,
+      dishDescription:
+        typeof dishDescription === "string" && dishDescription
+          ? dishDescription
+          : null,
+      menuItemId,
+      isMenuMatch: true,
+      source: "user_upload",
+      attribution: "user",
+      sourcePlatform: "user_upload",
+      photoAuthorType: "customer",
+      trustLabel: "seefood_photo",
+      tier,
+      width: optimized.width,
+      height: optimized.height,
+      loveCount: 0,
+      primaryVotes: 0,
+      photoQualityScore: 82,
+      dishPopularityScore: 7,
+      isHeroCandidate: true,
+      isStorefront: false,
+      isMenuPhoto: false,
+      comparisonReady: false,
+      submittedAt: new Date().toISOString(),
+      moderationStatus: "approved",
+      duplicateHash,
+      abuseFlags: [],
+    },
   });
 }

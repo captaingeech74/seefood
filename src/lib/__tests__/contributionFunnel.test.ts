@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  automatedKnownDishReview,
   clientOutcomeAllowed,
   classifyContributionTraffic,
   classifyContributionTarget,
@@ -12,6 +13,32 @@ import {
 } from "../contributionFunnel";
 
 describe("contribution funnel safety", () => {
+  it("uses a deterministic automated review for known-dish uploads", () => {
+    expect(
+      automatedKnownDishReview({
+        imageDecoded: true,
+        currentMenuTarget: true,
+        exactDuplicate: false,
+      })
+    ).toEqual({
+      moderation: "approved",
+      itemMatch: "exact",
+      duplicateReview: "unique",
+      rightsScope: "display_with_dish",
+    });
+    expect(
+      automatedKnownDishReview({
+        imageDecoded: false,
+        currentMenuTarget: false,
+        exactDuplicate: true,
+      })
+    ).toMatchObject({
+      moderation: "rejected",
+      itemMatch: "unmatched",
+      duplicateReview: "duplicate",
+    });
+  });
+
   it("excludes fixture, staff, automation, and inactive traffic", () => {
     expect(classifyContributionTraffic({ entityStatus: "test_fixture" })).toBe("fixture");
     expect(classifyContributionTraffic({ entityStatus: "active", requestedClass: "staff" })).toBe("staff");

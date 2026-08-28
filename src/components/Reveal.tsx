@@ -10,7 +10,6 @@ import { withPhotoSignals } from "@/lib/photoSignals";
 import PhotoSourceSheet from "./PhotoSourceSheet";
 import { optimizeImageFile } from "@/lib/clientImageOptimization";
 import { CONTRIBUTION_RIGHTS_VERSION } from "@/lib/contributionFunnel";
-import { shouldRetireContributionAttempt } from "@/lib/contributionContract.mjs";
 
 interface RevealProps {
   /** Deduped, one-per-dish list — drives vertical prev/next so a dish never repeats while scrolling. */
@@ -538,17 +537,15 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
       return;
     }
     const attemptId = attemptFor(activePhoto.menuItemId);
-    try {
-      await recordContributionReceipt(
-        activePhoto.menuItemId,
-        attemptId,
-        "prompt_open",
-        "observed"
-      );
-      setPhotoSourceOpen(true);
-    } catch {
-      alert("Photo sharing is temporarily unavailable — please try again.");
-    }
+    // Measurement must never block the diner-facing contribution control.
+    // The upload route still validates the authoritative attempt and target.
+    setPhotoSourceOpen(true);
+    void recordContributionReceipt(
+      activePhoto.menuItemId,
+      attemptId,
+      "prompt_open",
+      "observed"
+    ).catch(() => {});
   };
 
   const handleFileSelected = async (
@@ -557,31 +554,45 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
   ) => {
     if (!activePhoto?.menuItemId) return;
     const menuItemId = activePhoto.menuItemId;
-    const attemptId = attemptFor(menuItemId);
+    let attemptId = attemptFor(menuItemId);
     setUploading(true);
     try {
-      await recordContributionReceipt(
-        menuItemId,
-        attemptId,
-        "file_selected",
-        "observed"
-      );
+      // This receipt creates the server-side attempt used to bind the upload
+      // to its restaurant and dish. A stale/closed attempt is rotated once;
+      // analytics failures after that point remain non-blocking.
+      try {
+        await recordContributionReceipt(
+          menuItemId,
+          attemptId,
+          "file_selected",
+          "observed"
+        );
+      } catch {
+        contributionAttempts.current.delete(menuItemId);
+        attemptId = attemptFor(menuItemId);
+        await recordContributionReceipt(
+          menuItemId,
+          attemptId,
+          "file_selected",
+          "observed"
+        );
+      }
       let optimized: File;
       try {
         optimized = await optimizeImageFile(file);
-        await recordContributionReceipt(
+        void recordContributionReceipt(
           menuItemId,
           attemptId,
           "client_preparation_result",
           "success"
-        );
+        ).catch(() => {});
       } catch {
-        await recordContributionReceipt(
+        void recordContributionReceipt(
           menuItemId,
           attemptId,
           "client_preparation_result",
           "failure"
-        );
+        ).catch(() => {});
         throw new Error("client preparation failed");
       }
       const form = new FormData();
@@ -599,16 +610,22 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
       const res = await fetch("/api/upload-photo", { method: "POST", body: form });
       const data = await res.json();
       const hasReceipt = Boolean(data.receipt);
-      if (
-        shouldRetireContributionAttempt({
-          responseOk: res.ok,
-          hasReceipt,
-        })
-      ) {
-        contributionAttempts.current.delete(menuItemId);
-      }
+      // A completed upload cycle is terminal. Reusing its UUID caused the
+      // next Add a Photo tap to fail after an otherwise successful upload.
+      contributionAttempts.current.delete(menuItemId);
       if (res.ok && hasReceipt) {
-        alert("Thanks — your photo is safely submitted and pending review.");
+        if (data.photo) {
+          setUploadedPhotos((current) =>
+            current.some((candidate) => candidate.id === data.photo.id)
+              ? current
+              : [...current, data.photo]
+          );
+        }
+        alert(
+          data.receipt.status === "published"
+            ? "Thanks — your photo is now on this dish."
+            : "Thanks — your photo was received."
+        );
       } else {
         alert(data.error || "Upload failed — please try again.");
       }
@@ -1063,7 +1080,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
             attemptId,
             "photo_source_choice",
             source
-          );
+          ).catch(() => {});
         }}
         onCancel={() => {
           if (!activePhoto?.menuItemId) return;
@@ -1073,7 +1090,7 @@ export default function Reveal({ photos, allPhotos, startIndex, restaurant, onCl
             attemptId,
             "file_cancelled",
             "cancelled"
-          );
+          ).catch(() => {});
         }}
       />
     </div>
