@@ -1573,12 +1573,17 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
 
 /** Resolve a shareable slug (PRD §4.4 `/r/[slug]`) back to its place_id. */
 export async function getPlaceIdBySlug(slug: string): Promise<string | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("restaurants")
     .select("place_id")
     .eq("slug", slug)
-    .maybeSingle();
-  return data?.place_id ?? null;
+    .neq("status", "inactive")
+    .limit(1);
+  if (error) {
+    console.error("[restaurant-slug] lookup failed", { slug, error: error.message });
+    return null;
+  }
+  return data?.[0]?.place_id ?? null;
 }
 
 /**
