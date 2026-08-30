@@ -2459,6 +2459,7 @@ export async function savePendingKnownDishPhoto(input: {
   height: number;
   contributorId?: string;
   duplicateHash?: string;
+  abuseFlags?: string[];
 }): Promise<{ photoId: number } | null> {
   const photoQualityScore = 82;
   const { data, error } = await supabase
@@ -2487,7 +2488,7 @@ export async function savePendingKnownDishPhoto(input: {
       contributor_id: input.contributorId ?? null,
       submitted_at: new Date().toISOString(),
       duplicate_hash: input.duplicateHash ?? null,
-      abuse_flags: [],
+      abuse_flags: input.abuseFlags ?? [],
       ...pendingKnownDishPhotoState({
         attemptId: input.attemptId,
         rightsVersion: input.rightsVersion,
@@ -2516,6 +2517,7 @@ export async function saveUserUploadedPhoto(input: {
   height: number;
   contributorId?: string;
   duplicateHash?: string;
+  abuseFlags?: string[];
 }): Promise<DishPhoto | null> {
   const photoQualityScore = 82;
   const canonical = input.dishName
@@ -2552,7 +2554,7 @@ export async function saveUserUploadedPhoto(input: {
       submitted_at: new Date().toISOString(),
       moderation_status: "approved",
       duplicate_hash: input.duplicateHash ?? null,
-      abuse_flags: [],
+      abuse_flags: input.abuseFlags ?? [],
       active: true,
       last_seen_at: new Date().toISOString(),
       missing_streak: 0,
@@ -2591,7 +2593,7 @@ export async function saveUserUploadedPhoto(input: {
     submittedAt: new Date().toISOString(),
     moderationStatus: "approved",
     duplicateHash: input.duplicateHash ?? null,
-    abuseFlags: [],
+    abuseFlags: input.abuseFlags ?? [],
   };
 }
 

@@ -3,6 +3,7 @@ import { saveUserUploadedPhoto, saveMenuItems, findExistingMenuItemByName, hasDu
 import { uploadPhotoBuffer } from "@/lib/storage";
 import { createHash } from "crypto";
 import { optimizeImage } from "@/lib/imageOptimization";
+import { moderateUploadWithGoogleVision } from "@/lib/googleVisionModeration";
 
 // "Add a Missing Photo or Menu Item" (grid view, hidden under the
 // restaurant-name caret) — for a diner at the table with a dish SeeFood has
@@ -83,6 +84,15 @@ export async function POST(req: NextRequest) {
   }
   const optimized = await optimizeImage(buffer).catch(() => null);
   if (!optimized) return NextResponse.json({ error: "We could not process that image." }, { status: 422 });
+  const vision = await moderateUploadWithGoogleVision(optimized.buffer);
+  console.info("[google-vision] missing-dish check", {
+    decision: vision.decision,
+    checked: vision.checked,
+    durationMs: vision.durationMs,
+  });
+  if (vision.reject) {
+    return NextResponse.json({ error: "Please choose a clear photo of food." }, { status: 422 });
+  }
   const key = `user-uploads/${placeId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
 
   const [url, aiDescription] = await Promise.all([
@@ -116,6 +126,7 @@ export async function POST(req: NextRequest) {
     height: optimized.height,
     contributorId: typeof contributorId === "string" ? contributorId.slice(0, 100) : undefined,
     duplicateHash,
+    abuseFlags: vision.abuseFlags,
   });
 
   if (!photo) return NextResponse.json({ error: "Saved the image but failed to record it — please retry" }, { status: 500 });

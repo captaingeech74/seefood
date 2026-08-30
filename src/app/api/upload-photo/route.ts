@@ -20,6 +20,7 @@ import {
   contributionAttemptMatches,
   isUuid,
 } from "@/lib/contributionFunnel";
+import { moderateUploadWithGoogleVision } from "@/lib/googleVisionModeration";
 
 // Known-current-dish contribution intake. The client supplies a stable menu
 // item and a versioned rights grant. Review is fully automated: image decode
@@ -189,6 +190,29 @@ export async function POST(req: NextRequest) {
   }).catch((error) =>
     console.error("[contribution-funnel] optimization receipt failed", error)
   );
+
+  const vision = await moderateUploadWithGoogleVision(optimized.buffer);
+  await recordContributionFunnelEvent({
+    attemptId,
+    eventName: "moderation_result",
+    eventSource: "server",
+    outcome: vision.reject ? "rejected" : vision.checked ? "approved" : "unverified",
+  }).catch((error) =>
+    console.error("[contribution-funnel] vision receipt failed", error)
+  );
+  console.info("[google-vision] upload check", {
+    attemptId,
+    decision: vision.decision,
+    checked: vision.checked,
+    durationMs: vision.durationMs,
+  });
+  if (vision.reject) {
+    await updateContributionAttempt({ attemptId, status: "rejected" }).catch(() => {});
+    return NextResponse.json(
+      { error: "Please choose a clear photo of food." },
+      { status: 422 }
+    );
+  }
   const key = `user-uploads/${placeId}/${attemptId}.webp`;
 
   const url = await uploadPhotoBuffer(optimized.buffer, optimized.contentType, key);
@@ -251,6 +275,7 @@ export async function POST(req: NextRequest) {
     height: optimized.height,
     contributorId: typeof contributorId === "string" ? contributorId.slice(0, 100) : undefined,
     duplicateHash,
+    abuseFlags: vision.abuseFlags,
   });
 
   if (!photo) {
@@ -324,7 +349,7 @@ export async function POST(req: NextRequest) {
       submittedAt: new Date().toISOString(),
       moderationStatus: "approved",
       duplicateHash,
-      abuseFlags: [],
+      abuseFlags: vision.abuseFlags,
     },
   });
 }

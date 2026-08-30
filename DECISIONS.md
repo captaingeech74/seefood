@@ -2313,3 +2313,22 @@ report are in `docs/CABO_ROLLOUT.md`.
   the neighboring column when that removes large empty blocks. It may not
   discard dishes, change their underlying rank, crop them differently, or
   alter the order users encounter inside Reveal.
+
+# August 29, 2026 — Free automated upload screening uses a narrow Google Vision gate
+
+- Current Cloud Vision Label Detection and SafeSearch are available and are
+  used together on optimized customer uploads. The older statement above that
+  Label Detection was retired is historical and no longer governs the product.
+- The gate answers only two coarse questions: whether an image is clearly food
+  or drink, and whether it is obviously explicit or unrelated. It does not
+  claim to prove that the picture matches the selected dish. Ambiguity passes.
+- `GOOGLE_VISION_UPLOAD_MODE` provides `off`, `shadow`, and `enforce` rollout
+  modes. Service failure is availability-safe: no Google call means no charge,
+  while the upload continues through the existing structural checks.
+- Production has a serialized database claim with a fixed ceiling of 800
+  images per month. Each image consumes one Label Detection unit and one
+  SafeSearch unit, keeping both below Google's first 1,000 free monthly units.
+  The API key is server-only and restricted to Cloud Vision.
+- No pending or human-review queue is introduced. Enforced rejects return a
+  clear request to choose a food photo; all accepted photos still publish in
+  the same request.

@@ -22,3 +22,26 @@ export async function claimGooglePlacesDiscoveryRequest(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Reserves one Cloud Vision upload check from SeeFood's hard monthly budget.
+ * Any database/configuration failure skips the optional check and makes no
+ * Google request.
+ */
+export async function claimGoogleVisionUploadRequest(): Promise<boolean> {
+  try {
+    const url = process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !serviceKey) return false;
+    const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
+    const { data, error } = await supabase.rpc("claim_google_vision_upload_request");
+    if (error) {
+      console.error("[google-vision-guard] request skipped because the usage guard failed");
+      return false;
+    }
+    return data === true;
+  } catch {
+    console.error("[google-vision-guard] request skipped because the usage guard was unavailable");
+    return false;
+  }
+}

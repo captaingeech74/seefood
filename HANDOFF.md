@@ -462,3 +462,11 @@ by analytics receipts, and a finished attempt ID is never reused. Production
 photo `76829` (Birthday BLT at LRay's Kitchen) was the sole modern stuck upload;
 it was visually verified during incident diagnosis and released through the
 existing automated terminal-review contract.
+
+Both customer-photo paths now have an optional Google Vision gate before
+storage. It combines Label Detection with SafeSearch, rejects only obvious
+explicit content or clearly unrelated non-food images, and allows uncertain
+images so unusual dishes are not lost. `GOOGLE_VISION_UPLOAD_MODE` supports
+`off`, `shadow`, and `enforce`. A locked database claim caps usage at 800 images
+per calendar month; if the key, API, or guard is unavailable, the external call
+is skipped and the upload continues. There is still no human review queue.
