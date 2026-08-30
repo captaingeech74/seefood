@@ -2671,6 +2671,7 @@ async function reconcileSourceBatch(
     await syncBrandTemplate(placeId, sourceItems);
     await savePhotos(placeId, photos.map((p) => ({
       originUrl: p.url,
+      storageUrl: p.storageUrl,
       source: p.source,
       attribution: p.attribution,
       isOrderable: true,

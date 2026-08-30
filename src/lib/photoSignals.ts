@@ -20,6 +20,7 @@ const MANAGEMENT_SOURCES = new Set<DataSource>([
   "lightspeed",
   "gloriafood",
   "common_crawl",
+  "official_social",
   "merchant",
 ]);
 

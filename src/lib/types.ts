@@ -19,6 +19,7 @@ export type DataSource =
   | "lightspeed"
   | "gloriafood"
   | "common_crawl"
+  | "official_social"
   | "menu_ocr"
   | "merchant"
   | "user_upload"
@@ -51,6 +52,8 @@ export interface MenuItemData {
 export interface DishPhoto {
   id: string;
   url: string;
+  /** Durable copy when the origin is short-lived (for example a social CDN). */
+  storageUrl?: string;
   dishName: string | null;
   dishDescription: string | null; // menu item description when available
   /** Stable current-menu target used by known-dish contribution receipts. */

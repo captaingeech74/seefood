@@ -83,6 +83,18 @@ describe("website acquisition V3 menu recovery", () => {
     expect(discoverMenuImages(html,"https://www.woodencityspokane.com/menu",true)).toEqual([original]);
   });
 
+  it("recovers GoDaddy lazy-loaded menu documents instead of the placeholder", () => {
+    const original="https://img1.wsimg.com/menu/KCC-Menu-Breakfast-March-2026.jpg";
+    const html=`<img src="/transparent.png" data-srclazy="${original}/:/rs=w:1240,cg:true,m" alt="">`;
+    expect(discoverMenuImages(html,"https://konacraft.com/menu",true)).toEqual([
+      original,
+    ]);
+    expect(extractPageAssets(html,"https://konacraft.com/menu").photoUrls).toContain(
+      `${original}/:/rs=w:1240,cg:true,m`,
+    );
+    expect(canonicalizeWebsiteImageUrl(`${original}/:/rs=w:1240,cg:true,m`)).toBe(original);
+  });
+
   it("recovers a repeated visual menu that intentionally omits prices",()=>{
     const html=`<main>${["Fried Calamari","Pizza Margherita","Pizza Regina","Tuna Salad","Cheese Garlic Bread"].map((name,index)=>`<div class="wixui-rich-text"><p style="font-size:20px">${name}</p><p style="font-size:15px">Fresh description number ${index}</p></div>`).join("")}</main>`;
     expect(parseUnpricedMenuDom(html).map(item=>item.name)).toContain("Pizza Margherita");

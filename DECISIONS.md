@@ -2332,3 +2332,19 @@ report are in `docs/CABO_ROLLOUT.md`.
 - No pending or human-review queue is introduced. Enforced rejects return a
   clear request to choose a food photo; all accepted photos still publish in
   the same request.
+
+# August 30, 2026 — Official social is a bounded management-photo fallback
+
+- A restaurant-owned public social account is valid Management provenance when
+  the venue identity is exact and the post clearly shows a current menu dish.
+  Store the public post permalink as origin evidence and a byte-verified R2 copy
+  for durable display; do not depend on expiring social-CDN URLs.
+- Official social is not an excuse for an unbounded feed scrape. Keep only
+  clear food photos, attach only defensible menu matches, and reject people,
+  interiors, promotions, merchandise, and ambiguous dishes.
+- GoDaddy/Airo `data-srclazy` assets and `/:/rs=` size variants are normal page
+  behavior. The website collector must recover and canonicalize them before
+  menu-image OCR and photo deduplication.
+- Google place photos remain discovery/display candidates under Google's terms,
+  not stored corpus assets. A visible Google gallery does not justify caching
+  those bytes without the required author attribution and source links.

@@ -233,3 +233,17 @@ website/delivery/customer images continue to render and Google-only restaurants
 show an honest empty state rather than broken tiles. Restoring Google billing
 and both flags restores the map and Google-photo lane without changing corpus
 search.
+
+## GoDaddy image menus and official-social fallback
+
+The August 30 Kona Craft Cafe repair found that GoDaddy/Airo stored the visible
+breakfast and lunch menu panels in `data-srclazy`, while `src` held a placeholder.
+V3 now recognizes common lazy-image attributes and removes GoDaddy `/:/cr=` and
+`/:/rs=` transforms so size variants resolve to one original asset. Menu images
+stay OCR inputs and cannot be mistaken for dish photography.
+
+When an official site has a current menu but no food gallery, a bounded set of
+clearly named food posts from the restaurant's own public account may fill the
+photo gap. Each accepted photo keeps the post permalink, is byte-verified,
+copied into R2, deduplicated, and linked to a current menu item. This is a
+targeted fallback, not a general social-feed crawler.

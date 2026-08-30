@@ -275,10 +275,22 @@ export function extractPageAssets(html: string, baseUrl: string): { photoUrls: s
   };
   $("img").each((_, element) => {
     const node = $(element);
-    for (const attribute of ["src", "data-src", "data-lazy-src", "data-original", "data-image"]) {
+    for (const attribute of [
+      "src",
+      "data-src",
+      "data-lazy-src",
+      "data-original",
+      "data-image",
+      // GoDaddy/Airo sites use this for the real image while `src` is a
+      // transparent placeholder. Without it, their menus and galleries look
+      // empty even though the browser displays them normally.
+      "data-srclazy",
+      "data-lazy",
+      "data-url",
+    ]) {
       addPhoto(node.attr(attribute));
     }
-    for (const attribute of ["srcset", "data-srcset"]) {
+    for (const attribute of ["srcset", "data-srcset", "data-lazy-srcset"]) {
       const srcset = node.attr(attribute);
       if (srcset) for (const entry of srcset.split(",")) addPhoto(entry.trim().split(/\s+/)[0]);
     }

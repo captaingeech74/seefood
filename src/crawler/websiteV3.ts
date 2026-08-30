@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
+import type { Element } from "domhandler";
 import {
   detectOrderingPlatforms,
   extractEmbeddedJsonMenuItems,
@@ -79,6 +80,18 @@ const NON_FOOD_PHOTO_LABEL = /(?:^|\b)(?:apparel|arcade|bar|bartender|banner|bot
 const PHOTO_LABEL_NOISE = /(?:\b(?:copy|enhanced|final|hero|image|img|new|photo|web)\b|\(\d+\)|\b(?:small plate|entree|sandwich|dessert|starter|main|side)\s*[-_:])/gi;
 const DISH_MODIFIER = new Set(["blistered","braised","charred","classic","crispy","fresh","fried","grilled","house","roasted","seared","smoked","spicy","toasted","wax"]);
 
+/** Prefer the real asset used by common lazy-loading site builders. */
+function imageSource(node: cheerio.Cheerio<Element>): string | undefined {
+  return node.attr("data-image")
+    ?? node.attr("data-src")
+    ?? node.attr("data-lazy-src")
+    ?? node.attr("data-original")
+    ?? node.attr("data-srclazy")
+    ?? node.attr("data-lazy")
+    ?? node.attr("data-url")
+    ?? node.attr("src");
+}
+
 export function normalizeMenuItemName(value: string): string {
   return value.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]+/g, " ").trim();
 }
@@ -107,6 +120,13 @@ export function canonicalizeWebsiteImageUrl(value: string, base?: string): strin
     if (originalPath) parsed.pathname = originalPath;
     parsed.search = "";
   }
+  if (/(?:^|\.)wsimg\.com$/i.test(parsed.hostname)) {
+    // GoDaddy appends crop/resize instructions after the actual filename.
+    // Keeping them creates duplicate assets and hides the meaningful filename
+    // from menu-document detection.
+    parsed.pathname = parsed.pathname.replace(/\/:\/(?:cr|rs)=.*$/i, "");
+    parsed.search = "";
+  }
   return parsed.href;
 }
 
@@ -127,11 +147,20 @@ export function extractNamedWebsitePhotos(html: string, pageUrl: string, method 
   const $ = cheerio.load(html), candidates = new Map<string, NamedWebsitePhoto>();
   $("img").each((_, element) => {
     const node = $(element);
-    const raw = node.attr("data-image") ?? node.attr("data-src") ?? node.attr("data-lazy-src") ?? node.attr("data-original") ?? node.attr("src");
+    const raw = imageSource(node);
     const url = raw ? canonicalizeWebsiteImageUrl(raw, pageUrl) : undefined;
     if (!url || /logo|icon|favicon|avatar|social|badge|button|tracking|\.svg(?:\?|$)/i.test(url)) return;
     let filename = "";
-    try { filename = decodeURIComponent(new URL(safePublicUrl(raw,pageUrl)??url).pathname.split("/").pop() ?? ""); } catch {}
+    try {
+      const rawPath = new URL(safePublicUrl(raw, pageUrl) ?? url).pathname;
+      filename = decodeURIComponent(
+        rawPath.split("/").filter((segment) => /\.(?:avif|gif|jpe?g|png|webp)$/i.test(segment)).at(-1)
+          ?? new URL(url).pathname.split("/").pop()
+          ?? ""
+      );
+    } catch {}
+    // A photographed/scanned menu is an OCR input, not a dish photo.
+    if (/(?:^|[^a-z])menu(?:[^a-z]|$)/i.test(filename)) return;
     const caption = node.closest("figure").find("figcaption").first().text();
     const explicitLabels=[node.attr("alt"),node.attr("title"),node.attr("aria-label"),caption]
       .flatMap(value=>value?[normalizePhotoLabel(value)]:[])
@@ -330,8 +359,8 @@ export function discoverMenuImages(html: string, baseUrl: string, menuContext: b
     const node = $(element);
     // Builders such as Squarespace keep the original menu document in
     // `data-image` while `src` may be an aggressively downscaled thumbnail.
-    const raw = node.attr("data-image") ?? node.attr("data-src") ?? node.attr("data-lazy-src") ?? node.attr("src");
-    const url = safePublicUrl(raw, baseUrl);
+    const raw = imageSource(node);
+    const url = raw ? canonicalizeWebsiteImageUrl(raw, baseUrl) : undefined;
     if (!url || /logo|icon|favicon|avatar|social|badge|button|tracking|\.svg(?:\?|$)/i.test(url)) return;
     const filename=decodeURIComponent(new URL(url).pathname.split("/").pop()??"").replace(/\+/g," ");
     const alternate=`${node.attr("alt")??""} ${node.attr("title")??""}`;

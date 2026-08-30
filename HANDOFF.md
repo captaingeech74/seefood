@@ -1,6 +1,6 @@
 # SeeFood Senior Lead Handoff
 
-Updated August 3, 2026. This is the current operational snapshot for the active
+Updated August 30, 2026. This is the current operational snapshot for the active
 general-development lead. It is intentionally concise; durable product and
 architecture decisions belong in `DECISIONS.md` and the focused documents under
 `docs/`.
@@ -42,6 +42,11 @@ MSAs, and finally all 387 MSAs.
   experiment.
 - Image bytes are stored in R2 and delivered by signed R2 redirects instead of
   streaming through Vercel. A custom R2 domain remains the intended end state.
+- Kona Craft Cafe exposed a GoDaddy/Airo lazy-image gap. V3 now recognizes
+  `data-srclazy` and related attributes, strips GoDaddy resize variants, and
+  routes official image menus to OCR. Kona is live with 73 current menu items
+  and six byte-unique, menu-linked photos from its official account; the photos
+  are stored durably in R2 with their public post permalinks retained.
 - The corpus is persistent. It contains restaurant identity, menu, photo,
   provenance, acquisition, analytics, member, merchant, and management data.
   Do not treat this as the old stateless prototype.
