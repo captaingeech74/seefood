@@ -5,6 +5,7 @@ import {
   getSlugForPlaceId,
   getStoredRestaurant,
   getTestFixtureNameOverride,
+  upsertRestaurant,
 } from "@/lib/db";
 import { onsiteRestaurantRadiusKm } from "@/lib/restaurantPolicy";
 
@@ -16,12 +17,14 @@ export async function GET(req: NextRequest) {
 
   try {
     let restaurant;
+    let discoveredFromGoogle = false;
     let locationDiagnostic: { reportedAccuracyMeters: number | null; radiusMeters: number } | null = null;
 
     if (placeId) {
       restaurant = await getStoredRestaurant(placeId);
       if (!restaurant && process.env.GOOGLE_PLACES_DISCOVERY_ENABLED === "true") {
         restaurant = await getRestaurantDetails(placeId);
+        discoveredFromGoogle = Boolean(restaurant);
       }
     } else if (lat && lng) {
       const latitude = parseFloat(lat);
@@ -62,6 +65,7 @@ export async function GET(req: NextRequest) {
       restaurant = storedResolution.kind === "match" ? storedResolution.restaurant : null;
       if (!restaurant && process.env.GOOGLE_PLACES_DISCOVERY_ENABLED === "true") {
         restaurant = await findNearbyRestaurant(latitude, longitude, maxDistanceKm);
+        discoveredFromGoogle = Boolean(restaurant);
       }
     } else {
       return NextResponse.json(
@@ -80,6 +84,14 @@ export async function GET(req: NextRequest) {
 
     const fixtureName = await getTestFixtureNameOverride(restaurant.placeId ?? restaurant.id).catch(() => null);
     const name = fixtureName ?? restaurant.name;
+
+    // A restaurant shown to a user must become part of the durable product
+    // corpus so its known official website can be enriched on the next run.
+    if (discoveredFromGoogle) {
+      await upsertRestaurant({ ...restaurant, name }).catch((error) =>
+        console.error("[restaurant-discovery] could not persist visible restaurant", error)
+      );
+    }
 
     const slug = await getSlugForPlaceId(
       restaurant.placeId ?? restaurant.id,

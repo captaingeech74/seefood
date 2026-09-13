@@ -126,10 +126,17 @@ export function identityEvidence(incoming: IncomingIdentity, candidate: Identity
     && incoming.parentEntityId === candidate.parentEntityId
     && similarity < 0.85
   );
+  const preciseStrongNameMatch = meters <= 35 && similarity >= 0.9 && overlap;
   const eligible = !distinctSharedParent && meters <= 150 && (meters <= 50 || addressEqual) && (
     (domainEqual && (similarity >= 0.35 || overlap))
     || (phoneEqual && (similarity >= 0.55 || overlap))
     || (addressEqual && (similarity >= 0.60 || overlap))
+    // Live Google discovery often supplies no website or phone, and its
+    // formatted address can differ from Overture's abbreviated address. An
+    // almost identical name within ordinary GPS drift is still strong enough
+    // to attach the provider ID to the existing entity. Ambiguous candidates
+    // remain quarantined by resolveIdentity below.
+    || preciseStrongNameMatch
   );
   const reasonCodes = [
     domainEqual && "domain_equal",
@@ -137,6 +144,7 @@ export function identityEvidence(incoming: IncomingIdentity, candidate: Identity
     addressEqual && "address_equal",
     overlap && "distinctive_name_overlap",
     similarity >= 0.85 && "strong_name_similarity",
+    preciseStrongNameMatch && "precise_strong_name_match",
     meters <= 50 && "within_50m",
     distinctSharedParent && "distinct_resort_subvenue",
   ].filter((value): value is string => Boolean(value));

@@ -22,6 +22,7 @@ import { interpretContributionGoldContract } from "./contributionContract.mjs";
 import { normalizeMerchantItems, type MerchantProvider } from "./merchantProviders";
 import { restaurantSearchMatches, restaurantSearchTerms } from "./restaurantSearch";
 import { resolveNearbyCandidates } from "./restaurantPolicy";
+import { resolveIdentity } from "./acquisitionIdentity";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -1497,12 +1498,30 @@ export async function upsertRestaurant(restaurant: Restaurant): Promise<void> {
 
   let entityId = existing?.entity_id as string | null | undefined;
   if (!entityId && !isSeeFoodRestaurantId(placeId)) {
-    const { data: existingEntity } = await supabase
+    const [{ data: providerIdentity }, { data: legacyEntity }] = await Promise.all([
+      supabase.from("restaurant_identities").select("entity_id")
+        .eq("provider", "google").eq("provider_id", placeId).eq("active", true).maybeSingle(),
+      supabase.from("restaurant_entities").select("id").eq("legacy_place_id", placeId).maybeSingle(),
+    ]);
+    entityId = providerIdentity?.entity_id ?? legacyEntity?.id;
+  }
+  if (!entityId && !isSeeFoodRestaurantId(placeId)) {
+    const radiusDegrees = 0.002;
+    const { data: nearbyEntities } = await supabase
       .from("restaurant_entities")
-      .select("id")
-      .eq("legacy_place_id", placeId)
-      .maybeSingle();
-    entityId = existingEntity?.id;
+      .select("id,name,address,lat,lng,website,phone,parent_entity_id")
+      .not("lat", "is", null).not("lng", "is", null)
+      .gte("lat", restaurant.lat - radiusDegrees).lte("lat", restaurant.lat + radiusDegrees)
+      .gte("lng", restaurant.lng - radiusDegrees).lte("lng", restaurant.lng + radiusDegrees)
+      .limit(25);
+    const resolution = resolveIdentity({
+      name: cleanName, address: effectiveAddress, lat: restaurant.lat, lng: restaurant.lng,
+    }, (nearbyEntities ?? []).map((candidate) => ({
+      id: candidate.id, name: candidate.name, address: candidate.address,
+      lat: candidate.lat, lng: candidate.lng, website: candidate.website,
+      phone: candidate.phone, parentEntityId: candidate.parent_entity_id,
+    })));
+    if (resolution.disposition === "match") entityId = resolution.evidence.candidateId;
   }
   if (!entityId) {
     const { data: createdEntity } = await supabase

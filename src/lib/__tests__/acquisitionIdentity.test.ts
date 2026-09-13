@@ -41,6 +41,24 @@ describe("national acquisition identity gates", () => {
     expect(resolveIdentity(incoming, [])).toEqual({ disposition: "new", evidence: null, alternatives: [] });
   });
 
+  it("links an exact nearby Google discovery despite address formatting differences", () => {
+    const result = resolveIdentity({
+      name: "Rainbow Oaks Restaurant",
+      lat: 33.4135785,
+      lng: -117.1581572,
+      address: "4815 5th Street, Fallbrook",
+    }, [{
+      id: "rainbow-oaks",
+      name: "Rainbow Oaks Restaurant",
+      lat: 33.4135498,
+      lng: -117.1581494,
+      address: "4815 5th St",
+      website: "https://rainbowoaksrestaurant.com",
+    }]);
+    expect(result.disposition).toBe("match");
+    expect(result.evidence?.reasonCodes).toContain("precise_strong_name_match");
+  });
+
   it("does not merge differently named restaurants inside the same resort", () => {
     const result = resolveIdentity({
       ...incoming,

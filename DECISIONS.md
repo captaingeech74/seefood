@@ -2348,3 +2348,17 @@ report are in `docs/CABO_ROLLOUT.md`.
 - Google place photos remain discovery/display candidates under Google's terms,
   not stored corpus assets. A visible Google gallery does not justify caching
   those bytes without the required author attribution and source links.
+
+# September 12, 2026 — Anything shown through live discovery enters the durable corpus
+
+- A restaurant returned to a user by Google discovery is persisted immediately,
+  then becomes eligible for the normal website-enrichment run. We must not show
+  a temporary shell indefinitely while an official website already sits in the
+  acquisition backbone.
+- Link Google discovery to an existing Overture entity when the name is nearly
+  exact and the coordinates are within 35 metres. Competing matches remain
+  quarantined; differently named colocated venues remain separate.
+- Rainbow Oaks exposed the gap: its official Popmenu site had been known since
+  July, but all four legacy crawl jobs had zero attempts because the restaurant
+  was outside the scheduled markets and absent from `restaurants`. The scoped
+  repair recovered 159 menu items and 69 byte-verified menu-matched photos.
