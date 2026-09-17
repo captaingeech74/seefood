@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
 
-const POLICY_VERSION = "show_all_restaurant_evidence_v2";
+const POLICY_VERSION = "show_all_restaurant_evidence_v3";
 
 function loadEnv() {
   const path = join(__dirname, "..", ".env.local");
@@ -76,14 +76,23 @@ async function candidates(client: pg.PoolClient, market: string, source?: string
       and coalesce(e.operating_status,'')<>'permanently_closed'
       and e.lat is not null and e.lng is not null
       and (
-        e.backbone_state='published'
+        r.entity_id is not null
+        or (
+          lower(trim(e.name)) <> 'carlsbad'
+          and lower(e.name) !~ '(corporate office|restaurant finance|restaurant group|food tours|brewfest|training academy|[[:<:]]group[ ,])'
+        )
+      )
+      and (
+        r.entity_id is not null
         or exists (
-          select 1 from unnest(coalesce(e.categories,'{}'::text[])) category
-          where category<>'restaurant' and (
-            category like '%restaurant%' or category in (
-              'bar','salad_bar','food_truck','coffee_shop','cafe','bakery',
-              'ice_cream_shop','brewery','winery','pub','sandwich_shop'
-            )
+          select 1 from unnest(coalesce(e.categories[1:1],'{}'::text[])) category
+          where category like '%restaurant%' or category in (
+            'bar','wine_bar','cocktail_bar','sports_bar','salad_bar','food_truck',
+            'coffee_shop','cafe','cafeteria','bakery','ice_cream_shop','brewery',
+            'winery','pub','irish_pub','gastropub','sandwich_shop','delicatessen',
+            'bagel_shop','donuts','desserts','gelato','frozen_yoghurt_shop',
+            'shaved_ice_shop','bubble_tea','smoothie_juice_bar','juice_shop',
+            'pancake_house','pasta_shop','pretzels','tea_room','food'
           )
         )
         or exists (

@@ -99,7 +99,11 @@ export function normalizeMenuItemName(value: string): string {
 export function safePublicUrl(value: string | undefined, base?: string): string | undefined {
   if (!value || value.length > 2_048 || /^(?:data|blob):/i.test(value)) return undefined;
   try {
-    const parsed = new URL(value, base);
+    // Old provider feeds occasionally append invisible direction/formatting
+    // marks. Browsers ignore them, but strict queue validators reject the
+    // entire batch unless we remove them at the trust boundary.
+    const cleaned = value.replace(/\p{Cf}/gu, "").trim();
+    const parsed = new URL(cleaned, base);
     parsed.hash = "";
     return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : undefined;
   } catch { return undefined; }

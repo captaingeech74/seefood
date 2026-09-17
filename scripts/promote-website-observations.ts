@@ -10,6 +10,7 @@ function argument(name:string,fallback?:string){const index=process.argv.indexOf
 function normalize(value:string){return value.toLowerCase().normalize("NFKD").replace(/\p{M}/gu,"").replace(/[^a-z0-9]+/g," ").trim();}
 
 const SOURCES=new Set<DataSource>(["schema_org","menufy","toast","square","clover","chownow","olo","popmenu","bentobox","owner","spothopper","slice","flipdish","lightspeed","gloriafood","menu_ocr"]);
+const MAX_PLAUSIBLE_SOURCE_MENU_ITEMS=300;
 function safeSource(value:string):DataSource{return SOURCES.has(value as DataSource)?value as DataSource:"schema_org";}
 
 async function main(){
@@ -47,12 +48,14 @@ async function main(){
   for(const row of existing){const set=existingByEntity.get(row.entity_id)??new Set<string>();set.add(row.normalized_name);existingByEntity.set(row.entity_id,set);}
 
   const stats={mode:publish?"publish":"preview",groups:rows.length,entities:entityIds.length,stagedItems:0,newCanonicalCandidates:0,alreadyKnown:0,
-    photoCandidates:0,byteVerifiedPhotos:0,rejectedPhotoUrls:0,publishedGroups:0,publishedItems:0};
+    photoCandidates:0,byteVerifiedPhotos:0,rejectedPhotoUrls:0,oversizedGroupsSkipped:0,oversizedItemsSkipped:0,publishedGroups:0,publishedItems:0};
   const prepared:Array<{row:any;items:MenuItemData[]}>=[];
   for(const row of rows){
     const deduped=new Map<string,MenuItemData>();
     for(const item of row.items as MenuItemData[]){const key=normalize(item.name);if(!key)continue;const current=deduped.get(key);if(!current||Number(Boolean(item.description))+Number(Boolean(item.imageUrl))*2>Number(Boolean(current.description))+Number(Boolean(current.imageUrl))*2)deduped.set(key,item);}
-    const items=[...deduped.values()];stats.stagedItems+=items.length;
+    const items=[...deduped.values()];
+    if(items.length>MAX_PLAUSIBLE_SOURCE_MENU_ITEMS){stats.oversizedGroupsSkipped++;stats.oversizedItemsSkipped+=items.length;continue;}
+    stats.stagedItems+=items.length;
     const known=existingByEntity.get(row.entity_id)??new Set<string>();
     for(const item of items){if(item.imageUrl)stats.photoCandidates++;if(known.has(normalize(item.name)))stats.alreadyKnown++;else stats.newCanonicalCandidates++;}
     prepared.push({row,items});

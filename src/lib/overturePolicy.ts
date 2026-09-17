@@ -19,6 +19,25 @@ const FOOD_SERVICE_CATEGORIES = new Set([
   "smoothie_shop",
   "bubble_tea_shop",
   "donut_shop",
+  "donuts",
+  "delicatessen",
+  "bagel_shop",
+  "cafeteria",
+  "wine_bar",
+  "cocktail_bar",
+  "sports_bar",
+  "gastropub",
+  "salad_bar",
+  "pancake_house",
+  "pasta_shop",
+  "pretzels",
+  "tea_room",
+  "gelato",
+  "frozen_yoghurt_shop",
+  "shaved_ice_shop",
+  "bubble_tea",
+  "smoothie_juice_bar",
+  "desserts",
 ]);
 
 type OvertureClassification = {
@@ -33,13 +52,18 @@ type OvertureClassification = {
  * keeping generic retail and nightlife records out of the restaurant corpus.
  */
 export function isOvertureFoodServicePlace(properties: OvertureClassification): boolean {
+  const primary = properties.categories?.primary;
+  const isFoodService = (category: string) =>
+    category.endsWith("_restaurant") || FOOD_SERVICE_CATEGORIES.has(category);
+
+  // An explicit primary classification outranks noisy alternate tags. This
+  // prevents a dentist, beach, shop, or office with an erroneous alternate
+  // "cafe" label from becoming a restaurant. Records without a primary still
+  // get the more permissive hierarchy/alternate fallback.
+  if (primary) return isFoodService(primary);
   const hierarchy = properties.taxonomy?.hierarchy ?? [];
   if (hierarchy.includes("restaurant")) return true;
-  const categories = [
-    properties.categories?.primary,
-    ...(properties.categories?.alternate ?? []),
-  ].filter((category): category is string => Boolean(category));
-  return categories.some((category) => FOOD_SERVICE_CATEGORIES.has(category));
+  return (properties.categories?.alternate ?? []).some(isFoodService);
 }
 
 type OvertureAddress = {

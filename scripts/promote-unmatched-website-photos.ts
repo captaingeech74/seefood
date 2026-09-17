@@ -15,11 +15,11 @@ function argument(name:string,fallback?:string){const index=process.argv.indexOf
 function normalize(value:string){return value.toLowerCase().normalize("NFKD").replace(/\p{M}/gu,"").replace(/[^a-z0-9]+/g," ").trim();}
 function identityScore(name:string,domain:string){const domainKey=normalize(domain.replace(/^www\./,"").replace(/\.(?:com|net|org|co|us)$/i,"")).replace(/ /g,"");return normalize(name).split(" ").filter(token=>token.length>=3&&!/^(?:restaurant|kitchen|the)$/.test(token)&&domainKey.includes(token)).length;}
 const GENERIC=new Set(["and","with","from","the","food","dish","plate","photo","image","gallery","restaurant","special","menu","copy","final"]);
-const NON_FOOD=/(?:^|\b)(?:apparel|bar|bartender|banner|beer|brewery|building|cocktails?|dining room|drinks?|event|exterior|facebook|front|hoodies?|instagram|interior|logo|merch(?:andise)?|outdoor seating|people|reservation|seating|shirts?|soda|social|staff|storefront|team|tees?|tiktok|twitter|uniform|water|wine)(?:\b|$)/i;
+const NON_FOOD=/(?:^|\b)(?:apparel|artwork|bar|bartender|banner|beer|brewery|building|cat|cartoon|cocktails?|dining room|dogs?|drawing|drinks?|event|exterior|facebook|front|hoodies?|illustrations?|instagram|interior|logo|mascot|merch(?:andise)?|outdoor seating|people|reservation|seating|shirts?|soda|social|staff|storefront|team|tees?|tiktok|twitter|uniform|water|wine)(?:\b|$)/i;
 const STRONG_PAGE=/(?:^|[\/_-])(?:food|dishes|cuisine|menu|brunch|breakfast|lunch|dinner|eat)(?:[\/_-]|$)/i;
 const GALLERY_PAGE=/(?:^|[\/_-])(?:galler(?:y|ies)|photos?)(?:[\/_-]|$)/i;
 const FOOD_WORD=/(?:^|\b)(?:bacon|beef|bowl|bread|breakfast|burger|burrito|cake|chicken|chile|curry|dessert|dumpling|egg|fries|kabob|kebab|lamb|lobster|musubi|noodles?|pasta|pizza|pork|ramen|rice|salad|salmon|sandwich|shrimp|smoothie|soup|steak|sushi|taco|toast|tuna|waffle|wings?)(?:\b|$)/i;
-const BAD_LABEL=/(?:^|\b)(?:aquafina|frame|header|image|img|lto|map|mv2)(?:\b|$)|picture of .*menu|\b[a-z0-9]{12,}\b|\b\d{3,}\b/i;
+const BAD_LABEL=/(?:^|\b)(?:aquafina|frame|full|header|image|img|lto|map|menus? side|mv2)(?:\b|$)|picture of .*menu|\b[a-z0-9]{12,}\b|\b\d{3,}\b/i;
 const CATEGORY_ONLY=/^(?:(?:small|medium|large|11 inch|fast fire d)\s+)?(?:pizzas?|desserts?|entrees?|appetizers?|drinks?|favorites?|sides?)$/i;
 
 type Candidate={entity_id:string;place_id:string;restaurant_name:string;domain:string;asset_url:string;page_url:string;label:string;content_sha256:string;byte_count:number;existing_photo_count:number;menu_names:string[]};
@@ -60,7 +60,12 @@ async function main(){
     const restaurantTokens=new Set(normalize(row.restaurant_name).split(" ").filter(token=>token.length>=3));
     const beyondBrand=tokens.filter(token=>!restaurantTokens.has(token)&&!/^\d+$/.test(token));
     if(label.length<4||label.length>70||tokens.length<1||tokens.length>8||!beyondBrand.length||NON_FOOD.test(label)||BAD_LABEL.test(label)||CATEGORY_ONLY.test(label)||Number(row.byte_count)<20_000)return false;
-    const ownScore=identityScore(row.restaurant_name,row.domain),bestSibling=Math.max(...(siblingsByDomain.get(row.domain.toLowerCase())??[]).map(name=>identityScore(name,row.domain)),ownScore);if(ownScore<bestSibling||foreignRouteEntities.has(row.entity_id))return false;
+    const ownScore=identityScore(row.restaurant_name,row.domain),bestSibling=Math.max(...(siblingsByDomain.get(row.domain.toLowerCase())??[]).map(name=>identityScore(name,row.domain)),ownScore);
+    // Unmatched photos do not have a dish-name cross-check, so the website
+    // itself must also identify the restaurant. This prevents a generic menu
+    // host or a neighboring restaurant's site from donating plausible-looking
+    // food imagery to the wrong place.
+    if(ownScore<1||ownScore<bestSibling||foreignRouteEntities.has(row.entity_id))return false;
     let path="";try{path=decodeURIComponent(new URL(row.page_url).pathname);}catch{return false;}
     if(/(?:^|[\/_-])(?:archive|old)(?:[\/_-]|$)/i.test(path))return false;
     const menuTokens=new Set((row.menu_names??[]).flatMap(name=>normalize(name).split(" ")).filter(token=>token.length>=4&&!GENERIC.has(token)));

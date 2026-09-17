@@ -21,6 +21,22 @@ describe("Overture food-service classification", () => {
       taxonomy: { hierarchy: ["attractions_and_activities", "nightlife"] },
     })).toBe(false);
   });
+
+  it("lets an explicit non-food primary category outrank a noisy cafe alternate", () => {
+    expect(isOvertureFoodServicePlace({
+      categories: { primary: "dentist", alternate: ["cafe"] },
+      taxonomy: { hierarchy: ["services", "dentist", "cafe"] },
+    })).toBe(false);
+  });
+
+  it("accepts restaurant specializations and common breakfast venues", () => {
+    expect(isOvertureFoodServicePlace({
+      categories: { primary: "breakfast_and_brunch_restaurant" },
+    })).toBe(true);
+    expect(isOvertureFoodServicePlace({
+      categories: { primary: "bagel_shop" },
+    })).toBe(true);
+  });
 });
 
 describe("Overture address formatting", () => {

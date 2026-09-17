@@ -11,6 +11,7 @@ import {
   crawlWebsiteV3,
   namedPhotoDishMatchScore,
   normalizeMenuItemName,
+  safePublicUrl,
   type WebsiteV3Result,
   type WebsiteV3Target,
 } from "../src/crawler/websiteV3";
@@ -362,8 +363,18 @@ async function main(){
     : `select j.id "jobId",j.entity_id "entityId",j.website_id "websiteId",j.attempts,j.lease_token "leaseToken",w.url,w.domain,e.name "restaurantName",e.address "restaurantAddress",
          array(select mm.market_key from acquisition_market_entities mm where mm.entity_id=j.entity_id and mm.active) "marketKeys"
        from lease_web_crawl_v3_jobs($1,$2,90) j join restaurant_websites w on w.id=j.website_id join restaurant_entities e on e.id=j.entity_id`;
-  const leasedAll=(await pool.query(leaseSql,productCorpus?[limit]:[market,limit]
+  const rawLeased=(await pool.query(leaseSql,productCorpus?[limit]:[market,limit]
   )).rows as WebsiteV3Target[];
+  const leasedAll:WebsiteV3Target[]=[];
+  const invalidTargets:WebsiteV3Target[]=[];
+  for(const target of rawLeased){
+    const url=safePublicUrl(target.url);
+    if(url)leasedAll.push({...target,url});else invalidTargets.push(target);
+  }
+  if(invalidTargets.length){
+    await pool.query(`update web_crawl_jobs set status='failed',lease_token=null,lease_expires_at=null,
+      completed_at=now(),last_error='invalid_website_url',updated_at=now() where id=any($1::uuid[])`,[invalidTargets.map(target=>target.jobId)]);
+  }
   let leased=leasedAll;
   if(options["recovery-only"]==="true"){
     const successful=new Set((await pool.query(`select distinct o.entity_id from website_menu_observations o join acquisition_market_entities m on m.entity_id=o.entity_id and m.market_key=$1 and m.active where o.active`,[market])).rows.map(row=>row.entity_id));
@@ -372,7 +383,7 @@ async function main(){
     if(skipped.length)await pool.query(`update web_crawl_jobs set status='completed',lease_token=null,lease_expires_at=null,completed_at=now(),updated_at=now() where id=any($1::uuid[])`,[skipped]);
   }
   const run=(await pool.query(`insert into website_crawl_v3_runs(market_key,collector_version,configuration,leased_count)
-    values($1,'website-v3.2.0',$2::jsonb,$3) returning id`,[market,JSON.stringify({concurrency,renderEnabled,maxPages:12,productCorpus,photoBackfill:productCorpus,paidOcrEnabled:false,paidWebFallback:false}),leased.length])).rows[0];
+    values($1,'website-v3.2.0',$2::jsonb,$3) returning id`,[market,JSON.stringify({concurrency,renderEnabled,maxPages:12,productCorpus,photoBackfill:productCorpus,paidOcrEnabled:false,paidWebFallback:false,invalidWebsiteUrls:invalidTargets.length}),leased.length])).rows[0];
   const runId=run.id as string;
   let finished=0;
   log.setLevel(log.LEVELS.INFO);

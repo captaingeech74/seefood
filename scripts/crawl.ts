@@ -74,6 +74,8 @@ function responseHash(value: string): string {
 const RATE_LIMIT_MS = 60_000; // ~1 restaurant/min, polite default
 const MARKET_PROFILES: Record<string, { city: string; stateCode: string; bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } }> = {
   "temecula-ca": { city: "Temecula", stateCode: "ca", bounds: { minLat: 33.43, maxLat: 33.59, minLng: -117.22, maxLng: -117.06 } },
+  "carlsbad-ca": { city: "Carlsbad", stateCode: "ca", bounds: { minLat: 33.061, maxLat: 33.215, minLng: -117.408, maxLng: -117.205 } },
+  "spokane-wa": { city: "Spokane", stateCode: "wa", bounds: { minLat: 47.586, maxLat: 47.759, minLng: -117.605, maxLng: -117.303 } },
   "san-diego-metro-ca": { city: "San Diego", stateCode: "ca", bounds: { minLat: 32.53, maxLat: 33.15, minLng: -117.35, maxLng: -116.85 } },
   "san-diego-county-ca": { city: "San Diego", stateCode: "ca", bounds: { minLat: 32.52, maxLat: 33.51, minLng: -117.61, maxLng: -116.08 } },
 };

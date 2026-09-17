@@ -389,19 +389,27 @@ export async function searchStoredRestaurants(
   center?: { lat: number; lng: number },
   limit = 30
 ): Promise<Array<Restaurant & { distanceKm?: number }>> {
-  const { data, error } = await supabase
-    .from("restaurants")
-    .select("place_id,slug,name,address,lat,lng,status")
-    .not("lat", "is", null)
-    .not("lng", "is", null)
-    .neq("status", "inactive")
-    .limit(1000);
-  if (error) throw error;
+  const data: StoredRestaurantRow[] = [];
+  // PostgREST caps one response at 1,000 rows. Fetch bounded pages so adding a
+  // market cannot silently make other restaurants disappear from search.
+  for (let from = 0; from < 5000; from += 1000) {
+    const { data: page, error } = await supabase
+      .from("restaurants")
+      .select("place_id,slug,name,address,lat,lng,status")
+      .not("lat", "is", null)
+      .not("lng", "is", null)
+      .neq("status", "inactive")
+      .order("place_id")
+      .range(from, from + 999);
+    if (error) throw error;
+    data.push(...((page ?? []) as StoredRestaurantRow[]));
+    if (!page || page.length < 1000) break;
+  }
 
   const terms = restaurantSearchTerms(query);
 
-  const restaurants = (data ?? [])
-    .map((row) => storedRowToRestaurant(row as StoredRestaurantRow))
+  const restaurants = data
+    .map((row) => storedRowToRestaurant(row))
     .filter((row): row is Restaurant => row !== null)
     .map((restaurant) => {
       const haystack = `${restaurant.name} ${restaurant.address}`;

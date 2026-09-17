@@ -35,6 +35,7 @@ describe("website acquisition V3 normalization", () => {
 
   it("accepts only public HTTP URLs", () => {
     expect(safePublicUrl("/menus/dinner.pdf", "https://example.com")).toBe("https://example.com/menus/dinner.pdf");
+    expect(safePublicUrl("http://lindasyogurt.com\u200e")).toBe("http://lindasyogurt.com/");
     expect(safePublicUrl("data:text/plain,nope")).toBeUndefined();
   });
 

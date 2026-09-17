@@ -2362,3 +2362,24 @@ report are in `docs/CABO_ROLLOUT.md`.
   July, but all four legacy crawl jobs had zero attempts because the restaurant
   was outside the scheduled markets and absent from `restaurants`. The scoped
   repair recovered 159 menu items and 69 byte-verified menu-matched photos.
+
+# September 12, 2026 — New markets use a public backbone, official sites, and honest product gates
+
+- Start a U.S. city with its official Census boundary and current Overture
+  release, then compare it with current local food permits. Permits validate
+  coverage but are not blindly treated as restaurants: one restaurant can hold
+  several permits, and schools, employee kitchens, markets, and institutions
+  also need food permits.
+- Overture's primary category outranks noisy alternate tags. A dentist, beach,
+  shop, office, or corporate record does not become a restaurant because one
+  secondary tag says “cafe.” Existing verified restaurants and strong official
+  menu evidence remain valid overrides.
+- Show every plausible consumer restaurant in an early market, including honest
+  shells, but never obvious companies, offices, or event listings. A shell can
+  receive a customer contribution; a false venue only damages trust.
+- Official-site extraction remains staged until explicit publication. A single
+  source claiming more than 300 distinct dishes is treated as a likely scope or
+  catalog failure and skipped rather than flooding a restaurant with products.
+- Carlsbad's first run stays zero-cost: Census, Overture, the county permit
+  roster, official websites, local extraction, and existing hosting/database
+  capacity. Google requests remain behind the database zero-spend guard.
