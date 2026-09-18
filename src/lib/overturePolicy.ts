@@ -73,6 +73,19 @@ type OvertureAddress = {
   postcode?: string | null;
 };
 
+export function normalizeOverturePlaceName(name: string, websites: string[]): string {
+  const domains = websites.flatMap((value) => {
+    try { return [new URL(value).hostname.toLowerCase()]; } catch { return []; }
+  });
+  // Some chain location pages export their page title ("City, ST (Store)") as
+  // the place name. Preserve the location identity but show the actual brand.
+  if (domains.some((domain) => domain === "locations.dutchbros.com")
+      && /^[^,]+,\s*[a-z]{2}\s*\(.+\)$/i.test(name.trim())) {
+    return "Dutch Bros Coffee";
+  }
+  return name.trim();
+}
+
 export function formatOvertureAddress(address: OvertureAddress | null | undefined): string | null {
   if (!address) return null;
   const street = address.freeform?.trim() ?? "";

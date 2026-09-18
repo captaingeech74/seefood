@@ -8,7 +8,7 @@ import { createInterface } from "node:readline";
 import { spawnSync } from "node:child_process";
 import pg from "pg";
 import { resolveIdentity, type IdentityCandidate } from "../src/lib/acquisitionIdentity";
-import { formatOvertureAddress, isOvertureFoodServicePlace } from "../src/lib/overturePolicy";
+import { formatOvertureAddress, isOvertureFoodServicePlace, normalizeOverturePlaceName } from "../src/lib/overturePolicy";
 
 type Args = Record<string, string | boolean>;
 type Bounds = { west: number; south: number; east: number; north: number };
@@ -105,14 +105,15 @@ function parseFeature(line: string, bounds: Bounds, countryCode: string, polygon
     String(row?.country ?? "").toUpperCase() === countryCode.toUpperCase()
   ) ?? null;
   if (!addressRow) return null;
-  const name = properties?.names?.primary;
+  const rawName = properties?.names?.primary;
   const providerId = feature.id;
-  if (typeof name !== "string" || !name.trim() || typeof providerId !== "string") return null;
+  if (typeof rawName !== "string" || !rawName.trim() || typeof providerId !== "string") return null;
   const address = formatOvertureAddress(addressRow);
   const websites = [...new Set((properties.websites ?? []).map(normalizeUrl).filter(Boolean))] as string[];
+  const name = normalizeOverturePlaceName(rawName, websites);
   const sources = Array.isArray(properties.sources) ? properties.sources : [];
   const normalized = {
-    providerId, version: properties.version == null ? null : String(properties.version), name: name.trim(), lat, lng,
+    providerId, version: properties.version == null ? null : String(properties.version), name, lat, lng,
     address, websites, phone: properties.phones?.[0] ?? null, socials: properties.socials ?? [],
     operatingStatus: properties.operating_status ?? null, confidence: Number(properties.confidence ?? 0.5),
     categories: [properties.categories?.primary, ...(properties.categories?.alternate ?? [])].filter(Boolean),

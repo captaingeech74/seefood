@@ -2383,3 +2383,26 @@ report are in `docs/CABO_ROLLOUT.md`.
 - Carlsbad's first run stays zero-cost: Census, Overture, the county permit
   roster, official websites, local extraction, and existing hosting/database
   capacity. Google requests remain behind the database zero-spend guard.
+
+# September 17, 2026 — Spokane citywide rollout
+
+- Spokane uses the current Census incorporated-city boundary, current Overture
+  release, Spokane Regional Health District inspection reports as an
+  independent check, and official restaurant websites. The rollout made 1,128
+  plausible restaurants visible and retained the earlier Wooden City and Shawn
+  O'Donnell's records rather than duplicating them.
+- The official-site run completed 1,001 requests with zero crawler failures.
+  Publication accepted 302 restaurant-scoped menu groups, 9,094 menu items,
+  and 3,337 byte-verified menu-backed photo candidates. One 337-item source was
+  rejected as an implausible location-level catalog.
+- Five Dutch Bros location-page titles were recognized as duplicates of richer
+  records at the same addresses. Fourteen clear non-restaurant, duplicate, or
+  superseded shells were suppressed after review, including those five, a
+  legal-name duplicate, a mislocated chain duplicate, and three former tenants
+  at the current House of Brunch address.
+- Do not publish Spokane's loose unmatched website-gallery set from this run.
+  Audit found an Overture website attached to a same-name restaurant in another
+  state. Menu-backed evidence passed; unmatched photos remain staged until a
+  location-identity check exists. This favors honest gaps over wrong food.
+- The build used no paid API or quota: Census, Overture, SRHD public reports,
+  official websites, local extraction, and existing infrastructure only.

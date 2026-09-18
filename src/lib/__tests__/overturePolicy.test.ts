@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatOvertureAddress, isOvertureFoodServicePlace } from "../overturePolicy";
+import { formatOvertureAddress, isOvertureFoodServicePlace, normalizeOverturePlaceName } from "../overturePolicy";
 
 describe("Overture food-service classification", () => {
   it("accepts the ordinary restaurant hierarchy", () => {
@@ -56,5 +56,19 @@ describe("Overture address formatting", () => {
       region: "WA",
       postcode: "99201",
     })).toBe("719 N Monroe St, Spokane, WA 99201");
+  });
+});
+
+describe("Overture place-name normalization", () => {
+  it("turns Dutch Bros location-page titles into the customer-facing brand", () => {
+    expect(normalizeOverturePlaceName(
+      "Spokane, WA (Downtown)",
+      ["https://locations.dutchbros.com/dutch-bros-coffee-wa/spokane/410-w-2nd-ave"],
+    )).toBe("Dutch Bros Coffee");
+  });
+
+  it("does not rewrite unrelated local names", () => {
+    expect(normalizeOverturePlaceName("Spokane Breakfast Company", ["https://spokaneshake.com/"]))
+      .toBe("Spokane Breakfast Company");
   });
 });
