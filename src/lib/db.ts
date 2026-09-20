@@ -2742,6 +2742,7 @@ async function reconcileSourceBatch(
       ok: true,
       evidenceHash,
       metadata: {
+        partial: Boolean(options.partial),
         normalizedItemCount: sourceItems.length,
         normalizedPhotoCount: photos.length,
         byteVerifiedPhotoCount: photos.filter((photo) => photo.contentHash).length,
@@ -2767,7 +2768,8 @@ async function reconcileSourceBatch(
 export async function persistSourceMenuItems(
   placeId: string,
   source: DataSource,
-  items: MenuItemData[]
+  items: MenuItemData[],
+  options: { partial?: boolean } = {}
 ): Promise<string | null> {
   const photos: DishPhoto[] = items.filter((item) => item.imageUrl).map((item, index) => ({
     id: `${source}-${placeId}-${index}`,
@@ -2778,8 +2780,8 @@ export async function persistSourceMenuItems(
     source,
     attribution: "owner",
     tier: 1,
-    width: 800,
-    height: 600,
+    width: item.imageWidth ?? 800,
+    height: item.imageHeight ?? 600,
     loveCount: 0,
     primaryVotes: 0,
     photoAuthorType: "management",
@@ -2787,7 +2789,7 @@ export async function persistSourceMenuItems(
     contentHash: item.contentHash,
     perceptualHash: item.perceptualHash,
   }));
-  return reconcileSourceBatch(placeId, source, items, photos);
+  return reconcileSourceBatch(placeId, source, items, photos, options);
 }
 
 /** Add a scoped photo-only evidence batch without implying that omitted menu
@@ -2883,23 +2885,10 @@ export async function persistPipelineResult(input: {
     address,
   });
 
-  // Revisit live-pipeline sources that previously contributed active rows so
-  // a later omission counts as a miss. Avoid creating blank snapshots for
-  // every possible adapter on every restaurant.
-  const livePipelineSources = new Set([
-    "google", "website", "schema_org", "menufy", "toast", "square",
-    "clover", "chownow", "olo", "popmenu", "menu_ocr", "unknown",
-  ]);
-  const [{ data: priorMenuSources }, { data: priorPhotoSources }] = await Promise.all([
-    supabase.from("menu_items").select("source").eq("restaurant_id", placeId).eq("active", true),
-    supabase.from("photos").select("source").eq("restaurant_id", placeId).eq("active", true),
-  ]);
-  const previouslyObserved = [...(priorMenuSources ?? []), ...(priorPhotoSources ?? [])]
-    .map((row) => row.source)
-    .filter((source): source is string => livePipelineSources.has(source));
+  // A combined live result has no evidence that every source/page succeeded.
+  // A timeout, skipped adapter, or homepage-only crawl is not menu removal.
+  // Only explicit complete source snapshots may age out missing content.
   const sources = new Set<string>([
-    "google",
-    ...previouslyObserved,
     ...menuItems.map((item) => item.source ?? "unknown"),
     ...photos.map((photo) => photo.source),
   ]);
@@ -2909,7 +2898,8 @@ export async function persistPipelineResult(input: {
       placeId,
       source,
       menuItems.filter((item) => (item.source ?? "unknown") === source),
-      photos.filter((photo) => photo.source === source)
+      photos.filter((photo) => photo.source === source),
+      { partial: true }
     );
   }
 }

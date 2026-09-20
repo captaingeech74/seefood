@@ -2406,3 +2406,29 @@ report are in `docs/CABO_ROLLOUT.md`.
   location-identity check exists. This favors honest gaps over wrong food.
 - The build used no paid API or quota: Census, Overture, SRHD public reports,
   official websites, local extraction, and existing infrastructure only.
+
+# September 20, 2026 — Reliable dish-to-photo connections guide acquisition
+
+- Kyle approved the principle: **The winning principle is reliable
+  dish-to-photo connections, regardless of provider.** Prioritize sources that
+  preserve an explicit connection between a real restaurant, a current menu
+  dish, and its actual photo. Provider prestige and raw photo totals are not
+  substitutes for this connection.
+- Structured menu platforms are a priority enrichment opportunity, not an
+  exclusive strategy. Keep complementary delivery, official website, PDF,
+  gallery, merchant, and customer sources where they add useful coverage.
+- Rainbow Oaks is a working reference: 159 active menu items and 69 unique
+  photos attached to 69 dishes from its official Popmenu website, verified in
+  the September 19 read-only audit. Its earlier empty experience resulted from
+  unattempted crawl jobs, so execution and publication deserve the same
+  attention as extraction.
+- The proposed platform discovery, pilot, and citywide recovery plan is in
+  `docs/STRUCTURED_MENU_PLATFORM_PLAN.md`. The principle is approved; that
+  implementation and harvesting plan was approved by Kyle on September 20.
+  The main lead owns baseline measurement, publication, and live verification;
+  a Sol medium subagent owns the bounded extraction pilot and reusable fixes.
+- Mixed live-pipeline results and staged enrichment are partial observations.
+  They may add or refresh evidence but must not increment missing streaks or
+  retire previously good menu/photo rows. Only an explicitly complete source
+  snapshot can establish absence. This prevents lightweight live refreshes from
+  undoing richer structured-platform imports.

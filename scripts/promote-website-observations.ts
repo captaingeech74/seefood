@@ -3,6 +3,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
+import sharp from "sharp";
 import type { DataSource, MenuItemData } from "../src/lib/types";
 
 function loadEnv(){const path=join(__dirname,"..",".env.local");if(!existsSync(path))throw new Error(`Missing ${path}`);for(const line of readFileSync(path,"utf8").split("\n")){const match=line.match(/^([A-Z0-9_]+)=(.*)$/);if(match&&!process.env[match[1]])process.env[match[1]]=match[2];}}
@@ -29,7 +30,7 @@ async function main(){
     `select o.entity_id,r.place_id,o.source_key,
       jsonb_agg(jsonb_build_object('name',o.item_name,'description',o.item_description,'imageUrl',o.image_url,'price',o.price) order by o.confidence desc,o.last_seen_at desc) items
      from website_menu_observations o
-     join restaurants r on r.entity_id=o.entity_id and r.status<>'test_fixture'
+     join restaurants r on r.entity_id=o.entity_id and r.status not in ('test_fixture','inactive')
      where o.active and o.confidence>=0.78
        and ($1='product-corpus-us' or exists(select 1 from acquisition_market_entities m where m.entity_id=o.entity_id and m.market_key=$1 and m.active))
        and ($3::uuid is null or o.last_v3_run_id=$3)
@@ -70,11 +71,14 @@ async function main(){
       try{const response=await fetch(item.imageUrl,{headers:{accept:"image/*"},signal:AbortSignal.timeout(15_000)});
         if(!response.ok||!isImageContentType(response.headers.get("content-type"))){items[index]={...item,imageUrl:undefined};stats.rejectedPhotoUrls++;continue;}
         const bytes=Buffer.from(await response.arrayBuffer());if(!bytes.length||bytes.length>20*1024*1024){items[index]={...item,imageUrl:undefined};stats.rejectedPhotoUrls++;continue;}
-        const hashes=await fingerprintPhoto(bytes);items[index]={...item,...hashes};stats.byteVerifiedPhotos++;
+        const dimensions=await sharp(bytes,{failOn:"error"}).metadata();
+        const hashes=await fingerprintPhoto(bytes);items[index]={...item,...hashes,imageWidth:dimensions.width,imageHeight:dimensions.height};stats.byteVerifiedPhotos++;
       }catch{items[index]={...item,imageUrl:undefined};stats.rejectedPhotoUrls++;}}
     }
     await Promise.all(Array.from({length:Math.min(8,items.length)},()=>worker()));
-    const snapshot=await persistSourceMenuItems(row.place_id,safeSource(row.source_key),items);
+    // Staged observations may cover only some pages/tabs. Their publication
+    // must not count as proof that existing source dishes or photos vanished.
+    const snapshot=await persistSourceMenuItems(row.place_id,safeSource(row.source_key),items,{partial:true});
     if(snapshot){stats.publishedGroups++;stats.publishedItems+=items.length;}
   }
   console.log(JSON.stringify({market,runId,selectedEntityCount:selectedEntityIds?.length??null,...stats},null,2));
