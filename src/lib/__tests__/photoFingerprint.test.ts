@@ -7,9 +7,19 @@ import {
   isTransientPhotoFetchStatus,
   perceptualHashDistance,
   shouldActivatePhotoObservation,
+  providerPhotoAssetKey,
 } from "../photoFingerprint";
 
 describe("photo fingerprints", () => {
+  it("recognizes provider size variants without merging different assets",()=>{
+    expect(providerPhotoAssetKey('https://popmenucloud.com/cdn-cgi/image/width%3D600/a/dish.jpg'))
+      .toBe(providerPhotoAssetKey('https://popmenucloud.com/cdn-cgi/image/width=1920/a/dish.jpg'));
+    expect(providerPhotoAssetKey('https://d1w7312wesee68.cloudfront.net/token/resize:fit:720:720/plain/s3://toasttab/restaurants/x.jpg'))
+      .toBe(providerPhotoAssetKey('https://s3.amazonaws.com/toasttab/restaurants/x.jpg'));
+    expect(providerPhotoAssetKey('https://static-content.owner.com/a.jpg?w=48')).not.toBe(providerPhotoAssetKey('https://static-content.owner.com/b.jpg?w=48'));
+    expect(providerPhotoAssetKey('https://unknown.example/a.jpg')).toBeNull();
+    expect(canReactivateQuarantinedPhoto('same_provider_asset_variant','verified-hash')).toBe(false);
+  });
   it("uses exact bytes for automatic identity", async () => {
     const image = await sharp({
       create: {

@@ -73,7 +73,7 @@ const BLOCKED = /access denied|verify you are human|complete the security check|
 const JS_SHELL = /<div[^>]+id=["'](?:root|app|__next)["'][^>]*>\s*<\/div>|enable javascript/i;
 const MENU_URL_HINT = /(?:^|[\/_-])(?:food[-_]?menu|menus?|order(?:ing|-online)?)(?:[\/_-]|$)/i;
 const NON_DISH_TEXT = /^(?:menus?|home|locations?|contact|about|catering|delivery|pickup|order(?: online)?|reservations?|gift cards?|more|specials?|choose (?:a|your)|add-ons?|appetizers?|entrees?|salsas?|sides?|desserts?|drinks?|breakfast|brunch|lunch|dinner)$/i;
-const ORDERING_HOST = /(?:^|\.)(?:toasttab\.com|square\.site|squareup\.com|clover\.com|cloveronline\.com|chownow\.com|olo\.com|popmenu\.com|owner\.com|spothopper\.com|slicelife\.com|flipdish\.com|lightspeed\.app|gloriafood\.com|menufy\.com|mybistro\.online)$/i;
+const ORDERING_HOST = /(?:^|\.)(?:toasttab\.com|square\.site|squareup\.com|clover\.com|cloveronline\.com|chownow\.com|olo\.com|popmenu\.com|owner\.com|spothopper\.com|slicelife\.com|flipdish\.com|lightspeed\.app|gloriafood\.com|menufy\.com|mybistro\.online|order\.spoton\.com)$/i;
 const PLATFORM_MARKETING_HOST = /^(?:(?:www|get|go|blog|help|support|marketing)\.)?(?:popmenu\.com|owner\.com|spothopper\.com|menufy\.com)$/i;
 const GENERIC_RESTAURANT_WORD = /^(?:and|bar|cafe|cantina|cocina|food|grill|kitchen|mexican|restaurant|restaurants|the|temecula)$/;
 const NON_FOOD_PHOTO_LABEL = /(?:^|\b)(?:apparel|arcade|bar|bartender|banner|bottled water|building|coca cola|cocktails?|delivery|dining|drinks?|event|exterior|facebook|front|hoodies?|instagram|interior|locker room|logo|merch(?:andise)?|milk|people|powerade|reservation|shirts?|social|soda|staff|storefront|team|tees?|tiktok|twitter|uniform|wine)(?:\b|$)/i;
@@ -131,6 +131,9 @@ export function canonicalizeWebsiteImageUrl(value: string, base?: string): strin
     parsed.pathname = parsed.pathname.replace(/\/:\/(?:cr|rs)=.*$/i, "");
     parsed.search = "";
   }
+  if (parsed.hostname === "static-content.owner.com") {
+    for (const parameter of ["w", "h", "width", "height", "fit", "crop", "dpr"]) parsed.searchParams.delete(parameter);
+  }
   return parsed.href;
 }
 
@@ -154,6 +157,11 @@ export function extractNamedWebsitePhotos(html: string, pageUrl: string, method 
     const raw = imageSource(node);
     const url = raw ? canonicalizeWebsiteImageUrl(raw, pageUrl) : undefined;
     if (!url || /logo|icon|favicon|avatar|social|badge|button|tracking|\.svg(?:\?|$)/i.test(url)) return;
+    // Customer portraits are sometimes wrapped in a restaurant CDN URL and
+    // labelled with the reviewer's name. That is not a named food photo.
+    let decodedUrl=url;try{decodedUrl=decodeURIComponent(decodedUrl);}catch{}
+    if (/googleusercontent\.com\/a(?:-|\/)/i.test(decodedUrl)
+      || node.closest('[itemprop="author"],[class*="testimonial"],[class*="reviewer"],[class*="avatar"]').length) return;
     let filename = "";
     try {
       const rawPath = new URL(safePublicUrl(raw, pageUrl) ?? url).pathname;
@@ -248,6 +256,19 @@ export function isTrustedCrawlUrl(value: string, rootValue: string, restaurantNa
       const candidatePath=normalizeMenuItemName(decodeURIComponent(candidate.pathname));
       if(/(?:^|\/)(?:locations?|restaurants?|stores?)(?:\/|$)/i.test(candidate.pathname)
         &&cityTokens.length&&!cityTokens.some(token=>candidatePath.includes(token)))return false;
+      // Multi-location sites also commonly publish flat routes such as
+      // `/henderson-menu`. If the route prefix is neither the restaurant name,
+      // the requested city, nor an ordinary meal/menu word, it is another
+      // branch—not safe evidence for this entity.
+      const flatLocationRoute=candidate.pathname.match(/^\/([^/]+?)[-_](?:menu|order(?:ing)?)(?:\/|$)/i)?.[1];
+      if(flatLocationRoute&&cityTokens.length){
+        const routeTokens=normalizeMenuItemName(flatLocationRoute).split(" ").filter(Boolean);
+        const nameTokens=normalizeMenuItemName(restaurantName).split(" ");
+        const ordinary=new Set(["all","breakfast","brunch","cocktail","cocktails","dinner","drink","drinks","food","full","happy","hour","lunch","main","online","our","seasonal","special","specials","kids","children","childrens","dessert","desserts","wine","beer","beverage","beverages","vegan","vegetarian","gluten","free","catering","takeout","take","out","dine","in","late","night","weekend","daily","summer","winter","fall","spring","prix","fixe","tasting"]);
+        const identifying=routeTokens.filter(token=>!ordinary.has(token));
+        const conflicting=identifying.filter(token=>!nameTokens.includes(token)&&!cityTokens.includes(token));
+        if(conflicting.length&&!cityTokens.some(token=>routeTokens.includes(token)))return false;
+      }
     }
     if (sameSite) return true;
     if (!ORDERING_HOST.test(candidate.hostname) || PLATFORM_MARKETING_HOST.test(candidate.hostname)) return false;
@@ -327,6 +348,7 @@ export function parseLooseMenuDom(html: string): MenuItemData[] {
 export function parseUnpricedMenuDom(html: string): MenuItemData[] {
   const $=cheerio.load(html),items:MenuItemData[]=[];
   $("script,style,noscript,svg,nav,footer,header").remove();
+  $('[class*="testimonial"],[id*="testimonial"],[class*="review"],[id*="review"],[itemprop="author"],[class*="team-member"]').remove();
   $("h3,h4,h5,[style*='font-size']").each((_,element)=>{
     const node=$(element),value=cleanText(node.contents().toArray().filter(child=>child.type==="text").map(child=>(child as {data?:string}).data??"").join(" "))||cleanText(node.text());
     if(!plausibleDishName(value))return;
@@ -492,7 +514,17 @@ function parseHtml(url: string, html: string, method: string) {
   const menuContext = MENU_URL_HINT.test(new URL(url).pathname) || /<title[^>]*>[^<]*menu/i.test(html)
     || /(?:id|class)=["'][^"']*\bmenu\b[^"']*["']/i.test(html)
     || /<h[1-4][^>]*>\s*(?:our\s+)?menu\s*<\/h[1-4]>/i.test(html);
-  add(parseSchemaOrgMenuItems(html), "schema_org", 0.95);
+  const hostname=new URL(url).hostname.toLowerCase();
+  const strongPlatform=(
+    (/(?:popmenucloud|cdn\.popmenu\.com)/i.test(html)&&platforms.includes("popmenu")?"popmenu":undefined)
+    ?? (/(?:static\.spotapps\.co|spothopperapp\.com)/i.test(html)&&platforms.includes("spothopper")?"spothopper":undefined)
+    ?? (/(?:static-content\.owner\.com|owner-analytics-config|pluto-images)/i.test(html)&&platforms.includes("owner")?"owner":undefined)
+    ?? (/(?:getbento\.com|bentobox\.com)/i.test(html)&&platforms.includes("bentobox")?"bentobox":undefined)
+    ?? (/(?:^|\.)toasttab\.com$/i.test(hostname)&&platforms.includes("toast")?"toast":undefined)
+    ?? (/(?:^|\.)(?:square\.site|squareup\.com)$/i.test(hostname)&&platforms.includes("square")?"square":undefined)
+  ) as OrderingPlatform|undefined;
+  const schemaItems=parseSchemaOrgMenuItems(html).map(item=>strongPlatform?{...item,source:strongPlatform}:item);
+  add(schemaItems, "schema_org", 0.95);
   const semantic=menuContext?parseSemanticMenuDom(html):[];
   if (menuContext) {
     add(parseVisibleMenuItems(html), "visible_menu", 0.8);
@@ -524,7 +556,17 @@ function addNetworkItems(
   method: string,
   url: string,
 ) {
-  for (const raw of parseCapturedMenuPayloads(payloads)) {
+  const hostname=new URL(url).hostname.toLowerCase();
+  const hostPlatform=parsed.platforms.find(platform=>{
+    const hints:Partial<Record<OrderingPlatform,string[]>>={toast:["toasttab.com"],square:["square.site","squareup.com"],clover:["clover.com","cloveronline.com"],chownow:["chownow.com"],olo:["olo.com"],popmenu:["popmenu.com"],owner:["owner.com"],spothopper:["spothopper.com","spothopperapp.com"],bentobox:["getbento.com","bentobox.com"]};
+    return hints[platform]?.some(hint=>hostname===hint||hostname.endsWith(`.${hint}`));
+  });
+  // Website-builder providers are the likely owner of JSON captured on a
+  // custom domain; a mere outbound Toast/Square order link must not erase that
+  // provenance.
+  const source=(hostname==="order.spoton.com"?"spoton":hostPlatform)??(["popmenu","spothopper","owner","bentobox","toast","square","clover","chownow","olo"] as OrderingPlatform[])
+    .find(platform=>parsed.platforms.includes(platform))??"schema_org";
+  for (const raw of parseCapturedMenuPayloads(payloads,source)) {
     const item = { ...raw, imageUrl: raw.imageUrl ? canonicalizeWebsiteImageUrl(raw.imageUrl, url) : undefined };
     parsed.items.push({
       item,
@@ -537,10 +579,14 @@ function addNetworkItems(
   }
 }
 
-function mergeEvidence(input: WebsiteItemEvidence[]): WebsiteItemEvidence[] {
+export function mergeWebsiteItemEvidence(input: WebsiteItemEvidence[]): WebsiteItemEvidence[] {
   const best = new Map<string, WebsiteItemEvidence>();
   for (const evidence of input) {
-    const key = `${normalizeMenuItemName(evidence.item.name)}|${evidence.item.price ?? ""}`;
+    if (/\b(?:hand sanitizer|sanitiser|t[- ]?shirts?|hoodies?|gift cards?)\b/i.test(evidence.item.name)) continue;
+    // Provider feeds often repeat the same dish once per size/price. SeeFood's
+    // canonical menu is dish-level, so keep the richest observation instead of
+    // turning size variants into duplicate dishes.
+    const key = normalizeMenuItemName(evidence.item.name);
     const quality = evidence.confidence + Number(Boolean(evidence.item.description)) * 0.1 + Number(Boolean(evidence.item.imageUrl)) * 0.2;
     const current = best.get(key);
     const currentQuality = current ? current.confidence + Number(Boolean(current.item.description)) * 0.1 + Number(Boolean(current.item.imageUrl)) * 0.2 : -1;
@@ -592,11 +638,12 @@ export async function crawlWebsiteV3(
   const allItems: WebsiteItemEvidence[] = [], namedPhotos: NamedWebsitePhoto[] = [], photos = new Set<string>(), menuImages = new Set<string>(), pdfs = new Set<string>();
   const platforms = new Set<OrderingPlatform>(), methods = new Set<string>(), routeDecisions: string[] = [], pages: PageEvidence[] = [];
   let blocked = false, lastError: string | undefined;
+  const routeKey=(value:string)=>{const u=new URL(value);return `${u.hostname.replace(/^www\./,"")}${u.pathname.replace(/\/$/,"")}${u.search}`;};
 
   while (queue.length && visited.size < pageBudget) {
     const requestedUrl = queue.shift()!;
-    if (visited.has(requestedUrl)) continue;
-    visited.add(requestedUrl);
+    if (visited.has(routeKey(requestedUrl))) continue;
+    visited.add(routeKey(requestedUrl));
     let fetched = await directFetch(requestedUrl);
     methods.add("http");
     let finalUrl = fetched.finalUrl ?? requestedUrl;
@@ -700,7 +747,7 @@ export async function crawlWebsiteV3(
     }
   }
 
-  const items = attachNamedPhotosToMenuItems(mergeEvidence(allItems), namedPhotos);
+  const items = attachNamedPhotosToMenuItems(mergeWebsiteItemEvidence(allItems), namedPhotos);
   const linkedPhotos = [...new Set(items.flatMap((evidence) => evidence.item.imageUrl ? [evidence.item.imageUrl] : []))];
   const status = items.length || linkedPhotos.length || menuImages.size ? "completed" : blocked ? "blocked" : pages.length ? "empty" : "failed";
   return {

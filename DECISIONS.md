@@ -2432,3 +2432,22 @@ report are in `docs/CABO_ROLLOUT.md`.
   retire previously good menu/photo rows. Only an explicitly complete source
   snapshot can establish absence. This prevents lightweight live refreshes from
   undoing richer structured-platform imports.
+
+### September 21, 2026 — Structured-platform execution and refresh
+
+- Completed the approved pass; outcomes and limitations are in
+  `docs/STRUCTURED_MENU_PLATFORM_RESULTS.md`. Report actual incremental live
+  photo/dish coverage, not extracted links or pre-existing source coverage.
+- SpotOn joins the supported public menu sources. Free HTTP/local rendering
+  only; no paid Scrapfly fallback for this provider. Ordering-unavailable does
+  not necessarily mean menu-unavailable, but repeated placeholder bytes never
+  count as dish photography.
+- Recognized immutable provider asset paths can deduplicate size/encoding
+  variants while retaining provenance and all dish links. Perceptual similarity
+  alone is not authority to delete a legitimate photo.
+- Reviewed productive routes refresh monthly through the existing nightly Mac
+  job, capped at three stale sites/four pages each. No permanent lab. Generic
+  unreviewed gallery guesses are not swept into automatic dish publication.
+- Reviewer portraits/names, modifiers, obvious merchandise and availability
+  notices are acquisition errors, not useful menu coverage. Keep relevant
+  unmatched food eligible separately; don't invent dish matches to boost stats.

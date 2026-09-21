@@ -9,6 +9,7 @@ export const SOURCE_LABELS: Record<DataSource, string> = {
   bentobox: "BentoBox", owner: "Owner", spothopper: "SpotHopper", slice: "Slice",
   flipdish: "Flipdish", lightspeed: "Lightspeed", gloriafood: "GloriaFood", common_crawl: "Restaurant archive",
   official_social: "Restaurant",
+  spoton: "SpotOn",
   user_upload: "SeeFood",
   user_suggested: "SeeFood",
 };

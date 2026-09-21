@@ -25,7 +25,7 @@ import * as cheerio from "cheerio";
 export type OrderingPlatform =
   | "toast" | "square" | "clover" | "chownow" | "olo" | "popmenu"
   | "bentobox" | "owner" | "spothopper" | "slice" | "flipdish"
-  | "lightspeed" | "gloriafood" | "menufy";
+  | "lightspeed" | "gloriafood" | "menufy" | "spoton";
 
 export interface WebsiteExtractResult {
   items: MenuItemData[];
@@ -733,6 +733,7 @@ const PLATFORM_SIGNATURES: Array<{ platform: OrderingPlatform; test: (html: stri
   { platform: "flipdish", test: (h) => h.includes("flipdish.com") || h.includes("flipdishdev.com") },
   { platform: "lightspeed", test: (h) => h.includes("lightspeedhq.com") || h.includes("lightspeed.app") },
   { platform: "gloriafood", test: (h) => h.includes("gloriafood.com") || h.includes("globalfoodsoft.com") },
+  { platform: "spoton", test: (h) => h.includes("order.spoton.com") || h.includes("emaginepos") },
 ];
 
 export function detectOrderingPlatforms(html: string): OrderingPlatform[] {
@@ -758,6 +759,7 @@ const PLATFORM_HOSTNAME_HINTS: Record<OrderingPlatform, string[]> = {
   flipdish: ["flipdish.com"],
   lightspeed: ["lightspeedhq.com", "lightspeed.app"],
   gloriafood: ["gloriafood.com", "globalfoodsoft.com"],
+  spoton: ["order.spoton.com"],
 };
 
 /**
@@ -804,7 +806,7 @@ async function fetchOrderingPlatformViaScrapfly(
   platform: OrderingPlatform
 ): Promise<{ items: MenuItemData[]; renderedHtml: string | null }> {
   const scrapflyKey = process.env.SCRAPFLY_KEY;
-  if (!scrapflyKey || platform === "toast") return { items: [], renderedHtml: null };
+  if (!scrapflyKey || platform === "toast" || platform === "spoton") return { items: [], renderedHtml: null };
   if (!(await hasScrapflyBudget())) {
     console.warn(`[${platform} Scrapfly] skipped — free-tier budget cap reached`);
     return { items: [], renderedHtml: null };
@@ -857,38 +859,74 @@ export function extractEmbeddedJsonMenuItems(html: string, source: OrderingPlatf
   return deduplicateMenuItems(items);
 }
 
-function walkGenericMenuNode(obj: unknown, source: DataSource, out: MenuItemData[]): void {
+const MODIFIER_PATH_HINT = /(?:^|[_-])(?:add[-_]?ons?|choices?|discounts?|fees?|modifier(?:s|groups?)?|options?|promotions?|selections?|taxes|upsells?)(?:$|[_-])/i;
+const PLACEHOLDER_ITEM_IMAGE = /(?:^|[\/_-])(?:default|fallback|no[-_]?image|placeholder|spacer)(?:[\/_\-.]|$)/i;
+
+function firstPublicImageUrl(value: unknown, depth = 0): string | undefined {
+  if (depth > 3 || value == null) return undefined;
+  if (typeof value === "string") return /^https?:\/\//i.test(value) && !PLACEHOLDER_ITEM_IMAGE.test(value) ? value : undefined;
+  if (Array.isArray(value)) {
+    for (const entry of value.slice(0, 8)) {
+      const found = firstPublicImageUrl(entry, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  if (typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  for (const key of ["url", "src", "uri", "imageUrl", "image_url", "photoUrl", "photo_url", "cdnUrl", "cdn_url"]) {
+    const found = firstPublicImageUrl(record[key], depth + 1);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function numericMenuPrice(o: Record<string, unknown>): number | undefined {
+  const direct = o.price ?? o.basePrice ?? o.base_price ?? o.cost ?? o.displayPrice ?? o.display_price;
+  const cents = o.priceCents ?? o.price_cents ?? o.basePriceCents ?? o.base_price_cents;
+  const money = o.priceMoney ?? o.price_money;
+  const moneyAmount = money && typeof money === "object" ? (money as Record<string, unknown>).amount : undefined;
+  const candidate = cents ?? moneyAmount ?? direct;
+  const numeric = typeof candidate === "number" ? candidate
+    : typeof candidate === "string" && candidate.trim() && !Number.isNaN(Number(candidate.replace(/[$,]/g, "")))
+      ? Number(candidate.replace(/[$,]/g, "")) : undefined;
+  if (numeric == null) return undefined;
+  const explicitlyCents = cents != null || moneyAmount != null;
+  return explicitlyCents || (Number.isInteger(numeric) && numeric >= 500) ? numeric / 100 : numeric;
+}
+
+function walkGenericMenuNode(obj: unknown, source: DataSource, out: MenuItemData[], path: string[] = []): void {
   if (!obj || typeof obj !== "object") return;
-  if (Array.isArray(obj)) { obj.forEach((v) => walkGenericMenuNode(v, source, out)); return; }
+  if (Array.isArray(obj)) { obj.forEach((v) => walkGenericMenuNode(v, source, out, path)); return; }
 
   const o = obj as Record<string, unknown>;
-  const name = (o.name ?? o.itemName ?? o.title) as unknown;
-  const price = o.price ?? o.basePrice ?? o.cost;
-  const description = (o.description ?? o.desc) as unknown;
-  const image = (o.imageUrl ?? o.image ?? o.photoUrl ?? o.thumbnailUrl) as unknown;
+  const name = (o.name ?? o.itemName ?? o.item_name ?? o.title) as unknown;
+  const price = numericMenuPrice(o);
+  const description = (o.description ?? o.desc ?? o.itemDescription ?? o.item_description) as unknown;
+  const image = firstPublicImageUrl(o.imageUrl ?? o.image_url ?? o.image ?? o.images ?? o.photoUrl ?? o.photo_url ?? o.thumbnailUrl ?? o.thumbnail_url);
+  const objectType = String(o.type ?? o.objectType ?? o.object_type ?? o.__typename ?? "");
+  const modifierContext = MODIFIER_PATH_HINT.test([...path, objectType].join("_"));
+  const announcement = typeof name === "string" && /^(?:items (?:are|available)|free .*samples|closed\b|announcement\b|pick.?up instructions|order minimum|delivery fee)/i.test(name);
 
-  const hasPrice = typeof price === "number" || (typeof price === "string" && !isNaN(parseFloat(price)));
-  if (typeof name === "string" && name.trim().length > 1 && name.trim().length < 80 && hasPrice) {
+  if (typeof name === "string" && name.trim().length > 1 && name.trim().length < 80 && price != null && !modifierContext && !announcement) {
     const item: MenuItemData = { name: decodeHtmlEntities(name), source };
     if (typeof description === "string" && description.trim()) {
       item.description = decodeHtmlEntities(description).substring(0, 300);
     }
-    if (typeof image === "string" && image.startsWith("http")) item.imageUrl = image;
-    const numericPrice = typeof price === "number" ? price : parseFloat(price as string);
-    // Captured ordering APIs frequently encode dollars as integer cents.
-    item.price = Number.isInteger(numericPrice) && numericPrice >= 500 ? numericPrice / 100 : numericPrice;
+    if (image) item.imageUrl = image;
+    item.price = price;
     out.push(item);
     return; // don't recurse into an item's own children (modifiers, etc.)
   }
 
-  for (const val of Object.values(o)) {
-    if (val && typeof val === "object") walkGenericMenuNode(val, source, out);
+  for (const [key, val] of Object.entries(o)) {
+    if (val && typeof val === "object") walkGenericMenuNode(val, source, out, [...path.slice(-3), key]);
   }
 }
 
-export function parseCapturedMenuPayloads(payloads: unknown[]): MenuItemData[] {
+export function parseCapturedMenuPayloads(payloads: unknown[], source: DataSource = "schema_org"): MenuItemData[] {
   const items: MenuItemData[] = [];
-  for (const payload of payloads.slice(0, 24)) walkGenericMenuNode(payload, "schema_org", items);
+  for (const payload of payloads.slice(0, 24)) walkGenericMenuNode(payload, source, items);
   return deduplicateMenuItems(items);
 }
 
@@ -909,15 +947,16 @@ export function parseSchemaOrgMenuItems(html: string): MenuItemData[] {
   return deduplicateMenuItems(results.filter((i) => i.name.length >= 3 && i.name.length <= 80));
 }
 
-function walkSchemaNode(node: unknown): MenuItemData[] {
+function walkSchemaNode(node: unknown, path: string[] = []): MenuItemData[] {
   if (!node || typeof node !== "object") return [];
-  if (Array.isArray(node)) return node.flatMap(walkSchemaNode);
+  if (Array.isArray(node)) return node.flatMap((entry) => walkSchemaNode(entry, path));
 
   const obj = node as Record<string, unknown>;
   const results: MenuItemData[] = [];
   const type = String(obj["@type"] ?? "").toLowerCase();
 
-  if (type === "menuitem" && typeof obj.name === "string" && obj.name.trim()) {
+  const modifierContext = path.some((key) => /^(?:addOn|menuAddOn|modifier|modifiers|options?)$/i.test(key));
+  if (type === "menuitem" && !modifierContext && typeof obj.name === "string" && obj.name.trim()) {
     const item: MenuItemData = { name: decodeHtmlEntities(obj.name), source: "schema_org" };
     if (typeof obj.description === "string" && obj.description.trim()) {
       item.description = decodeHtmlEntities(obj.description).substring(0, 300);
@@ -940,8 +979,8 @@ function walkSchemaNode(node: unknown): MenuItemData[] {
     results.push(item);
   }
 
-  for (const val of Object.values(obj)) {
-    if (val && typeof val === "object") results.push(...walkSchemaNode(val));
+  for (const [key, val] of Object.entries(obj)) {
+    if (val && typeof val === "object") results.push(...walkSchemaNode(val, [...path.slice(-3), key]));
   }
   return results;
 }

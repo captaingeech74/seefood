@@ -1,6 +1,6 @@
 # SeeFood Senior Lead Handoff
 
-Updated August 30, 2026. This is the current operational snapshot for the active
+Updated September 21, 2026. This is the current operational snapshot for the active
 general-development lead. It is intentionally concise; durable product and
 architecture decisions belong in `DECISIONS.md` and the focused documents under
 `docs/`.
@@ -18,6 +18,24 @@ San Diego County, Los Angeles, other major California metros, the 50 largest US
 MSAs, and finally all 387 MSAs.
 
 ## Current State
+
+- September 21 structured-menu campaign completed: **823 additional usable
+  photo records at 26 restaurants, 487 additional directly pictured dishes,
+  11 previously empty venues now with photos**. These exclude 16 unrelated
+  background-acquisition gains. No pre-existing useful rows removed.
+- See `docs/STRUCTURED_MENU_PLATFORM_RESULTS.md` for scope, limits, examples,
+  reproducible measurements, journals, and rollback instructions. 187 tests,
+  TypeScript, and build pass. All new imports are partial/additive.
+- SpotOn is registered by `2026-09-21-spoton-source.sql`; no paid renderer is
+  enabled. Many purported image links can be placeholders: verified image
+  bytes, not link counts, determine publication.
+- Existing nightly Mac wrapper now refreshes at most three stale, reviewed
+  structured routes per night (26-route registry, 30-day cadence). It needs
+  the Mac awake. No new permanent research laboratory or paid service.
+- Provider asset-path dedupe preserves source observations and menu links;
+  unlike perceptual guesses, responsive variants of an identical provider
+  asset can safely share one photo. Baseline/history bullets below retain
+  their original dates and should not override this newer update.
 
 - Production: <https://seefood-rho.vercel.app>
 - Repository: `/Users/ace/Documents/seefood/seefood`

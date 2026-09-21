@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attachNamedPhotosToMenuItems, canonicalizeWebsiteImageUrl, chooseAdaptiveRoute, discoverBoundedInternalLinks, discoverMenuImages, extractNamedWebsitePhotos, isTrustedCrawlUrl, namedPhotoDishMatchScore, normalizeMenuItemName, parseLooseMenuDom, parseSemanticMenuDom, parseSitemapMenuLinks, parseUnpricedMenuDom, safePublicUrl } from "../../crawler/websiteV3";
+import { attachNamedPhotosToMenuItems, canonicalizeWebsiteImageUrl, chooseAdaptiveRoute, discoverBoundedInternalLinks, discoverMenuImages, extractNamedWebsitePhotos, isTrustedCrawlUrl, mergeWebsiteItemEvidence, namedPhotoDishMatchScore, normalizeMenuItemName, parseLooseMenuDom, parseSemanticMenuDom, parseSitemapMenuLinks, parseUnpricedMenuDom, safePublicUrl } from "../../crawler/websiteV3";
 import { extractPageAssets, parseCapturedMenuPayloads } from "../menuSources";
 
 describe("website acquisition V3 routing", () => {
@@ -20,7 +20,17 @@ describe("website acquisition V3 routing", () => {
 });
 
 describe("website acquisition V3 normalization", () => {
+  it("keeps Owner originals rather than tiny menu thumbnails",()=>{
+    expect(canonicalizeWebsiteImageUrl("https://static-content.owner.com/dish.jpg?h=48&w=48&dpr=1&v=123"))
+      .toBe("https://static-content.owner.com/dish.jpg?v=123");
+  });
+  it("does not turn reviewer portraits and names into dishes",()=>{
+    const html='<section class="customer-reviews">'+["Alice Smith","Bob Brown","Chris Jones","Diana Green","Edward Grey"].map(name=>`<div><h3>${name}</h3><img alt="${name}" src="https://image-cdn.chowlyinc.com/75x75/https%3A%2F%2Flh3.googleusercontent.com%2Fa-%2Ftest"></div>`).join("")+"</section>";
+    expect(parseUnpricedMenuDom(html)).toEqual([]);
+    expect(extractNamedWebsitePhotos(html,"https://example.com/menu")).toEqual([]);
+  });
   it("does not wander into unrelated redirects or platform marketing sites", () => {
+    expect(isTrustedCrawlUrl("https://order.spoton.com/so-downriver-grill-6990/spokane-wa/id", "https://downrivergrill.com", "Downriver Grill", "3315 W Northwest Blvd Spokane WA",["spokane-wa"])).toBe(true);
     expect(isTrustedCrawlUrl("https://restaurant.example.com/menu", "https://www.example.com")).toBe(true);
     expect(isTrustedCrawlUrl("https://order.toasttab.com/online/zen-curry", "https://example.com", "Zen Curry and Grill")).toBe(true);
     expect(isTrustedCrawlUrl("https://papa-feta-temecula.cloveronline.com/menu", "https://papafeta.co", "PapaFeta")).toBe(true);
@@ -174,6 +184,30 @@ describe("website acquisition V3 official gallery photos", () => {
     )).toBe(false);
   });
 
+  it("rejects a flat menu route naming another branch city",()=>{
+    expect(isTrustedCrawlUrl(
+      "https://www.claimjumper.com/henderson-menu",
+      "https://www.claimjumper.com/",
+      "Claim Jumper",
+      "29540 Rancho California Rd, Temecula, CA 92591",
+      ["temecula-ca"],
+    )).toBe(false);
+    expect(isTrustedCrawlUrl(
+      "https://www.claimjumper.com/dinner-menu",
+      "https://www.claimjumper.com/",
+      "Claim Jumper",
+      "29540 Rancho California Rd, Temecula, CA 92591",
+      ["temecula-ca"],
+    )).toBe(true);
+    expect(isTrustedCrawlUrl(
+      "https://mikkosushi.com/vista-vista-mikko-sushi-vista-food-menu",
+      "https://mikkosushi.com/",
+      "Mikko Sushi",
+      "1025 Carlsbad Village Dr, Carlsbad, CA 92008",
+      ["carlsbad-ca"],
+    )).toBe(false);
+  });
+
   it("uses the acquisition market when the stored street address omits its city",()=>{
     expect(isTrustedCrawlUrl(
       "https://goodtacos.com/restaurants/vista-way-oceanside/",
@@ -217,5 +251,15 @@ describe("website acquisition V3 official gallery photos", () => {
     expect(parseLooseMenuDom(html)).toEqual(expect.arrayContaining([
       expect.objectContaining({name:"Deep Dish Pizza"}),
     ]));
+  });
+
+  it("collapses price-only size variants while keeping the richer dish observation",()=>{
+    const base={method:"patchright:network_json",evidenceUrl:"https://order.example/menu",confidence:0.96,sourceKey:"toast"};
+    const merged=mergeWebsiteItemEvidence([
+      {...base,item:{name:"Margherita Pizza",price:14,source:"toast" as const},fingerprint:"small"},
+      {...base,item:{name:"Margherita Pizza",description:"Tomato, mozzarella and basil",price:20,imageUrl:"https://cdn.example/pizza.jpg",source:"toast" as const},fingerprint:"large"},
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].item).toEqual(expect.objectContaining({price:20,imageUrl:"https://cdn.example/pizza.jpg"}));
   });
 });

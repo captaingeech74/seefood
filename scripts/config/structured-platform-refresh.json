@@ -1,0 +1,198 @@
+{
+  "refreshDays": 30,
+  "routes": [
+    {
+      "entityId": "c544cebf-d095-4074-bd7c-76d5bdb39b51",
+      "url": "http://archivetemecula.com/",
+      "identityEvidence": "Official Archive homepage identifies 28544 Old Town Front Street Temecula; use addressed entity, not duplicate shell.",
+      "method": "network_json",
+      "source": "popmenu"
+    },
+    {
+      "entityId": "62202739-0d5d-4759-ba48-e95697d76f8f",
+      "url": "https://www.dinardispizzapasta.com/",
+      "identityEvidence": "Official Slice storefront identifies DiNardi's at 829 E Boone Ave Spokane.",
+      "method": "platform_slice",
+      "source": "slice"
+    },
+    {
+      "entityId": "19b2badc-24ab-4469-b1c5-9075f1bd284b",
+      "url": "https://gregoriosrestaurant.com",
+      "identityEvidence": "Official Carlsbad site links Toast URL with restaurant name and 300 Carlsbad Village Dr.",
+      "evidenceUrl": "https://www.toasttab.com/gregorios-restaurant-carlsbad-300-carlsbad-village-dr/v2/online-order",
+      "photoOnly": true,
+      "method": "visible_menu",
+      "source": "toast"
+    },
+    {
+      "entityId": "68491056-71e6-4f88-92a8-cf4daa6413e3",
+      "url": "http://Margaritastemecula.com/",
+      "identityEvidence": "Official Owner site identifies Margarita's Cocina y Cantina in Temecula, 41923 2nd Street.",
+      "method": "schema_org",
+      "source": "owner"
+    },
+    {
+      "entityId": "c350f802-f2fb-4371-9dc2-fc2246e97458",
+      "url": "https://www.lukesonfront.com/",
+      "identityEvidence": "Official Luke's On Front site identifies Old Town Temecula; exact /menu embeds its Toast menu.",
+      "evidenceUrl": "https://www.lukesonfront.com/menu",
+      "source": "toast"
+    },
+    {
+      "entityId": "8e3009de-f8ca-4d2e-84b4-69ee4fd3e0e7",
+      "url": "http://www.penfoldscafe.com/",
+      "identityEvidence": "Official Penfold's Cafe site identifies Temecula; /order exposes its Toast menu, not third-party search.",
+      "evidenceUrl": "http://www.penfoldscafe.com/order",
+      "source": "toast"
+    },
+    {
+      "entityId": "1c3157ee-a464-42df-9cc7-8ce4ccd6d518",
+      "url": "http://thaioneon.us/",
+      "identityEvidence": "Official Thai One On Owner website identifies Carlsbad, 7750 Rancho Santa Fe Rd; current /menu only.",
+      "method": "schema_org",
+      "source": "owner"
+    },
+    {
+      "entityId": "7166be69-9cb2-48d9-b1f4-f3beb65568fa",
+      "url": "http://www.kisrestaurant.com/",
+      "identityEvidence": "Official Ki's site in Cardiff links its named Toast ordering page; entity address 2591 South Coast Highway 101.",
+      "evidenceUrl": "https://www.toasttab.com/kis-restaurant/v2/online-order",
+      "photoOnly": true,
+      "method": "visible_menu",
+      "source": "toast"
+    },
+    {
+      "entityId": "b1f79096-142c-46ca-b309-f4151f50851c",
+      "url": "https://www.rooseveltpizzeria.com",
+      "identityEvidence": "Official Owner website confirms 3067 Roosevelt St Carlsbad; schema menu dishes.",
+      "method": "schema_org",
+      "source": "owner"
+    },
+    {
+      "entityId": "bcee00b6-7bc4-4df7-ab46-08c597ea069f",
+      "url": "https://www.crushnbrew.com/",
+      "identityEvidence": "Official Popmenu restaurant site is Crush & Brew in Old Town Temecula, with current menu.",
+      "method": "network_json",
+      "source": "popmenu"
+    },
+    {
+      "entityId": "e4fa6739-247b-4664-8e84-6a060a1e55d9",
+      "url": "https://order.toasttab.com/online/shawn-o-donnells-spokane",
+      "identityEvidence": "Location-specific named Spokane Toast storefront, not Everett or Seattle branch.",
+      "method": "visible_menu",
+      "source": "toast"
+    },
+    {
+      "entityId": "0f05725b-0e4f-4694-bdf6-692e132ac7a4",
+      "url": "https://uncleginospizzeria.com/",
+      "identityEvidence": "Official Uncle Gino's Slice storefront matches restaurant name and Temecula location; explicit menu item photos.",
+      "method": "platform_slice",
+      "source": "slice"
+    },
+    {
+      "entityId": "e19d862b-93b3-4ce9-87ee-a6793ac7574c",
+      "url": "https://www.guadalajaramg.com/",
+      "identityEvidence": "Official Guadalajara Mexican Grill site identifies Temecula; embedded Toast menu on its homepage.",
+      "method": "network_json",
+      "photoOnly": true,
+      "source": "toast"
+    },
+    {
+      "entityId": "ca99806a-dc0f-4b55-bfbb-0d90ee876eee",
+      "url": "https://www.le-coffee-shop.com/",
+      "identityEvidence": "Official site identifies Le Coffee Shop in Old Town Temecula; NOT old unrelated bistrolaurentla.com URL. Schema dishes only, exclude restaurant-name hero.",
+      "method": "schema_org",
+      "source": "schema_org"
+    },
+    {
+      "entityId": "381b8f81-5a56-42b1-ad6c-99580cfff374",
+      "url": "http://Gentle-Grill.com/",
+      "identityEvidence": "Official Gentle Grill Owner site identifies Temecula; structured menu only and non-food merchandise excluded by publisher.",
+      "method": "schema_org",
+      "source": "owner"
+    },
+    {
+      "entityId": "65f9b240-d051-4c2a-a932-28876b89be62",
+      "url": "http://www.versaliapizza.com/",
+      "identityEvidence": "Existing Spokane location, restaurant's official Owner menu with named pizza photos; same restaurant brand, no unrelated branch route.",
+      "method": "schema_org",
+      "source": "owner"
+    },
+    {
+      "entityId": "e6582241-b6a2-4f97-9bd9-f6c2bf27a732",
+      "url": "https://eltacobarmenu.com/",
+      "identityEvidence": "Official homepage explicitly links Temecula 30010 Temecula Parkway, selected that order route instead of Lake Elsinore.",
+      "evidenceUrl": "https://eltacobarmenu.com/order/el-taco-bar-temecula-30010-california-79",
+      "method": "visible_menu",
+      "source": "toast"
+    },
+    {
+      "entityId": "4e5280e4-918d-4aba-bd3f-1026d608f252",
+      "url": "http://www.goldenslicegiantpizza.com/",
+      "identityEvidence": "Official named Slice storefront for Golden Slice Giant Pizza, 28276 Front St Temecula; explicit platform items only.",
+      "method": "platform_slice",
+      "source": "slice"
+    },
+    {
+      "entityId": "0b4e773b-10f8-42ce-8b9d-9cbba3675b59",
+      "url": "http://madmadelinesgrill.com/",
+      "identityEvidence": "Official Mad Madeline's Temecula site /order page, not a chain location directory.",
+      "method": "visible_menu",
+      "evidenceUrl": "http://madmadelinesgrill.com/order",
+      "source": "toast"
+    },
+    {
+      "entityId": "232cd72d-218f-4816-a08f-4552dcfb684e",
+      "url": "https://kabobhouserestaurant.com",
+      "identityEvidence": "Official Owner website explicitly identifies 31093 Temecula Pkwy D1, Temecula; schema item menu.",
+      "method": "schema_org",
+      "source": "owner"
+    },
+    {
+      "entityId": "5231926c-15fe-4cc6-ad49-57b1c5a355c1",
+      "url": "http://www.ophtemecula.com/",
+      "identityEvidence": "Restaurant-specific Temecula official website and /menu, not national Original Pancake House menu.",
+      "method": "schema_org|network_json",
+      "source": "popmenu"
+    },
+    {
+      "entityId": "90108cba-4c1c-4eb4-b59d-94fa546bbafa",
+      "url": "https://www.mexicocafe.biz/temecula",
+      "identityEvidence": "Official explicit Temecula branch page; excludes the separate San Bernardino menu.",
+      "method": "schema_org",
+      "source": "popmenu"
+    },
+    {
+      "entityId": "7cab04f1-4503-4ba9-8493-45055271d003",
+      "url": "https://order.spoton.com/66ba9ba3190505899b45b7bc",
+      "discoveryUrl": "https://www.logantavernspokane.com/",
+      "identityEvidence": "Explicit SpotOn ordering link on Logan Tavern official website at 1305 N Hamilton Spokane. Use one entity, not duplicate listing.",
+      "method": "network_json|platform_spoton|visible_menu",
+      "source": "spoton"
+    },
+    {
+      "entityId": "512164f8-8a1a-4d1b-aef0-803944075f5e",
+      "url": "https://order.spoton.com/sodowntown-northgate-onion-8218/spokane-wa-99201-wa/6235181a9adef3e9cd1d6ac8",
+      "discoveryUrl": "http://www.theonion.biz/",
+      "identityEvidence": "Official Onion downtown order link: Spokane 99201, 302 W Riverside. Kept separate from Northgate.",
+      "method": "network_json|platform_spoton|visible_menu",
+      "source": "spoton"
+    },
+    {
+      "entityId": "50df96f2-7178-45ff-a3ca-32da348f0308",
+      "url": "https://order.spoton.com/sodowntown-northgate-onion-8218/spokane-wa/6235180d9adef3bce8c2cf48",
+      "discoveryUrl": "http://theonion.biz/",
+      "identityEvidence": "Official Onion Northgate order link: 7522 N Division; separate menu from downtown 99201.",
+      "method": "network_json|platform_spoton|visible_menu",
+      "source": "spoton"
+    },
+    {
+      "entityId": "63bf7d13-f80d-4541-8964-457210c45639",
+      "url": "https://order.spoton.com/so-killarneys-irish-pub-and-grill-26032/temecula-ca/691cc43004e7f790d7007663",
+      "discoveryUrl": "http://www.killarneys.com",
+      "identityEvidence": "Official Killarney's website links this restaurant-named Temecula SpotOn storefront.",
+      "method": "network_json|platform_spoton|visible_menu",
+      "source": "spoton"
+    }
+  ]
+}

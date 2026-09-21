@@ -13,6 +13,7 @@ import { normalizePhotoAuthor, trustLabel, withPhotoSignals } from "./photoSigna
 import {
   canReactivateQuarantinedPhoto,
   shouldActivatePhotoObservation,
+  providerPhotoAssetKey,
 } from "./photoFingerprint";
 import {
   pendingKnownDishPhotoState,
@@ -2238,13 +2239,22 @@ export async function savePhotos(
   const existingByHash = new Map(
     (existingHashRows ?? []).map((row) => [row.content_hash as string, row])
   );
+  // Provider asset IDs survive resizing/re-encoding, unlike byte hashes.
+  // Only recognized immutable asset paths participate; arbitrary similar
+  // photos are never merged by a perceptual guess.
+  const assetKeys=eligible.some(photo=>providerPhotoAssetKey(photo.originUrl));
+  const {data:assetRows}=assetKeys?await supabase.from("photos").select(existingPhotoFields)
+    .eq("restaurant_id",placeId).eq("active",true).is("dedupe_reason",null):{data:[]};
+  const existingByAsset=new Map((assetRows??[]).flatMap(row=>{
+    const key=providerPhotoAssetKey(row.origin_url??"");return key?[[key,row] as const]:[];
+  }));
 
   const observedRows = eligible.map((p) => {
     const source = p.source as DishPhoto["source"];
     const authorType = normalizePhotoAuthor(source, p.attribution as DishPhoto["attribution"]);
     const existingOrigin = existingByOrigin.get(p.originUrl);
     const existing = p.contentHash
-      ? existingByHash.get(p.contentHash) ?? existingOrigin
+      ? existingByHash.get(p.contentHash) ?? existingByAsset.get(providerPhotoAssetKey(p.originUrl)??"") ?? existingOrigin
       : undefined;
     const nextActive = shouldActivatePhotoObservation(
       existingOrigin?.active as boolean | null | undefined,
@@ -2295,6 +2305,8 @@ export async function savePhotos(
   const rows = [...new Map(observedRows.map((row) => [
     row.id
       ? `id:${row.id}`
+      : providerPhotoAssetKey(row.origin_url??"")
+        ? `asset:${providerPhotoAssetKey(row.origin_url??"")}`
       : row.content_hash
         ? `hash:${row.content_hash}`
         : `origin:${row.origin_url}`,
@@ -2382,8 +2394,9 @@ export async function savePhotos(
 
   const idByHash = new Map(savedRows.flatMap((row) => row.content_hash ? [[row.content_hash, row.id] as const] : []));
   const idByOrigin = new Map(savedRows.flatMap((row) => row.origin_url ? [[row.origin_url, row.id] as const] : []));
+  const idByAsset = new Map(savedRows.flatMap(row=>{const key=providerPhotoAssetKey(row.origin_url??"");return key?[[key,row.id] as const]:[];}));
   const provenanceObservations = photos.flatMap((photo) => {
-    const photoId = (photo.contentHash ? idByHash.get(photo.contentHash) : undefined) ?? idByOrigin.get(photo.originUrl);
+    const photoId = (photo.contentHash ? idByHash.get(photo.contentHash) : undefined) ?? idByOrigin.get(photo.originUrl) ?? idByAsset.get(providerPhotoAssetKey(photo.originUrl)??"");
     if (!photoId) return [];
     const source = photo.source as DishPhoto["source"];
     const authorType = normalizePhotoAuthor(source, photo.attribution as DishPhoto["attribution"]);
@@ -2413,7 +2426,7 @@ export async function savePhotos(
 
   const linkRows = photos.flatMap((photo) => {
     if (!photo.menuItemId) return [];
-    const photoId = (photo.contentHash ? idByHash.get(photo.contentHash) : undefined) ?? idByOrigin.get(photo.originUrl);
+    const photoId = (photo.contentHash ? idByHash.get(photo.contentHash) : undefined) ?? idByOrigin.get(photo.originUrl) ?? idByAsset.get(providerPhotoAssetKey(photo.originUrl)??"");
     return photoId ? [{ photo_id: photoId, menu_item_id: photo.menuItemId, source: photo.source }] : [];
   });
   if (linkRows.length) {

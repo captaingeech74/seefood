@@ -14,7 +14,25 @@ export interface PhotoFingerprint {
  */
 const DURABLE_CONTENT_QUARANTINE_REASONS = new Set([
   "unsupported_generic_website_image",
+  "same_provider_asset_variant",
 ]);
+
+/** Identity from a provider's immutable asset path, not a perceptual guess.
+ * Different sizes/encodings of that same asset must not create new photos. */
+export function providerPhotoAssetKey(value:string):string|null{
+  try{
+    const u=new URL(value);let path=decodeURIComponent(u.pathname);
+    if(u.hostname==="popmenucloud.com")return `popmenu:${path.replace(/^\/cdn-cgi\/image\/[^/]+/,"")}`;
+    if(u.hostname==="static-content.owner.com")return `owner:${path}`;
+    if(u.hostname==="slice-menu-assets-prod.imgix.net")return `slice:${path}`;
+    if(u.hostname==="s3.amazonaws.com"&&path.startsWith('/toasttab/'))return `toast:${path.slice(10)}`;
+    if(u.hostname.endsWith('.cloudfront.net')&&path.includes('/plain/s3://toasttab/'))return `toast:${path.split('/plain/s3://toasttab/')[1]}`;
+    if(u.hostname==="res.cloudinary.com"&&path.startsWith('/emaginepos/image/upload/')){
+      const match=path.match(/\/v\d+\/(.+)$/);return match?`spoton:${match[1]}`:null;
+    }
+    return null;
+  }catch{return null;}
+}
 
 export function isImageContentType(contentType: string | null): boolean {
   return !!contentType?.toLowerCase().startsWith("image/");

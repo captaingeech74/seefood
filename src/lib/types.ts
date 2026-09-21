@@ -14,6 +14,7 @@ export type DataSource =
   | "bentobox"
   | "owner"
   | "spothopper"
+  | "spoton"
   | "slice"
   | "flipdish"
   | "lightspeed"

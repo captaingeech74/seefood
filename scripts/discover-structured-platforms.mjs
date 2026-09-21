@@ -31,7 +31,7 @@ async function worker(){while(next<pending.length){const route=pending[next++];t
   const type=response.headers.get('content-type')??'';
   let html='';if(type.includes('text/html')){const reader=response.body.getReader();let size=0;const pieces=[];while(size<1500000){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.length;pieces.push(Buffer.from(chunk.value));}await reader.cancel();html=Buffer.concat(pieces).toString('utf8');}
   const platforms=Object.entries(signatures).filter(([,re])=>re.test(html+' '+response.url)).map(([name])=>name);
-  const links=[];for(const match of html.matchAll(/href\s*=\s*["']([^"']+)["']/gi)){try{const url=new URL(match[1].replaceAll('&amp;','&'),response.url);if(!['http:','https:'].includes(url.protocol))continue;if(/menu|order|toasttab|chownow|clover|square\.site|zuppler|tbdine|menufy|spoton|menudrive|popmenu/i.test(url.href))links.push(url.href);}catch{}}
+  const links=[];for(const match of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["']/gi)){try{const url=new URL(match[1].replaceAll('&amp;','&'),response.url);if(!['http:','https:'].includes(url.protocol)||url.href.length>1500)continue;if(/menu|order|toasttab|chownow|clover|square\.site|zuppler|tbdine|menufy|spoton|menudrive|popmenu/i.test(url.href))links.push(url.href);}catch{}}
   records.push({...route,status:response.status,finalUrl:response.url,platforms,links:[...new Set(links)].slice(0,30)});
 }catch(error){records.push({...route,status:'failed',error:String(error).slice(0,160),platforms:[],links:[]});}
 if(records.length%50===0){save();console.log(JSON.stringify({processed:records.length,total:routes.size}));}}

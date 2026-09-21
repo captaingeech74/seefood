@@ -8,6 +8,7 @@ import {
   detectOrderingPlatform,
   extractEmbeddedJsonMenuItems,
   extractPageAssets,
+  parseCapturedMenuPayloads,
 } from "../menuSources";
 
 function fixture(name: string): string {
@@ -55,6 +56,19 @@ describe("Schema.org LD+JSON", () => {
 
     const cheeseburger = items.find((i) => i.name === "Classic Cheeseburger");
     expect(cheeseburger?.price).toBe(12.5);
+  });
+
+  it("does not promote schema MenuItems nested under menuAddOn", () => {
+    const html = `<script type="application/ld+json">${JSON.stringify({
+      "@type": "MenuItem", name: "Pad Thai", offers: { price: "18.00" },
+      menuAddOn: [
+        { "@type": "MenuItem", name: "Chicken", offers: { price: "1.00" } },
+        { "@type": "MenuItem", name: "Beef", offers: { price: "2.00" } },
+      ],
+    })}</script>`;
+    expect(parseSchemaOrgMenuItems(html)).toEqual([
+      expect.objectContaining({ name: "Pad Thai", price: 18 }),
+    ]);
   });
 });
 
@@ -140,5 +154,25 @@ describe("Ordering platform extraction (generic embedded-JSON walk)", () => {
   it("does not misread price-less objects as menu items", () => {
     const html = `<script type="application/json">{"name": "Some Section", "description": "no price here"}</script>`;
     expect(extractEmbeddedJsonMenuItems(html, "toast")).toEqual([]);
+  });
+});
+
+describe("Captured ordering payload normalization", () => {
+  it("retains provider provenance and nested item image objects", () => {
+    expect(parseCapturedMenuPayloads([{
+      items: [{ item_name: "Birria Plate", price_money: { amount: 1899 }, image: { image_data: { url: "https://cdn.example/birria.jpg" }, url: "https://cdn.example/birria.jpg" } }],
+    }], "toast")).toEqual([
+      expect.objectContaining({ name: "Birria Plate", price: 18.99, imageUrl: "https://cdn.example/birria.jpg", source: "toast" }),
+    ]);
+  });
+
+  it("does not turn modifiers, promotions, or placeholder images into dish evidence", () => {
+    const items = parseCapturedMenuPayloads([{
+      items: [{ name: "Chicken Sandwich", price: 14, image_url: "https://cdn.example/placeholder.png" }],
+      modifier_groups: [{ options: [{ name: "Extra Cheese", price: 2 }] }],
+      promotions: [{ name: "Family Deal", price: 25 }],
+    }], "square");
+    expect(items).toEqual([expect.objectContaining({ name: "Chicken Sandwich", source: "square" })]);
+    expect(items[0].imageUrl).toBeUndefined();
   });
 });
