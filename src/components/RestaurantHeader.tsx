@@ -38,7 +38,7 @@ function PriceLevel({ level }: { level: number }) {
  * Two distinct controls, each with one job (previously both the name and a
  * "Not the right place?" row triggered Map Explore, which is why the old
  * chevron next to the name was confusing):
- * - "Change Restaurant" pill (top-right, next to the eyebrow) — opens Map
+ * - "Move" pill (top-right, next to the brand) — opens Map
  *   Explore. Map-pin icon + solid accent background + white text so it
  *   unambiguously reads as a button, not a label.
  * - Restaurant name + chevron — toggles the address/rating section below,
@@ -86,27 +86,23 @@ export default function RestaurantHeader({
       // environments that support backdrop-filter but degrade the blur.
       style={{ paddingTop: "max(14px, env(safe-area-inset-top))", background: "rgba(10,10,10,0.92)" }}
     >
-      {/* Top row: "YOU'RE AT" eyebrow + Change Restaurant pill */}
-      <div className="flex items-center justify-between gap-2 mb-1.5">
-        <div className="flex items-center gap-1.5">
-          <div className="relative w-1.5 h-1.5 shrink-0">
-            <span className="absolute inset-0 rounded-full bg-emerald-400 dot-pulse" />
-          </div>
-          <span className="text-[9.5px] text-white/35 uppercase tracking-[0.22em] font-bold">
-            You&apos;re at
+      {/* Compact brand + primary navigation. */}
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex min-w-0 items-center gap-1.5" aria-label="SeeFood — eat with your eyes">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] bg-[var(--accent)] shadow-[0_5px_16px_rgba(255,92,52,0.22)]">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M2.8 12s3.2-5.1 9.2-5.1S21.2 12 21.2 12 18 17.1 12 17.1 2.8 12 2.8 12Z" stroke="white" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="12" cy="12" r="2.6" fill="white" />
+              <path d="M6.8 18.9h10.4" stroke="white" strokeWidth="1.9" strokeLinecap="round" />
+            </svg>
+          </span>
+          <span className="min-w-0 leading-none">
+            <span className="block whitespace-nowrap text-[15px] font-black tracking-[-0.045em] text-white">seeFood</span>
+            <span className="mt-1 block whitespace-nowrap text-[8.5px] font-semibold tracking-[0.025em] text-white/48">eat w/ ur <span aria-hidden="true">👀</span></span>
           </span>
         </div>
 
         <div className="flex items-center gap-1.5">
-          <a
-            href={`/pulse?lat=${restaurant.lat}&lng=${restaurant.lng}`}
-            className="relative hit-target w-8 h-8 rounded-full flex items-center justify-center text-white/28 active:bg-white/8"
-            aria-label="Open development coverage analytics"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19V9M10 19V5M16 19v-7M22 19V3" />
-            </svg>
-          </a>
           <button
             onClick={onChangeRestaurant}
             className="hit-target relative flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
@@ -120,20 +116,18 @@ export default function RestaurantHeader({
               <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
               <circle cx="12" cy="10" r="3"/>
             </svg>
-            <span className="text-[11.5px] font-bold text-white whitespace-nowrap">
-              Change Restaurant
-            </span>
+            <span className="text-[11.5px] font-bold text-white whitespace-nowrap">Move</span>
           </button>
           <a
             href="/me"
             className="hit-target relative inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-white/12 bg-white/7 text-white/75 active:bg-white/12 active:scale-95 transition-all shrink-0"
-            aria-label="Open My SeeFood"
+            aria-label="Open Me"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="8" r="4" />
               <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
             </svg>
-            <span className="text-[11px] font-bold whitespace-nowrap">My SeeFood</span>
+            <span className="text-[11px] font-bold whitespace-nowrap">Me</span>
           </a>
         </div>
       </div>

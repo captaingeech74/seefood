@@ -239,6 +239,7 @@ export default function MemberDashboard() {
   const visits = (profile?.visits ?? []).filter((visit) => !hiddenVisits.includes(visit.placeId));
   const initials = identity.name.trim() ? identity.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase() : "SF";
   const contactLine = [identity.email, identity.phone].filter(Boolean).join(" · ");
+  const analyticsHref = location ? `/pulse?lat=${location.lat}&lng=${location.lng}` : "/pulse";
   const hideVisit = (placeId: string) => { const next = [...new Set([...hiddenVisits, placeId])]; setHiddenVisits(next); localStorage.setItem("seefood-hidden-visits", JSON.stringify(next)); };
   const saveIdentity = () => { const next = { name: identityDraft.name.trim().slice(0, 80), email: identityDraft.email.trim().slice(0, 160), phone: identityDraft.phone.trim().slice(0, 40) }; setIdentity(next); localStorage.setItem(IDENTITY_KEY, JSON.stringify(next)); setEditingIdentity(false); };
 
@@ -247,6 +248,11 @@ export default function MemberDashboard() {
       <header className="sticky top-0 z-20 bg-black/94 backdrop-blur border-b border-white/7 px-4 py-3 flex items-center gap-3">
         <a href="/" className="w-9 h-9 flex items-center justify-center rounded-full bg-white/6 text-white/65" aria-label="Back">←</a>
         <div className="min-w-0 flex-1"><p className="text-[9px] text-[var(--accent)] font-bold uppercase">Member</p><h1 className="text-white text-[20px] font-bold">My SeeFood</h1></div>
+        <a href={analyticsHref} className="w-9 h-9 rounded-full border border-white/10 bg-white/6 flex items-center justify-center text-white/55 active:bg-white/12" aria-label="Open coverage analytics">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 19V9M10 19V5M16 19v-7M22 19V3" />
+          </svg>
+        </a>
       </header>
 
       <div className="px-4 fade-up">
