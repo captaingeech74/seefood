@@ -39,5 +39,6 @@ export function routeIsDue(state: RouteState | undefined, now = Date.now()): boo
 
 export function automaticItemEligible(item: {confidence: number; method: string; evidenceUrl: string; item: {imageUrl?: string}}, provenUrls: Set<string>): boolean {
   return item.confidence >= 0.85 && Boolean(item.item.imageUrl) && provenUrls.has(item.evidenceUrl)
-    && /schema_org|network_json|embedded_json|platform_/.test(item.method);
+    && /schema_org|network_json|embedded_json|platform_/.test(item.method)
+    && !item.method.includes("named_food_photo");
 }

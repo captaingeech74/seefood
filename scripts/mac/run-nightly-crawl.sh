@@ -33,20 +33,22 @@ LOG_FILE="$LOG_DIR/nightly-crawl-$(date +%Y-%m-%d).log"
 cd "$REPO_DIR" || exit 1
 
 {
+  nightly_status=0
   echo "=== SeeFood nightly crawl — $(date) ==="
   # All live cities, including newly published cities; additive, zero paid calls.
   # A fixed reviewed-route refresh remains for linked ordering URLs; the corpus
   # runner discovers new sites and requires per-page identity for auto-import.
   if command -v caffeinate >/dev/null 2>&1; then
-    caffeinate -s npx tsx scripts/rollout-structured-platforms.ts --publish --limit=60
+    caffeinate -s npx tsx scripts/rollout-structured-platforms.ts --publish --limit=60 || nightly_status=1
   else
-    npx tsx scripts/rollout-structured-platforms.ts --publish --limit=60
+    npx tsx scripts/rollout-structured-platforms.ts --publish --limit=60 || nightly_status=1
   fi
-  npx tsx scripts/refresh-structured-platforms.ts --publish --limit=3
+  npx tsx scripts/refresh-structured-platforms.ts --publish --limit=3 || nightly_status=1
   if command -v caffeinate >/dev/null 2>&1; then
-    caffeinate -s npm run crawl -- --zone temecula --limit 60
+    caffeinate -s npm run crawl -- --zone temecula --limit 60 || nightly_status=1
   else
-    npm run crawl -- --zone temecula --limit 60
+    npm run crawl -- --zone temecula --limit 60 || nightly_status=1
   fi
   echo "=== Done — $(date) ==="
+  exit "$nightly_status"
 } >> "$LOG_FILE" 2>&1

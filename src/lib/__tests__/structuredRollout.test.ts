@@ -29,6 +29,7 @@ describe("city-independent structured rollout", () => {
     const proven=new Set([item.evidenceUrl]);
     expect(automaticItemEligible(item,proven)).toBe(true);
     expect(automaticItemEligible({...item,method:"visible_menu"},proven)).toBe(false);
+    expect(automaticItemEligible({...item,method:"http:schema_org+gallery:named_food_photo"},proven)).toBe(false);
     expect(automaticItemEligible({...item,evidenceUrl:"https://other.com/menu"},proven)).toBe(false);
     expect(automaticItemEligible({...item,item:{}},proven)).toBe(false);
   });
