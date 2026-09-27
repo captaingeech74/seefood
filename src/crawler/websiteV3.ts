@@ -72,6 +72,9 @@ export type WebsiteV3Result = {
 };
 
 const BLOCKED = /access denied|verify you are human|complete the security check|cloudflare ray id/i;
+export function isBlockedWebsiteResponse(status: number, html: string): boolean {
+  return [401, 403, 429].includes(status) || BLOCKED.test(html);
+}
 const JS_SHELL = /<div[^>]+id=["'](?:root|app|__next)["'][^>]*>\s*<\/div>|enable javascript/i;
 const MENU_URL_HINT = /(?:^|[\/_-])(?:food[-_]?menu|menus?|order(?:ing|-online)?)(?:[\/_-]|$)/i;
 const NON_DISH_TEXT = /^(?:menus?|home|locations?|contact|about|catering|delivery|pickup|order(?: online)?|reservations?|gift cards?|more|specials?|choose (?:a|your)|add-ons?|appetizers?|entrees?|salsas?|sides?|desserts?|drinks?|breakfast|brunch|lunch|dinner)$/i;
@@ -612,7 +615,8 @@ async function directFetch(url: string): Promise<PythonFetchResult & { method: s
     if (declared > 10 * 1024 * 1024) return { ok: false, status: response.status, error: "page_too_large", method: "http" };
     const html = await response.text();
     if (html.length > 10 * 1024 * 1024) return { ok: false, status: response.status, error: "page_too_large", method: "http" };
-    return { ok: response.ok && !BLOCKED.test(html), status: response.status, html, finalUrl: response.url, error: BLOCKED.test(html) ? "access_blocked" : undefined, method: "http" };
+    const blocked = isBlockedWebsiteResponse(response.status, html);
+    return { ok: response.ok && !blocked, status: response.status, html, finalUrl: response.url, error: blocked ? "access_blocked" : undefined, method: "http" };
   } catch (error) {
     return { ok: false, status: null, error: String(error instanceof Error ? error.message : error), method: "http" };
   }

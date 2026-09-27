@@ -83,7 +83,7 @@ async function main(){
           report.publishedGroups+=groups.length;
         }
         if(result.items.length>items.length)report.heldGroups++;
-        if(publish){state[key]={at:new Date().toISOString(),status:result.status,hasPlatform:result.platforms.length>0||Boolean(review)};save();}
+        if(publish){state[key]={at:new Date().toISOString(),status:result.status,hasPlatform:result.platforms.length>0||Boolean(review)||Boolean(state[key]?.hasPlatform)};save();}
         console.log(JSON.stringify({name:target.name,status:result.status,items:result.items.length,eligible:items.length,publish}));
       }catch(error){
         report.failed++;

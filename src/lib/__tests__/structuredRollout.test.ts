@@ -1,9 +1,16 @@
 import {describe, it, expect} from "vitest";
 import {automaticItemEligible, routeIsDue, structuredLocationProof} from "../structuredRollout";
+import {isBlockedWebsiteResponse} from "../../crawler/websiteV3";
 
 const venue = {"@type":"Restaurant",name:"Good Kitchen",address:{streetAddress:"123 Main Street",addressLocality:"Spokane"}};
 const html = (v: unknown) => `<script type="application/ld+json">${JSON.stringify(v)}</script>`;
 describe("city-independent structured rollout", () => {
+  it("retries access restrictions rather than mistaking them for empty menus", () => {
+    expect(isBlockedWebsiteResponse(403,"Just a moment...")).toBe(true);
+    expect(isBlockedWebsiteResponse(429,"")).toBe(true);
+    expect(isBlockedWebsiteResponse(404,"not found")).toBe(false);
+    expect(isBlockedWebsiteResponse(200,"our menu")).toBe(false);
+  });
   it("requires restaurant name AND street AND city", () => {
     expect(structuredLocationProof(html(venue), "Good Kitchen", "123 Main Street, Spokane, WA")).toBeTruthy();
     expect(structuredLocationProof(html(venue), "Other Kitchen", "123 Main Street, Spokane, WA")).toBeUndefined();

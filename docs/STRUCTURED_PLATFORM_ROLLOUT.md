@@ -20,6 +20,10 @@ extraction are reused as dated attempt evidence, not counted as new captures.
 State and per-route results live in ignored `logs/structured-platform-rollout`.
 The Mac must be available for the nightly job. This is not cloud-always-on.
 
+HTTP 401/403/429 are access restrictions, not evidence of an empty menu, and
+receive the shorter retry. A previously detected platform remains on the
+monthly schedule even if a subsequent response omits its platform signature.
+
 ## Publication
 
 Reviewed routes retain their explicit method/page restrictions. New routes can
@@ -76,3 +80,6 @@ because they are sparse.
 Rollback code tag: `rollback/pre-citywide-structured-rollout-20260927`.
 Disable only the new wrapper invocation to stop future rollout work; existing
 data remains. Production mutations, if any, retain publisher preimages/journals.
+
+Verification: 192 tests pass, TypeScript and production build pass; live phone
+and desktop checks show Penfold's, Gregorio's and Logan Tavern remain functional.
