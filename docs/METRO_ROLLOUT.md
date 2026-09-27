@@ -33,6 +33,13 @@ coverage estimates from the same versioned geography source when that happens.
 
 ## Market Exit Criteria
 
+Every new market uses the shared structured-platform rollout, not a fork or
+one-off provider list. After legitimate restaurant identities and websites are
+live, `npm run acquisition:structured-rollout -- --publish --market=MARKET_KEY`
+uses the same improved extraction and additive publication as existing cities.
+The nightly all-live-corpus runner picks up future additions automatically.
+See `STRUCTURED_PLATFORM_ROLLOUT.md` for bounds, identity gates and limitations.
+
 Early-market publication is expansive: expose every confidently real restaurant
 that is not known closed, then use readiness styling and map clustering instead
 of hiding thin restaurants. Exact GPS detection includes contribution-needed

@@ -14,6 +14,7 @@
     "acquisition:websites-v2": "tsx scripts/crawl-websites-v2.ts",
     "acquisition:websites-v3": "tsx scripts/crawl-websites-v3.ts",
     "acquisition:rerun-product-corpus": "tsx scripts/crawl-websites-v3.ts --product-corpus true",
+    "acquisition:structured-rollout": "tsx scripts/rollout-structured-platforms.ts",
     "acquisition:merge-website-evidence": "tsx scripts/merge-website-evidence.ts",
     "acquisition:audit-website-recovery": "tsx scripts/audit-website-recovery.ts",
     "acquisition:recover-official-websites": "tsx scripts/recover-official-websites.ts",

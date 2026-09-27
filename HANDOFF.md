@@ -1,6 +1,6 @@
 # SeeFood Senior Lead Handoff
 
-Updated September 21, 2026. This is the current operational snapshot for the active
+Updated September 27, 2026. This is the current operational snapshot for the active
 general-development lead. It is intentionally concise; durable product and
 architecture decisions belong in `DECISIONS.md` and the focused documents under
 `docs/`.
@@ -18,6 +18,13 @@ San Diego County, Los Angeles, other major California metros, the 50 largest US
 MSAs, and finally all 387 MSAs.
 
 ## Current State
+
+- September 27: structured capture now has an all-live-city scheduler, with
+  future restaurant/city additions eligible automatically. Existing 26 reviewed
+  routes remain a supplement. Nightly cap 60 routes, three workers, four pages
+  per route; automatic publication requires narrow page-local identity and
+  direct structured dish/photo evidence. No paid services. See
+  `docs/STRUCTURED_PLATFORM_ROLLOUT.md`. Mac availability remains required.
 
 - September 21 structured-menu campaign completed: **823 additional usable
   photo records at 26 restaurants, 487 additional directly pictured dishes,

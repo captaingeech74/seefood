@@ -11,6 +11,7 @@ import {
   type OrderingPlatform,
 } from "../lib/menuSources";
 import type { MenuItemData } from "../lib/types";
+import { structuredLocationProof } from "../lib/structuredRollout";
 import { parseMenuText } from "./pdfMenu";
 import { pythonFetchAsync, type PythonFetchResult } from "./pythonFetch";
 
@@ -44,6 +45,7 @@ export type NamedWebsitePhoto = {
 };
 
 export type PageEvidence = {
+  locationProof?: string;
   requestedUrl: string;
   finalUrl: string;
   method: string;
@@ -719,6 +721,7 @@ export async function crawlWebsiteV3(
       sha256: createHash("sha256").update(chosenHtml).digest("hex"),
       itemCount: parsed.items.length,
       platformCount: parsed.platforms.length,
+      locationProof: structuredLocationProof(chosenHtml, target.restaurantName, target.restaurantAddress),
     });
     parsed.items.forEach((item) => allItems.push(item));
     parsed.namedPhotos.forEach((photo) => namedPhotos.push(photo));

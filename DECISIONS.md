@@ -2451,3 +2451,18 @@ report are in `docs/CABO_ROLLOUT.md`.
 - Reviewer portraits/names, modifiers, obvious merchandise and availability
   notices are acquisition errors, not useful menu coverage. Keep relevant
   unmatched food eligible separately; don't invent dish matches to boost stats.
+
+### September 27, 2026 — Structured acquisition is a city-independent default
+
+- Kyle requested rollout across existing and future cities. Use the shared V3
+  extractor and an all-live-corpus scheduler; do not maintain a city allowlist.
+  Existing reviewed routes supplement rather than bound automatic acquisition.
+- New routes enter immediately; platform routes refresh monthly, ordinary sites
+  quarterly, failures weekly. Cap nightly work at 60 routes with three workers
+  and four pages/site, using existing local infrastructure and no paid services.
+- New-route automatic publication requires matching restaurant name, street and
+  locality on the exact structured evidence page. Ambiguity stays staged, not
+  lost; useful unmatched food retains its separate path. Imports stay additive.
+- LA tooling readiness is not LA product readiness. Establish its footprint,
+  run the shared pipeline and measure real pictured-dish coverage before claiming
+  a city-wide launch. See `docs/STRUCTURED_PLATFORM_ROLLOUT.md`.

@@ -34,8 +34,14 @@ cd "$REPO_DIR" || exit 1
 
 {
   echo "=== SeeFood nightly crawl — $(date) ==="
-  # At most three reviewed structured-menu sites, once per 30 days each.
-  # Additive imports; transient failures cannot erase existing menus/photos.
+  # All live cities, including newly published cities; additive, zero paid calls.
+  # A fixed reviewed-route refresh remains for linked ordering URLs; the corpus
+  # runner discovers new sites and requires per-page identity for auto-import.
+  if command -v caffeinate >/dev/null 2>&1; then
+    caffeinate -s npx tsx scripts/rollout-structured-platforms.ts --publish --limit=60
+  else
+    npx tsx scripts/rollout-structured-platforms.ts --publish --limit=60
+  fi
   npx tsx scripts/refresh-structured-platforms.ts --publish --limit=3
   if command -v caffeinate >/dev/null 2>&1; then
     caffeinate -s npm run crawl -- --zone temecula --limit 60
