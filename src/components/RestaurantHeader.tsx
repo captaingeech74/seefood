@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { DishPhoto, Restaurant } from "@/lib/types";
 import { dedupeToPrimary } from "@/lib/dishGrouping";
 import { formatAddress } from "@/lib/labels";
-import { mealEmojiForLocalHour } from "@/lib/mealEmoji";
 import MerchantClaimModal from "@/components/MerchantClaimModal";
 
 /** Bolds the matched substring inside a search result name. */
@@ -65,14 +64,6 @@ export default function RestaurantHeader({
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [claimOpen, setClaimOpen] = useState(false);
-  const [mealEmoji, setMealEmoji] = useState<"🥞" | "🍔" | "🍲">("🥞");
-
-  useEffect(() => {
-    const updateMealEmoji = () => setMealEmoji(mealEmojiForLocalHour(new Date().getHours()));
-    updateMealEmoji();
-    const interval = window.setInterval(updateMealEmoji, 60_000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   const { primary } = useMemo(() => dedupeToPrimary(dishes), [dishes]);
   const matches = useMemo(() => {
@@ -99,8 +90,7 @@ export default function RestaurantHeader({
       {/* Compact brand + primary navigation. */}
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="flex min-w-0 items-center gap-1.5" aria-label="SeeFood — eat with your eyes">
-          <span className="flex h-7 w-14 shrink-0 items-center justify-center gap-1 rounded-[9px] bg-[var(--accent)] pl-1 text-[15px] leading-none shadow-[0_5px_16px_rgba(255,92,52,0.22)]" aria-hidden="true">
-            <span>{mealEmoji}</span>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] shadow-[0_5px_16px_rgba(255,92,52,0.22)]" aria-hidden="true">
             <Image
               src="/brand/seefood-pizza-eye.jpg"
               alt=""
