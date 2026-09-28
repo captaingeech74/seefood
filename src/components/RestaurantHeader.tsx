@@ -1,11 +1,53 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { DishPhoto, Restaurant } from "@/lib/types";
 import { dedupeToPrimary } from "@/lib/dishGrouping";
 import { formatAddress } from "@/lib/labels";
 import MerchantClaimModal from "@/components/MerchantClaimModal";
+
+type LogoChoice = "pizza-eye" | "pizza-ring" | "eyes-wordmark";
+
+const LOGO_STORAGE_KEY = "seefood-logo-choice";
+
+function BrandIdentity({ choice }: { choice: LogoChoice }) {
+  if (choice === "eyes-wordmark") {
+    return (
+      <span className="min-w-0 leading-none">
+        <span className="flex items-center whitespace-nowrap text-[16px] font-black tracking-[-0.055em] text-white">
+          <span>seeF</span>
+          <span className="mx-[1px] text-[14px] tracking-normal" aria-label="oo">👀</span>
+          <span>d</span>
+        </span>
+        <span className="mt-1 block whitespace-nowrap text-[8.5px] font-semibold italic tracking-[0.025em] text-white/48">eat w/ ur 👀</span>
+      </span>
+    );
+  }
+
+  const src = choice === "pizza-ring"
+    ? "/brand/seefood-pizza-ring.jpg"
+    : "/brand/seefood-pizza-eye.jpg";
+
+  return (
+    <>
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] shadow-[0_5px_16px_rgba(255,92,52,0.22)]" aria-hidden="true">
+        <Image
+          src={src}
+          alt=""
+          width={28}
+          height={28}
+          className="h-7 w-7 rounded-[8px] object-cover"
+          priority
+        />
+      </span>
+      <span className="min-w-0 leading-none">
+        <span className="block whitespace-nowrap text-[15px] font-black tracking-[-0.045em] text-white">seeFood</span>
+        <span className="mt-1 block whitespace-nowrap text-[8.5px] font-semibold italic tracking-[0.025em] text-white/48">eat w/ ur 👀</span>
+      </span>
+    </>
+  );
+}
 
 /** Bolds the matched substring inside a search result name. */
 function HighlightMatch({ text, query }: { text: string; query: string }) {
@@ -64,6 +106,29 @@ export default function RestaurantHeader({
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [claimOpen, setClaimOpen] = useState(false);
+  const [logoChoice, setLogoChoice] = useState<LogoChoice>("pizza-eye");
+  const [logoMenuOpen, setLogoMenuOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(LOGO_STORAGE_KEY);
+      if (stored === "pizza-eye" || stored === "pizza-ring" || stored === "eyes-wordmark") {
+        setLogoChoice(stored);
+      }
+    } catch {
+      // The selector still works for this visit if storage is unavailable.
+    }
+  }, []);
+
+  const chooseLogo = (choice: LogoChoice) => {
+    setLogoChoice(choice);
+    setLogoMenuOpen(false);
+    try {
+      window.localStorage.setItem(LOGO_STORAGE_KEY, choice);
+    } catch {
+      // Keep the in-memory choice even when storage is unavailable.
+    }
+  };
 
   const { primary } = useMemo(() => dedupeToPrimary(dishes), [dishes]);
   const matches = useMemo(() => {
@@ -89,21 +154,54 @@ export default function RestaurantHeader({
     >
       {/* Compact brand + primary navigation. */}
       <div className="flex items-center justify-between gap-2 mb-1">
-        <div className="flex min-w-0 items-center gap-1.5" aria-label="SeeFood — eat with your eyes">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] shadow-[0_5px_16px_rgba(255,92,52,0.22)]" aria-hidden="true">
-            <Image
-              src="/brand/seefood-pizza-eye.jpg"
-              alt=""
-              width={28}
-              height={28}
-              className="h-7 w-7 rounded-[8px] object-cover"
-              priority
-            />
-          </span>
-          <span className="min-w-0 leading-none">
-            <span className="block whitespace-nowrap text-[15px] font-black tracking-[-0.045em] text-white">seeFood</span>
-            <span className="mt-1 block whitespace-nowrap text-[8.5px] font-semibold italic tracking-[0.025em] text-white/48">eat w/ ur 👀</span>
-          </span>
+        <div className="relative min-w-0">
+          <button
+            type="button"
+            onClick={() => setLogoMenuOpen((open) => !open)}
+            className="flex min-w-0 items-center gap-1.5 rounded-lg text-left active:scale-[0.97] transition-transform"
+            aria-label="Choose SeeFood logo"
+            aria-expanded={logoMenuOpen}
+          >
+            <BrandIdentity choice={logoChoice} />
+          </button>
+
+          {logoMenuOpen && (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-[30] cursor-default"
+                aria-label="Close logo menu"
+                onClick={() => setLogoMenuOpen(false)}
+              />
+              <div
+                className="absolute left-0 top-[calc(100%+10px)] z-[40] w-[238px] rounded-2xl border border-white/12 bg-[#171717] p-2 shadow-[0_18px_60px_rgba(0,0,0,0.55)]"
+                role="menu"
+                aria-label="Logo choices"
+              >
+                <p className="px-2 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/40">Choose a logo</p>
+                {([
+                  ["pizza-eye", "Pizza eye"],
+                  ["pizza-ring", "Pizza ring"],
+                  ["eyes-wordmark", "Eyes wordmark"],
+                ] as const).map(([choice, label]) => (
+                  <button
+                    key={choice}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={logoChoice === choice}
+                    onClick={() => chooseLogo(choice)}
+                    className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/8 active:bg-white/12"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <BrandIdentity choice={choice} />
+                    </span>
+                    <span className="sr-only">{label}</span>
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] ${logoChoice === choice ? "border-[var(--accent)] bg-[var(--accent)] text-white" : "border-white/15 text-transparent"}`} aria-hidden="true">✓</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5">
