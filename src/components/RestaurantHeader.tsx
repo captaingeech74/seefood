@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { DishPhoto, Restaurant } from "@/lib/types";
 import { dedupeToPrimary } from "@/lib/dishGrouping";
 import { formatAddress } from "@/lib/labels";
@@ -98,12 +99,20 @@ export default function RestaurantHeader({
       {/* Compact brand + primary navigation. */}
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="flex min-w-0 items-center gap-1.5" aria-label="SeeFood — eat with your eyes">
-          <span className="flex h-7 w-12 shrink-0 items-center justify-center gap-0.5 rounded-[9px] bg-[var(--accent)] text-[14px] leading-none shadow-[0_5px_16px_rgba(255,92,52,0.22)]" aria-hidden="true">
-            <span>{mealEmoji}</span><span>👀</span>
+          <span className="flex h-7 w-14 shrink-0 items-center justify-center gap-1 rounded-[9px] bg-[var(--accent)] pl-1 text-[15px] leading-none shadow-[0_5px_16px_rgba(255,92,52,0.22)]" aria-hidden="true">
+            <span>{mealEmoji}</span>
+            <Image
+              src="/brand/seefood-pizza-eye.jpg"
+              alt=""
+              width={28}
+              height={28}
+              className="h-7 w-7 rounded-[8px] object-cover"
+              priority
+            />
           </span>
           <span className="min-w-0 leading-none">
             <span className="block whitespace-nowrap text-[15px] font-black tracking-[-0.045em] text-white">seeFood</span>
-            <span className="mt-1 block whitespace-nowrap text-[8.5px] font-semibold italic tracking-[0.025em] text-white/48">eat w/ ur eyes</span>
+            <span className="mt-1 block whitespace-nowrap text-[8.5px] font-semibold italic tracking-[0.025em] text-white/48">eat w/ ur 👀</span>
           </span>
         </div>
 
