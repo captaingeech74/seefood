@@ -14,16 +14,13 @@ const LOGO_STORAGE_KEY = "seefood-logo-choice";
 function BrandIdentity({ choice }: { choice: LogoChoice }) {
   if (choice === "boxed-wordmark") {
     return (
-      <>
-        <span className="flex h-7 shrink-0 items-center rounded-[9px] bg-[var(--accent)] px-2 shadow-[0_5px_16px_rgba(255,92,52,0.22)]">
-          <span className="flex items-center whitespace-nowrap text-[17px] font-black leading-none tracking-[-0.06em] text-white">
-            <span>seeF</span>
-            <span className="mx-[1px] text-[15px] tracking-normal" aria-label="oo">👀</span>
-            <span>d</span>
-          </span>
+      <span className="flex h-7 shrink-0 items-center rounded-[9px] bg-[var(--accent)] px-2 shadow-[0_5px_16px_rgba(255,92,52,0.22)]">
+        <span className="flex items-center whitespace-nowrap text-[17px] font-black leading-none tracking-[-0.06em] text-white">
+          <span>seeF</span>
+          <span className="mx-[1px] text-[15px] tracking-normal" aria-label="oo">👀</span>
+          <span>d</span>
         </span>
-        <span className="whitespace-nowrap text-[8.5px] font-semibold italic leading-tight tracking-[0.025em] text-white/48">eat w/ ur 👀</span>
-      </>
+      </span>
     );
   }
 
@@ -121,7 +118,7 @@ export default function RestaurantHeader({
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [claimOpen, setClaimOpen] = useState(false);
-  const [logoChoice, setLogoChoice] = useState<LogoChoice>("pizza-eye");
+  const [logoChoice, setLogoChoice] = useState<LogoChoice>("boxed-wordmark");
   const [logoMenuOpen, setLogoMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -168,7 +165,7 @@ export default function RestaurantHeader({
       style={{ paddingTop: "max(14px, env(safe-area-inset-top))", background: "rgba(10,10,10,0.92)" }}
     >
       {/* Compact brand + primary navigation. */}
-      <div className="flex items-center justify-between gap-2 mb-1">
+      <div className="relative flex items-center justify-between gap-2 mb-1">
         <div className="relative min-w-0">
           <button
             type="button"
@@ -195,10 +192,10 @@ export default function RestaurantHeader({
               >
                 <p className="px-2 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white/40">Choose a logo</p>
                 {([
-                  ["pizza-eye", "Pizza eye"],
-                  ["pizza-ring", "Pizza ring"],
-                  ["eyes-wordmark", "Eyes wordmark"],
                   ["boxed-wordmark", "Boxed wordmark"],
+                  ["eyes-wordmark", "Eyes wordmark"],
+                  ["pizza-ring", "Pizza ring"],
+                  ["pizza-eye", "Pizza eye"],
                 ] as const).map(([choice, label]) => (
                   <button
                     key={choice}
@@ -219,6 +216,12 @@ export default function RestaurantHeader({
             </>
           )}
         </div>
+
+        {logoChoice === "boxed-wordmark" && (
+          <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[8.5px] font-semibold italic tracking-[0.025em] text-white/48">
+            eat w/ ur 👀
+          </span>
+        )}
 
         <div className="flex items-center gap-1.5">
           <button
