@@ -7,11 +7,26 @@ import { dedupeToPrimary } from "@/lib/dishGrouping";
 import { formatAddress } from "@/lib/labels";
 import MerchantClaimModal from "@/components/MerchantClaimModal";
 
-type LogoChoice = "pizza-eye" | "pizza-ring" | "eyes-wordmark";
+type LogoChoice = "pizza-eye" | "pizza-ring" | "eyes-wordmark" | "boxed-wordmark";
 
 const LOGO_STORAGE_KEY = "seefood-logo-choice";
 
 function BrandIdentity({ choice }: { choice: LogoChoice }) {
+  if (choice === "boxed-wordmark") {
+    return (
+      <>
+        <span className="flex h-7 shrink-0 items-center rounded-[9px] bg-[var(--accent)] px-2 shadow-[0_5px_16px_rgba(255,92,52,0.22)]">
+          <span className="flex items-center whitespace-nowrap text-[17px] font-black leading-none tracking-[-0.06em] text-white">
+            <span>seeF</span>
+            <span className="mx-[1px] text-[15px] tracking-normal" aria-label="oo">👀</span>
+            <span>d</span>
+          </span>
+        </span>
+        <span className="whitespace-nowrap text-[8.5px] font-semibold italic leading-tight tracking-[0.025em] text-white/48">eat w/ ur 👀</span>
+      </>
+    );
+  }
+
   if (choice === "eyes-wordmark") {
     return (
       <span className="min-w-0 leading-none">
@@ -112,7 +127,7 @@ export default function RestaurantHeader({
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(LOGO_STORAGE_KEY);
-      if (stored === "pizza-eye" || stored === "pizza-ring" || stored === "eyes-wordmark") {
+      if (stored === "pizza-eye" || stored === "pizza-ring" || stored === "eyes-wordmark" || stored === "boxed-wordmark") {
         setLogoChoice(stored);
       }
     } catch {
@@ -183,6 +198,7 @@ export default function RestaurantHeader({
                   ["pizza-eye", "Pizza eye"],
                   ["pizza-ring", "Pizza ring"],
                   ["eyes-wordmark", "Eyes wordmark"],
+                  ["boxed-wordmark", "Boxed wordmark"],
                 ] as const).map(([choice, label]) => (
                   <button
                     key={choice}
