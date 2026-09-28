@@ -165,7 +165,7 @@ export default function RestaurantHeader({
       style={{ paddingTop: "max(14px, env(safe-area-inset-top))", background: "rgba(10,10,10,0.92)" }}
     >
       {/* Compact brand + primary navigation. */}
-      <div className="relative flex items-center justify-between gap-2 mb-1">
+      <div className="flex items-center justify-between gap-2 mb-1">
         <div className="relative min-w-0">
           <button
             type="button"
@@ -216,12 +216,6 @@ export default function RestaurantHeader({
             </>
           )}
         </div>
-
-        {logoChoice === "boxed-wordmark" && (
-          <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[8.5px] font-semibold italic tracking-[0.025em] text-white/48">
-            eat w/ ur 👀
-          </span>
-        )}
 
         <div className="flex items-center gap-1.5">
           <button
