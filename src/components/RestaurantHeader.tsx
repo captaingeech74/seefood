@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DishPhoto, Restaurant } from "@/lib/types";
 import { dedupeToPrimary } from "@/lib/dishGrouping";
 import { formatAddress } from "@/lib/labels";
+import { mealEmojiForLocalHour } from "@/lib/mealEmoji";
 import MerchantClaimModal from "@/components/MerchantClaimModal";
 
 /** Bolds the matched substring inside a search result name. */
@@ -63,6 +64,14 @@ export default function RestaurantHeader({
   const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [claimOpen, setClaimOpen] = useState(false);
+  const [mealEmoji, setMealEmoji] = useState<"🥞" | "🍔" | "🍲">("🥞");
+
+  useEffect(() => {
+    const updateMealEmoji = () => setMealEmoji(mealEmojiForLocalHour(new Date().getHours()));
+    updateMealEmoji();
+    const interval = window.setInterval(updateMealEmoji, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const { primary } = useMemo(() => dedupeToPrimary(dishes), [dishes]);
   const matches = useMemo(() => {
@@ -89,16 +98,12 @@ export default function RestaurantHeader({
       {/* Compact brand + primary navigation. */}
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="flex min-w-0 items-center gap-1.5" aria-label="SeeFood — eat with your eyes">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] bg-[var(--accent)] shadow-[0_5px_16px_rgba(255,92,52,0.22)]">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M2.8 12s3.2-5.1 9.2-5.1S21.2 12 21.2 12 18 17.1 12 17.1 2.8 12 2.8 12Z" stroke="white" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="12" cy="12" r="2.6" fill="white" />
-              <path d="M6.8 18.9h10.4" stroke="white" strokeWidth="1.9" strokeLinecap="round" />
-            </svg>
+          <span className="flex h-7 w-12 shrink-0 items-center justify-center gap-0.5 rounded-[9px] bg-[var(--accent)] text-[14px] leading-none shadow-[0_5px_16px_rgba(255,92,52,0.22)]" aria-hidden="true">
+            <span>{mealEmoji}</span><span>👀</span>
           </span>
           <span className="min-w-0 leading-none">
             <span className="block whitespace-nowrap text-[15px] font-black tracking-[-0.045em] text-white">seeFood</span>
-            <span className="mt-1 block whitespace-nowrap text-[8.5px] font-semibold tracking-[0.025em] text-white/48">eat w/ ur <span aria-hidden="true">👀</span></span>
+            <span className="mt-1 block whitespace-nowrap text-[8.5px] font-semibold italic tracking-[0.025em] text-white/48">eat w/ ur eyes</span>
           </span>
         </div>
 
@@ -328,13 +333,13 @@ export default function RestaurantHeader({
               onClick={() => onSuggestDish()}
               className="hit-target relative flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full active:scale-95 transition-transform shrink-0"
               style={{ background: "var(--accent)" }}
-              aria-label="Add a missing photo or menu item"
+              aria-label="Add a missing menu item"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 5v14M5 12h14" />
               </svg>
               <span className="text-[11px] font-bold text-white whitespace-nowrap">
-                Add a Missing Photo or Menu Item
+                Add a Missing Menu Item
               </span>
             </button>
             <button
