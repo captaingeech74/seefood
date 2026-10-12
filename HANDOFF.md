@@ -19,6 +19,14 @@ MSAs, and finally all 387 MSAs.
 
 ## Current State
 
+- September 28: the conservative zero-photo completion lane reviewed 3,952
+  staged official-website image candidates, withheld 3,861, and published 91
+  visually confirmed food photos across 89 previously empty live restaurants.
+  Useful-photo entity coverage rose from 698 to 787; no existing menu or photo
+  was removed. The free local Apple Vision gate rejects ambiguity, ads,
+  documents, drinks, interiors, people, packaged products, explicit imagery,
+  and unproven restaurant identity. See `docs/ZERO_PHOTO_COMPLETION.md`.
+
 - September 27: structured capture now has an all-live-city scheduler, with
   future restaurant/city additions eligible automatically. Existing 26 reviewed
   routes remain a supplement. Nightly cap 60 routes, three workers, four pages
@@ -482,6 +490,19 @@ availability; the legacy funnel remains collapsed for diagnosis.
 
 Follow `docs/HOW_TO_HAND_OFF.md` for the next lead transition. Update this file
 in place; do not accumulate competing handoff snapshots.
+
+## Eggplants and the next coverage lane (October 11, 2026)
+
+Eggplants Thai Cuisine is live at `eggplants-thai-cuisine-temecula` using its
+existing Overture entity, correct suite-level location, official website, 64
+menu items, and 18 unique menu-matched Uber Eats photos. The reproducible,
+reversible promotion and enrichment scripts are `scripts/add-eggplants-temecula.ts`
+and `scripts/enrich-eggplants-temecula.ts`.
+
+The best next acquisition step is provider-specific recovery for the remaining
+photo-empty restaurants, prioritized by user activity and known structured
+menu evidence. The conservative zero-photo lane should remain the publication
+gate; do not return to broad, low-confidence photo promotion.
 
 ## Customer photo intake (August 28, 2026)
 

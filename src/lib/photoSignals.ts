@@ -3,6 +3,7 @@ import type { DataSource, DishPhoto, PhotoAuthorType } from "./types";
 const SEEFOOD_SOURCES = new Set<DataSource>(["user_upload", "user_suggested"]);
 const MANAGEMENT_SOURCES = new Set<DataSource>([
   "doordash",
+  "ubereats",
   "grubhub",
   "menufy",
   "schema_org",

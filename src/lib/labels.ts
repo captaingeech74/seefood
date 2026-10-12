@@ -3,7 +3,7 @@ import { DataSource } from "@/lib/types";
 /** Human-readable label for each photo/menu data source (shared by the
  *  Reveal source tag and the grid's unnamed-photo fallback caption). */
 export const SOURCE_LABELS: Record<DataSource, string> = {
-  google: "Google", doordash: "DoorDash", grubhub: "Grubhub", menufy: "Menufy",
+  google: "Google", doordash: "DoorDash", ubereats: "Uber Eats", grubhub: "Grubhub", menufy: "Menufy",
   schema_org: "Restaurant", toast: "Toast", square: "Square", clover: "Clover",
   chownow: "ChowNow", olo: "Olo", popmenu: "PopMenu", menu_ocr: "Menu", merchant: "Management",
   bentobox: "BentoBox", owner: "Owner", spothopper: "SpotHopper", slice: "Slice",

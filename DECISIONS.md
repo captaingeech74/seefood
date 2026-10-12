@@ -2466,3 +2466,31 @@ report are in `docs/CABO_ROLLOUT.md`.
 - LA tooling readiness is not LA product readiness. Establish its footprint,
   run the shared pipeline and measure real pictured-dish coverage before claiming
   a city-wide launch. See `docs/STRUCTURED_PLATFORM_ROLLOUT.md`.
+
+### September 28, 2026 — Empty is better than a misleading first photo
+
+- Photo-empty restaurants receive a separate coverage-first lane before rich
+  restaurants receive more depth. It reuses verified staged evidence instead
+  of recrawling the corpus.
+- Restaurant identity, exact image bytes, useful dimensions, and positive local
+  food classification must all pass. Uncertain, promotional, text-heavy,
+  packaged-product, drink, people, interior, explicit, venue-shell, and
+  wrong-identity candidates stay unpublished.
+- Exact dish links remain best, but a clearly relevant restaurant-owned food
+  photo is better than zero even when its dish name cannot be proved. Such a
+  photo remains honestly unnamed and is capped at one per restaurant.
+- Production run `e88d08c2-4bfa-48c6-918e-c79ee3c64adc` published 91 photos at
+  89 formerly empty restaurants and withheld 3,861 candidates. Coverage moved
+  from 698 to 787 useful-photo entities with no existing coverage removed. See
+  `docs/ZERO_PHOTO_COMPLETION.md`.
+
+### October 11, 2026 — Preserve Uber Eats provenance for exact menu evidence
+
+- Uber Eats is a distinct management-menu source; never relabel its records as
+  DoorDash or generic website evidence.
+- Exact venue identity plus explicit dish-to-photo linkage and verified image
+  bytes may publish as tier-1 management photos. A blocked or unverifiable page
+  remains empty rather than bypassing identity checks.
+- Eggplants Thai Cuisine demonstrated the lane: its stranded Overture identity
+  was promoted without duplication, with 64 current menu items and 18 unique,
+  explicitly dish-linked photos from its exact venue page.

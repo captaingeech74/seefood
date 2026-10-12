@@ -2,6 +2,7 @@
 export type DataSource =
   | "google"
   | "doordash"
+  | "ubereats"
   | "grubhub"
   | "menufy"
   | "schema_org"
