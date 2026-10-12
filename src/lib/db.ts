@@ -2799,6 +2799,9 @@ export async function persistSourceMenuItems(
     primaryVotes: 0,
     photoAuthorType: "management",
     trustLabel: "management_photo",
+    photoQualityScore: 92,
+    dishPopularityScore: 7,
+    isHeroCandidate: true,
     contentHash: item.contentHash,
     perceptualHash: item.perceptualHash,
   }));

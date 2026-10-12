@@ -3,6 +3,7 @@
 /** Current, dish-linked Eggplants menu evidence from its exact Uber Eats venue page. */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import pg from "pg";
 import sharp from "sharp";
 import { fingerprintPhoto, isImageContentType } from "../src/lib/photoFingerprint";
 import type { MenuItemData } from "../src/lib/types";
@@ -74,6 +75,23 @@ async function main() {
   const { persistSourceMenuItems } = await import("../src/lib/db");
   const snapshotId = await persistSourceMenuItems(PLACE_ID, "ubereats", verified);
   if (!snapshotId) throw new Error("Uber Eats evidence did not produce a source snapshot");
+  const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
+  const db = new pg.Client({
+    connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password),
+    ssl: { rejectUnauthorized: false },
+    application_name: "seefood-enrich-eggplants",
+  });
+  await db.connect();
+  try {
+    await db.query(
+      `update photos set photo_quality_score=greatest(coalesce(photo_quality_score,0),92),
+       dish_popularity_score=greatest(coalesce(dish_popularity_score,0),7),is_hero_candidate=true
+       where restaurant_id=$1 and source='ubereats' and active and menu_item_id is not null`,
+      [PLACE_ID]
+    );
+  } finally {
+    await db.end();
+  }
   console.log(JSON.stringify({ mode: "applied", snapshotId, menuItems: verified.length, matchedPhotos: verified.filter((item) => item.contentHash).length }, null, 2));
 }
 
