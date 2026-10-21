@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 
 /** Idempotent founder-QA repair using Rainbow Oaks' official Popmenu site. */
 import { existsSync, readFileSync } from "node:fs";
@@ -84,7 +85,7 @@ async function main() {
   loadEnv();
   const apply = process.argv.includes("--apply");
   const rollback = process.argv.includes("--rollback");
-  const db = new pg.Client({ connectionString: connectionString(), ssl: { rejectUnauthorized: false } });
+  const db = new pg.Client({ connectionString: connectionString(), ssl: verifiedSupabaseSsl() });
   await db.connect();
   try {
     if (rollback) {

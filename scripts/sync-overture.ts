@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Versioned, resumable Overture → SeeFood identity-backbone sync. */
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, existsSync, mkdtempSync, readFileSync } from "node:fs";
@@ -45,7 +46,7 @@ function databaseClient(): pg.Client {
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
   return new pg.Client({
     connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password),
-    ssl: { rejectUnauthorized: false },
+    ssl: verifiedSupabaseSsl(),
     application_name: "seefood-overture-sync",
   });
 }

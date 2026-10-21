@@ -1,4 +1,5 @@
 curl_cffi>=0.7
+certifi>=2026.10.19
 camoufox[geoip]>=0.4
 # scrapling's StealthyFetcher pulls in optional extras (patchright, msgspec, etc.)
 # that a plain `pip install scrapling` doesn't include — confirmed live twice

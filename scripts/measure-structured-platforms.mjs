@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Read-only, entity-level campaign baseline/outcome. Artifacts contain public
  * restaurant records and operational IDs, never credentials or customer data. */
 import fs from 'node:fs';
@@ -12,7 +13,7 @@ for (const line of fs.readFileSync('.env.local','utf8').split('\n')) {
 const stage=process.argv[2]??'baseline';
 if(!/^[a-z0-9-]+$/.test(stage))throw new Error('Use a simple stage name');
 const directory=path.resolve('logs/structured-platforms-20260920');
-const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace('[YOUR-PASSWORD]',encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??'')),ssl:{rejectUnauthorized:false},application_name:'structured-platform-measurement'});
+const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace('[YOUR-PASSWORD]',encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??'')),ssl: verifiedSupabaseSsl(),application_name:'structured-platform-measurement'});
 await db.connect();
 try {
   await db.query('begin isolation level repeatable read read only');

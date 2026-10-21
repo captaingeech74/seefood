@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /**
  * Website acquisition V2. This is intentionally isolated from the current
  * web_crawl_jobs/website_menu_observations lane and never publishes into the
@@ -273,7 +274,7 @@ async function main() {
     const python = ensurePythonEnv();
     if (!python.ready) throw new Error(`Advanced browser environment unavailable: ${python.reason}`);
   }
-  const pool = new pg.Pool({ connectionString: connectionString(), ssl: { rejectUnauthorized: false }, max: concurrency + 3 });
+  const pool = new pg.Pool({ connectionString: connectionString(), ssl: verifiedSupabaseSsl(), max: concurrency + 3 });
   const websites = (await pool.query(
     `with candidates as (
        select distinct on (w.entity_id)

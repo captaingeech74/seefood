@@ -1,11 +1,12 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Deterministic read-only measurement for the live product corpus and an optional V3 run. */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
 function loadEnv(){const path=join(__dirname,"..",".env.local");if(!existsSync(path))throw new Error(`Missing ${path}`);for(const line of readFileSync(path,"utf8").split("\n")){const match=line.match(/^([A-Z0-9_]+)=(.*)$/);if(match&&!process.env[match[1]])process.env[match[1]]=match[2];}}
 function argument(name:string){const index=process.argv.indexOf(`--${name}`);return index<0?undefined:process.argv[index+1];}
-async function main(){loadEnv();const runId=argument("run-id")??null,password=encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"");const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl:{rejectUnauthorized:false},application_name:"seefood-product-corpus-measurement"});await db.connect();await db.query("begin isolation level repeatable read read only");
+async function main(){loadEnv();const runId=argument("run-id")??null,password=encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"");const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl: verifiedSupabaseSsl(),application_name:"seefood-product-corpus-measurement"});await db.connect();await db.query("begin isolation level repeatable read read only");
   const coverage=(await db.query(`select
     count(distinct r.entity_id)::int entities,
     count(distinct r.entity_id) filter(where exists(select 1 from restaurant_websites w where w.entity_id=r.entity_id and w.active))::int with_website,

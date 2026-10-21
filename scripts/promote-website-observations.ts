@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Reconcile staged website observations; publication requires --publish. */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -24,7 +25,7 @@ async function main(){
   const selectedEntityIds=entityIdsArgument?entityIdsArgument.split(",").map(value=>value.trim()).filter(Boolean):null;
   const password=encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"");
   const connectionString=process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password);
-  const db=new pg.Client({connectionString,ssl:{rejectUnauthorized:false},application_name:"seefood-website-reconciliation"});
+  const db=new pg.Client({connectionString,ssl: verifiedSupabaseSsl(),application_name:"seefood-website-reconciliation"});
   await db.connect();
   const rows=(await db.query(
     `select o.entity_id,r.place_id,o.source_key,

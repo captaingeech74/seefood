@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Remove three known non-food images admitted by the first unmatched-photo pass. */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -20,7 +21,7 @@ async function main() {
   const rollback = process.argv.includes("--rollback");
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
   const connectionString = process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password);
-  const db = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false }, application_name: "seefood-carlsbad-photo-repair" });
+  const db = new pg.Client({ connectionString, ssl: verifiedSupabaseSsl(), application_name: "seefood-carlsbad-photo-repair" });
   await db.connect();
   const result = await db.query(
     `update photos set active=$1,is_orderable=$1,last_seen_at=now()

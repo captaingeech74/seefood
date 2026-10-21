@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Publish a reviewed local extraction manifest. No discovery, no paid calls.
  * Preview by default. Each group has a durable preimage and completion journal.
  * Partial reconciliation deliberately never removes omitted source evidence. */
@@ -21,7 +22,7 @@ async function main(){
   const publish=process.argv.includes("--publish");
   const directory=resolve(dirname(manifestPath),"publication");mkdirSync(directory,{recursive:true});
   for(const line of readFileSync(".env.local","utf8").split("\n")){const m=line.match(/^([A-Z0-9_]+)=(.*)$/);if(m&&!process.env[m[1]])process.env[m[1]]=m[2];}
-  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"")),ssl:{rejectUnauthorized:false}});await db.connect();
+  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"")),ssl: verifiedSupabaseSsl()});await db.connect();
   try{
     const {persistSourceMenuItems}=await import("../src/lib/db");
     for(const group of manifest.groups){

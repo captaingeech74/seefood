@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 
 /** Idempotently promote the existing Eggplants acquisition identity to the live product. */
 import { existsSync, readFileSync } from "node:fs";
@@ -30,7 +31,7 @@ async function main() {
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
   const db = new pg.Client({
     connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password),
-    ssl: { rejectUnauthorized: false },
+    ssl: verifiedSupabaseSsl(),
     application_name: "seefood-add-eggplants-temecula",
   });
   await db.connect();

@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Correct verified Spokane display-name artifacts and suppress non-restaurants. */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -43,7 +44,7 @@ async function main() {
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
   const db = new pg.Client({
     connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password),
-    ssl: { rejectUnauthorized: false },
+    ssl: verifiedSupabaseSsl(),
     application_name: "seefood-spokane-market-repair",
   });
   await db.connect();

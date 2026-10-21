@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join, resolve } from "path";
@@ -40,7 +41,7 @@ if (!connectionString) {
 }
 
 const sql = readFileSync(migrationPath, "utf-8");
-const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString, ssl: verifiedSupabaseSsl() });
 
 try {
   await client.connect();

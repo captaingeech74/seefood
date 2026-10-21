@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /**
  * Give photo-empty live restaurants a small, trustworthy first visual set.
  * Preview is the default. Publication requires --publish and is reversible by
@@ -268,7 +269,7 @@ async function main() {
   const rollbackRun = option("rollback-run");
   const candidateLimit = Math.min(20_000, Math.max(1, Number(option("candidate-limit") ?? "12000")));
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
-  const db = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: { rejectUnauthorized: false }, application_name: "seefood-zero-photo-completion" });
+  const db = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: verifiedSupabaseSsl(), application_name: "seefood-zero-photo-completion" });
   await db.connect();
   try {
     if (rollbackRun) return await rollback(db, rollbackRun);

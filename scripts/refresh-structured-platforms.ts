@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Small monthly refresh of reviewed routes, piggybacked on the nightly job.
  * No source discovery or paid services. Collection-only unless --publish. */
 import {existsSync,readFileSync,writeFileSync,mkdirSync} from "node:fs";
@@ -17,7 +18,7 @@ async function main(){
   const routes=registry.routes.filter((r:any)=>Date.now()-Date.parse(state[`${r.entityId}|${r.url}`]??'1970-01-01')>registry.refreshDays*86400000);
   if(!routes.length){console.log('Structured routes are current; no work.');return;}
   const dir=resolve(root,new Date().toISOString().replace(/[:.]/g,'-'));mkdirSync(dir);
-  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace('[YOUR-PASSWORD]',encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??'')),ssl:{rejectUnauthorized:false}});await db.connect();
+  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace('[YOUR-PASSWORD]',encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??'')),ssl: verifiedSupabaseSsl()});await db.connect();
   try{
     let attempted=0,current=0;
     for(const route of routes){

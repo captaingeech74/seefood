@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Bounded, resumable restaurant-website acquisition worker. */
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
@@ -34,7 +35,7 @@ function client() {
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
   return new pg.Client({
     connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password),
-    ssl: { rejectUnauthorized: false },
+    ssl: verifiedSupabaseSsl(),
   });
 }
 

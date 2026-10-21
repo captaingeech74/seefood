@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 
 /** Rebuild Gourmet Italia from its current official menu and named gallery. */
 import { existsSync, readFileSync } from "node:fs";
@@ -164,7 +165,7 @@ async function main() {
   if (!snapshotId) throw new Error("Official menu persistence did not produce a snapshot");
 
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
-  const db = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: { rejectUnauthorized: false } });
+  const db = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: verifiedSupabaseSsl() });
   await db.connect();
   try {
     await db.query("begin");

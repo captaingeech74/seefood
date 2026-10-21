@@ -25,14 +25,41 @@ This worker reports access blocks rather than attempting to solve them.
 import argparse
 import asyncio
 import json
+import socket
+import ssl
 import sys
+from urllib.parse import urlsplit
+
+
+def verify_https_host(url: str, timeout: int) -> None:
+    """Require a current CA and hostname check before a browser fetch.
+
+    Headless browser bundles on this machine do not yet reject the compromised
+    eMudhra chains. This guard checks each destination host independently.
+    """
+    import certifi
+
+    parsed = urlsplit(url)
+    if parsed.scheme == "http":
+        return
+    if parsed.scheme != "https" or not parsed.hostname:
+        raise ValueError("Unsupported browser request URL")
+    context = ssl.create_default_context(cafile=certifi.where())
+    with socket.create_connection((parsed.hostname, parsed.port or 443), timeout=min(timeout, 10)) as sock:
+        with context.wrap_socket(sock, server_hostname=parsed.hostname):
+            pass
 
 
 def fetch_plain(url: str, referer: str, timeout: int) -> dict:
+    import certifi
     from curl_cffi import requests
 
     headers = {"Referer": referer} if referer else {}
-    resp = requests.get(url, headers=headers, impersonate="chrome124", timeout=timeout)
+    # curl_cffi can choose an older Homebrew CA bundle even when certifi is up to date.
+    resp = requests.get(
+        url, headers=headers, impersonate="chrome124", timeout=timeout,
+        verify=certifi.where(),
+    )
     return {"ok": resp.status_code < 400, "status": resp.status_code, "html": resp.text}
 
 
@@ -46,6 +73,7 @@ def fetch_rendered(
     grubhub_search_location: str = "",
     engine: str = "patchright",
 ) -> dict:
+    verify_https_host(url, timeout)
     if engine == "crawl4ai":
         return fetch_crawl4ai(url, timeout)
     if engine == "scrapling":
@@ -114,6 +142,21 @@ def fetch_rendered(
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
             viewport={"width": 1440, "height": 1000},
         )
+        verified_hosts = set()
+
+        def guard_route(route):
+            request_url = route.request.url
+            parsed = urlsplit(request_url)
+            host_key = (parsed.scheme, parsed.hostname, parsed.port)
+            try:
+                if host_key not in verified_hosts:
+                    verify_https_host(request_url, timeout)
+                    verified_hosts.add(host_key)
+                route.continue_()
+            except Exception:
+                route.abort()
+
+        context.route("**/*", guard_route)
         page = context.new_page()
         page.set_default_timeout(timeout * 1000)
         page_setup(page)

@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /**
  * Reversible early-market publication. Preview is the default. Publication
  * creates or reactivates product restaurant rows for every evidenced market
@@ -320,7 +321,7 @@ async function main() {
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
   const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password),
-    ssl: { rejectUnauthorized: false },
+    ssl: verifiedSupabaseSsl(),
     max: 1,
     application_name: "seefood-market-publication",
   });

@@ -17,12 +17,15 @@
 set -uo pipefail
 
 # launchd runs with a minimal PATH (no ~/.zshrc, no shell profile sourced) —
-# node/npm live in ~/.local/bin on this Mac and simply aren't found
-# otherwise ("npm: No such file or directory"), even though the exact same
-# script works fine when run by hand from an interactive Terminal. Covers
-# the other common install locations too (Homebrew, nvm-less system npm)
-# so this keeps working if node's install method ever changes.
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+# launchd does not inherit an interactive shell's PATH. Use SeeFood's isolated,
+# patched Node first; npm/npx remain in ~/.local/bin. Never fall back to an
+# unpatched Node binary if the isolated runtime is missing.
+SEEFOOD_NODE_BIN="$HOME/.local/share/seefood/node-v22.23.4/bin"
+export PATH="$SEEFOOD_NODE_BIN:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+if [[ ! -x "$SEEFOOD_NODE_BIN/node" ]] || [[ "$("$SEEFOOD_NODE_BIN/node" --version)" != "v22.23.4" ]]; then
+  echo "SeeFood nightly crawl stopped: patched Node 22.23.4 is not installed." >&2
+  exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"

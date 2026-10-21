@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 // One-time (idempotent) provisioning: applies db/schema.sql to the Supabase Postgres
 // instance. Run with: node scripts/setup-db.mjs
 // Reads SUPABASE_DB_PASSWORD + SUPABASE_URL from .env.local (or process.env).
@@ -30,7 +31,7 @@ const connectionString = process.env.DATABASE_URL.replace("[YOUR-PASSWORD]", pas
 
 const schema = readFileSync(join(__dirname, "..", "db", "schema.sql"), "utf-8");
 
-const client = new pg.Client({ connectionString, ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString, ssl: verifiedSupabaseSsl() });
 
 async function main() {
   await client.connect();

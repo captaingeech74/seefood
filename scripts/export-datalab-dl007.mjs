@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
@@ -398,7 +399,7 @@ async function main() {
   await mkdir(staging, { recursive: true });
   const client = new Client({
     connectionString: databaseConnectionString(),
-    ssl: { rejectUnauthorized: false },
+    ssl: verifiedSupabaseSsl(),
     statement_timeout: 60_000,
     application_name: "seefood_dl007_forced_read_only_export",
   });

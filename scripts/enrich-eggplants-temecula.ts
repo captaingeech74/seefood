@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 
 /** Current, dish-linked Eggplants menu evidence from its exact Uber Eats venue page. */
 import { existsSync, readFileSync } from "node:fs";
@@ -78,7 +79,7 @@ async function main() {
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
   const db = new pg.Client({
     connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password),
-    ssl: { rejectUnauthorized: false },
+    ssl: verifiedSupabaseSsl(),
     application_name: "seefood-enrich-eggplants",
   });
   await db.connect();

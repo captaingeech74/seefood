@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -359,7 +360,7 @@ async function main() {
   const staging = path.join(tempParent, "bundle");
   const client = new pg.Client({
     connectionString: databaseUrl,
-    ssl: { rejectUnauthorized: false },
+    ssl: verifiedSupabaseSsl(),
   });
   let connected = false;
 

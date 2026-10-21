@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** All live cities, including future additions. Preview by default; --publish
  * enables additive publication. No city allowlist and no paid services. */
 import {existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, rmdirSync} from "node:fs";
@@ -16,7 +17,7 @@ async function main(){
   const root=resolve('logs/structured-platform-rollout');mkdirSync(root,{recursive:true});
   const lock=resolve(root,'runner.lock');
   try{mkdirSync(lock);}catch{throw new Error('Another rollout is active (or interrupted). Inspect runner.lock before retrying.');}
-  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace('[YOUR-PASSWORD]',encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??'')),ssl:{rejectUnauthorized:false},statement_timeout:60000});
+  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace('[YOUR-PASSWORD]',encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??'')),ssl: verifiedSupabaseSsl(),statement_timeout:60000});
   try{
     await db.connect();
     const file=resolve(root,'state.json');

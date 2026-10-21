@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 
 /** Idempotently publish Kona Craft Cafe from its official menu and social account. */
 import { existsSync, readFileSync } from "node:fs";
@@ -107,7 +108,7 @@ async function preparePhotos(upload:boolean):Promise<DishPhoto[]>{
 
 async function main(){
   loadEnv();const apply=process.argv.includes("--apply"),rollback=process.argv.includes("--rollback");
-  const db=new pg.Client({connectionString:connectionString(),ssl:{rejectUnauthorized:false}});await db.connect();
+  const db=new pg.Client({connectionString:connectionString(),ssl: verifiedSupabaseSsl()});await db.connect();
   try{
     if(rollback){await db.query("begin");await db.query("update restaurants set status='inactive',updated_at=now() where place_id=$1",[PLACE_ID]);await db.query("update restaurant_websites set active=false,updated_at=now() where entity_id=$1 and url=$2",[ENTITY_ID,WEBSITE]);await db.query("update restaurant_entities set status='identity_only',website=null,updated_at=now() where id=$1",[ENTITY_ID]);await db.query("update menu_items set active=false where restaurant_id=$1 and source_key=any($2::text[])",[PLACE_ID,["menu_ocr","official_social"]]);await db.query("update photos set active=false,is_orderable=false where restaurant_id=$1 and source='official_social'",[PLACE_ID]);await db.query("commit");console.log(JSON.stringify({mode:"rolled_back",placeId:PLACE_ID}));return;}
     const photos=await preparePhotos(apply);

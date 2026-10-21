@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Preview or reversibly quarantine website observations that escaped their restaurant/source boundary. */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,7 +12,7 @@ function argument(name:string){const index=process.argv.indexOf(`--${name}`);if(
 async function main(){
   loadEnv();const runId=argument("run-id");if(!runId)throw new Error("Usage: npx tsx scripts/quarantine-website-observations.ts --run-id UUID [--publish]");
   const publish=argument("publish")==="true",password=encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"");
-  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl:{rejectUnauthorized:false},application_name:"seefood-website-evidence-quarantine"});
+  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl: verifiedSupabaseSsl(),application_name:"seefood-website-evidence-quarantine"});
   await db.connect();const rows=(await db.query(`select o.id,o.entity_id,o.item_name,o.evidence_url,o.extraction_method,o.active,w.url root_url,e.name restaurant_name from website_menu_observations o join restaurant_websites w on w.id=o.website_id join restaurant_entities e on e.id=o.entity_id where o.last_v3_run_id=$1 and o.active`,[runId])).rows;
   const rejected=rows.filter(row=>row.extraction_method!=="paddleocr_vl"&&row.extraction_method!=="pdf_text"&&(!row.evidence_url||!isTrustedCrawlUrl(row.evidence_url,row.root_url,row.restaurant_name)));
   const groups=new Map<string,{restaurant:string;host:string;rows:number}>();for(const row of rejected){let host="invalid";try{host=new URL(row.evidence_url).hostname;}catch{}const key=`${row.entity_id}|${host}`,current=groups.get(key)??{restaurant:row.restaurant_name,host,rows:0};current.rows++;groups.set(key,current);}

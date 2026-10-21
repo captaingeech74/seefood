@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /**
  * Idempotent official-source import for the eight named dining venues inside
  * Hotel Riu Palace Baja California. The resort page is the identity source;
@@ -267,7 +268,7 @@ async function main() {
   const stage = process.argv.includes("--content") ? "content" : "identities";
   const { html, restaurants } = await fetchOfficial();
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
-  const db = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: { rejectUnauthorized: false }, application_name: "seefood-riu-official-import" });
+  const db = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: verifiedSupabaseSsl(), application_name: "seefood-riu-official-import" });
   await db.connect();
   try {
     console.log(JSON.stringify(stage === "identities" ? await identities(db, html, restaurants) : await content(db, restaurants), null, 2));

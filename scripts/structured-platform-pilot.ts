@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 
 /**
  * Read-only, bounded structured-platform extraction pilot.
@@ -104,7 +105,7 @@ async function main() {
   const concurrency = Math.min(8, Math.max(1, option("concurrency", 3)));
   const onlyProvider = stringOption("provider") as OrderingPlatform | undefined;
   const entityIds = new Set((stringOption("entity-ids") ?? "").split(",").filter(Boolean));
-  const db = new pg.Client({ connectionString: connectionString(), ssl: { rejectUnauthorized: false } });
+  const db = new pg.Client({ connectionString: connectionString(), ssl: verifiedSupabaseSsl() });
   await db.connect();
   const candidates = (await db.query<Candidate>(`
     select distinct on (w.entity_id)
@@ -143,7 +144,7 @@ async function main() {
         menu_item_count:entity.menu_rows,website_photo_count:entity.photo_rows,pilotProvider:entity.platforms[0]??w.found?.platforms?.[0]??"popmenu"}));
     }).sort((a:any,b:any)=>a.useful_photos-b.useful_photos||a.name.localeCompare(b.name));
     // Addresses from the authoritative entity prevent wrong-location routing.
-    const lookup=new pg.Client({connectionString:connectionString(),ssl:{rejectUnauthorized:false}});await lookup.connect();
+    const lookup=new pg.Client({connectionString:connectionString(),ssl: verifiedSupabaseSsl()});await lookup.connect();
     const addresses=(await lookup.query('select id,address from restaurant_entities where id=any($1::uuid[])',[[...new Set(cohort.map(c=>c.entity_id))]])).rows;
     await lookup.end();const addressMap=new Map(addresses.map(row=>[row.id,row.address]));
     cohort=cohort.map(c=>({...c,address:addressMap.get(c.entity_id)??c.address}));

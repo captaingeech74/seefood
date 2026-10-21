@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Reverses one acquisition batch without touching pre-existing content. */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,7 +12,7 @@ const batchId = process.argv.find((value, index) => process.argv[index - 1] === 
 if (!batchId) throw new Error("Usage: npm run acquisition:rollback -- --batch <uuid>");
 async function main() {
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
-  const db = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: { rejectUnauthorized: false } });
+  const db = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: verifiedSupabaseSsl() });
   await db.connect(); await db.query("begin");
   try {
     const batch = await db.query("select status from acquisition_import_batches where id=$1 for update", [batchId]);

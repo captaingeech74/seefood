@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Read-only deterministic audit of entities where durable website extraction missed. */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -16,7 +17,7 @@ async function main(){
   const render=argument("render","true")!=="false";
   if(render){const python=ensurePythonEnv();if(!python.ready)throw new Error(`Browser environment unavailable: ${python.reason}`);}
   const password=encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"");
-  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl:{rejectUnauthorized:false},application_name:"seefood-readonly-website-recovery-audit"});
+  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl: verifiedSupabaseSsl(),application_name:"seefood-readonly-website-recovery-audit"});
   await db.connect();await db.query("begin transaction read only");
   const rows=(await db.query(
     `with successful as (select distinct entity_id from website_menu_observations where active),

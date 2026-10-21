@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /**
  * Attach byte-verified official-site photos only to menu items that already
  * exist for the restaurant. This is deliberately a photo backfill: it does
@@ -26,7 +27,7 @@ async function main(){
   loadEnv();const runId=argument("run-id");if(!runId)throw new Error("Usage: npm run acquisition:promote-matched-photos -- --run-id UUID [--publish]");
   const publish=argument("publish")==="true";
   const password=encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"");
-  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl:{rejectUnauthorized:false},application_name:"seefood-matched-official-photo-promotion"});
+  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl: verifiedSupabaseSsl(),application_name:"seefood-matched-official-photo-promotion"});
   await db.connect();
   const observations=(await db.query(
     `select distinct on(r.place_id,a.metadata->>'matchedMenuName')

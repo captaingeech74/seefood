@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Founder-facing geography accounting: managed, legacy, duplicate, invalid. */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,7 +12,7 @@ for (const line of readFileSync(envPath, "utf8").split("\n")) {
 }
 async function main() {
   const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD ?? "");
-  const db = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: { rejectUnauthorized: false } });
+  const db = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: verifiedSupabaseSsl() });
   await db.connect();
   try {
     const totals = (await db.query(`select reporting_class,count(*)::int entities,

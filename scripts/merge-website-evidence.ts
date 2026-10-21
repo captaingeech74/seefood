@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Idempotently absorb the strongest completed V2 evidence into durable V3 staging. */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,7 +12,7 @@ async function main(){
   loadEnv();
   const market=argument("market");if(!market)throw new Error("Usage: npm run acquisition:merge-website-evidence -- --market temecula-ca [--v2-run UUID]");
   const password=encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"");
-  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl:{rejectUnauthorized:false},application_name:"seefood-website-evidence-merge"});
+  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl: verifiedSupabaseSsl(),application_name:"seefood-website-evidence-merge"});
   await db.connect();
   const requested=argument("v2-run")??argument("v2-run-id");
   const run=requested?{id:requested}:(await db.query(`select id from website_crawl_v2_runs where market_key=$1 and status='completed' order by completed_at desc nulls last,started_at desc limit 1`,[market])).rows[0];

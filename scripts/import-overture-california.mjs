@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 import { createReadStream, readFileSync } from "fs";
 import { createInterface } from "readline";
 import { randomUUID } from "crypto";
@@ -14,7 +15,7 @@ for (const line of readFileSync(join(root, ".env.local"), "utf8").split("\n")) {
 const input = process.argv.find((value) => value.startsWith("--input="))?.slice(8);
 if (!input) throw new Error("Pass --input=/path/to/overture.geojsonl");
 const password = encodeURIComponent(process.env.SUPABASE_DB_PASSWORD || "");
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: { rejectUnauthorized: false } });
+const client = new pg.Client({ connectionString: process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]", password), ssl: verifiedSupabaseSsl() });
 const FOOD = new Set(["restaurant","cafe","coffee_shop","bakery","bar","pub","food_truck","ice_cream_shop","dessert_shop","juice_shop","smoothie_shop","bubble_tea_shop","donut_shop","sandwich_shop","pizza_restaurant","fast_food_restaurant"]);
 const normalize = (value = "") => value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
 const gridKey = (lat, lng) => `${Math.round(lat * 100)}:${Math.round(lng * 100)}`;

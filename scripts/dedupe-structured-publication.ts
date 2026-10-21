@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Collapse only newly imported responsive variants; keep original rows and
  * all dish links/provenance. Preview default. Backup written before mutation. */
 import {readFileSync,readdirSync,writeFileSync,existsSync} from 'node:fs';
@@ -9,7 +10,7 @@ async function main(){
   for(const l of readFileSync('.env.local','utf8').split('\n')){const m=l.match(/^([A-Z0-9_]+)=(.*)$/);if(m&&!process.env[m[1]])process.env[m[1]]=m[2];}
   const snapshots=readdirSync(dir).filter(f=>f.endsWith('.done.json')).map(f=>JSON.parse(readFileSync(`${dir}/${f}`,'utf8')));
   const prior=new Set<number>();for(const f of readdirSync(dir).filter(f=>f.endsWith('.before.json')))for(const p of JSON.parse(readFileSync(`${dir}/${f}`,'utf8')).tables.photos)prior.add(Number(p.id));
-  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace('[YOUR-PASSWORD]',encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??'')),ssl:{rejectUnauthorized:false}});await db.connect();
+  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace('[YOUR-PASSWORD]',encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??'')),ssl: verifiedSupabaseSsl()});await db.connect();
   try{
     const rows=(await db.query('select * from photos where restaurant_id=any($1::text[]) and active and is_orderable and dedupe_reason is null order by id',[[...new Set(snapshots.map(s=>s.placeId))]])).rows;
     const groups=new Map<string,any[]>();for(const row of rows){const key=providerPhotoAssetKey(row.origin_url??'');if(!key)continue;const k=row.restaurant_id+'|'+key;const list=groups.get(k)??[];list.push(row);groups.set(k,list);}

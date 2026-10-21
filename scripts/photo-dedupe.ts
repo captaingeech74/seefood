@@ -1,4 +1,5 @@
 #!/usr/bin/env npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
@@ -863,7 +864,7 @@ async function main(): Promise<void> {
   const args = parseArgs();
   const client = new pg.Client({
     connectionString: connectionString(),
-    ssl: { rejectUnauthorized: false },
+    ssl: verifiedSupabaseSsl(),
   });
   await client.connect();
   try {

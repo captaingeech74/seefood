@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rename, stat, writeFile } from "node:fs/promises";
@@ -219,7 +220,7 @@ async function main() {
   await mkdir(path.join(staging, "queries"), { recursive: true });
   await mkdir(path.join(staging, "evidence"), { recursive: true });
   const client = new Client({ connectionString: connectionString(),
-    ssl: { rejectUnauthorized: false }, statement_timeout: 120_000,
+    ssl: verifiedSupabaseSsl(), statement_timeout: 120_000,
     application_name: "seefood_dl007_stage3_read_only" });
   let open = false, before, after, targetRows, attemptRows, receiptRows, schemaRows;
   try {

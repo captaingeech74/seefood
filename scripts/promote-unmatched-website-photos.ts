@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /**
  * Promote a tiny, conservative subset of official-site named food photos that
  * do not confidently match a current menu item. Preview is the default.
@@ -28,7 +29,7 @@ async function main(){
   loadEnv();const runId=argument("run-id");if(!runId)throw new Error("Usage: npm run acquisition:promote-unmatched-photos -- --run-id UUID [--publish]");
   const publish=argument("publish")==="true",maxPerRestaurant=Math.min(3,Math.max(1,Number(argument("max-per-restaurant","2"))));
   const password=encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"");
-  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl:{rejectUnauthorized:false},application_name:"seefood-unmatched-official-photo-promotion"});
+  const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",password),ssl: verifiedSupabaseSsl(),application_name:"seefood-unmatched-official-photo-promotion"});
   await db.connect();
   const rows=(await db.query(
     `select distinct on(r.place_id,ar.content_sha256) a.entity_id,r.place_id,e.name restaurant_name,w.domain,a.asset_url,a.page_url,

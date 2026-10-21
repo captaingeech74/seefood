@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 
 /**
  * Builds DL-002 Stage 2 without opening the clear national holdout.
@@ -736,7 +737,7 @@ async function main() {
   const parsedDatabase = new URL(databaseUrl());
   const client = new pg.Client({
     connectionString: parsedDatabase.toString(),
-    ssl: { rejectUnauthorized: false },
+    ssl: verifiedSupabaseSsl(),
     statement_timeout: 120_000,
     application_name: "seefood_dl002_stage2_read_only_export",
   });

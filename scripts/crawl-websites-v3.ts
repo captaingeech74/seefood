@@ -1,4 +1,5 @@
 #!/usr/bin/env -S npx tsx
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 /** Unified, durable and evidence-preserving website acquisition V3 worker. */
 import { BasicCrawler, log, RequestQueue } from "crawlee";
 import { createHash } from "node:crypto";
@@ -345,7 +346,7 @@ async function main(){
   const concurrency=Math.min(16,Math.max(1,Number(options.concurrency??8)));
   const renderEnabled=options["no-render"]!=="true";
   if(renderEnabled){const python=ensurePythonEnv();if(!python.ready)throw new Error(`Advanced browser environment unavailable: ${python.reason}`);}
-  const pool=new pg.Pool({connectionString:connectionString(),ssl:{rejectUnauthorized:false},max:concurrency+4});
+  const pool=new pg.Pool({connectionString:connectionString(),ssl: verifiedSupabaseSsl(),max:concurrency+4});
   if(options["assets-run-id"]){
     const processed=await processAssets(pool,options["assets-run-id"],concurrency);
     const namedPhotoMetrics=await reconcileNamedWebsitePhotos(pool,options["assets-run-id"]);
