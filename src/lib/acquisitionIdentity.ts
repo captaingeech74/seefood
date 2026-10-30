@@ -38,7 +38,7 @@ export type IdentityResolution =
   | { disposition: "quarantine"; evidence: IdentityEvidence; alternatives: IdentityEvidence[] };
 
 const GENERIC_NAME_TOKENS = new Set([
-  "and", "bar", "cafe", "company", "grill", "kitchen", "restaurant", "the",
+  "and", "bar", "cafe", "coffee", "company", "grill", "kitchen", "restaurant", "the",
 ]);
 
 const STREET_REPLACEMENTS: Record<string, string> = {

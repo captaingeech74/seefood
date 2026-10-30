@@ -19,6 +19,12 @@ MSAs, and finally all 387 MSAs.
 
 ## Current State
 
+- October 29: Maple Grove, Minnesota is a managed live city. Current Overture
+  taxonomy, multi-word DoorDash city matching, and source-specific freshness
+  fixes apply to future cities too. See `docs/MAPLE_GROVE_ROLLOUT.md` for measured
+  coverage, quality limits and rollback evidence; do not confuse staged captures
+  with live photos.
+
 - September 28: the conservative zero-photo completion lane reviewed 3,952
   staged official-website image candidates, withheld 3,861, and published 91
   visually confirmed food photos across 89 previously empty live restaurants.

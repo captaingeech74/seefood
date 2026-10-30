@@ -91,8 +91,8 @@ async function candidates(client: pg.PoolClient, market: string, source?: string
             'bar','wine_bar','cocktail_bar','sports_bar','salad_bar','food_truck',
             'coffee_shop','cafe','cafeteria','bakery','ice_cream_shop','brewery',
             'winery','pub','irish_pub','gastropub','sandwich_shop','delicatessen',
-            'bagel_shop','donuts','desserts','gelato','frozen_yoghurt_shop',
-            'shaved_ice_shop','bubble_tea','smoothie_juice_bar','juice_shop',
+            'bagel_shop','donuts','donut_shop','desserts','dessert_shop','gelato','frozen_yoghurt_shop',
+            'shaved_ice_shop','bubble_tea','bubble_tea_shop','smoothie_shop','smoothie_juice_bar','juice_shop',
             'pancake_house','pasta_shop','pretzels','tea_room','food'
           )
         )

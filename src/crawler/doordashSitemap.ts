@@ -156,8 +156,12 @@ export function findDoorDashStoreUrlInSitemap(
 ): string | null {
   const { all: nameWords, distinctive } = restaurantNameWords(restaurantName, city);
   if (nameWords.length === 0) return null;
-  const cityLower = city?.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const candidates = cityLower ? urls.filter((u) => u.toLowerCase().includes(cityLower)) : urls;
+  const cityParts = city?.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(Boolean) ?? [];
+  // Public store slugs separate multi-word cities with hyphens. Removing the
+  // space only from the query silently excluded every Maple Grove/San Diego
+  // listing. Match contiguous city words while retaining token boundaries.
+  const cityPattern = cityParts.length ? new RegExp(`(?:^|[^a-z0-9])${cityParts.join("[^a-z0-9]*")}(?:[^a-z0-9]|$)`) : null;
+  const candidates = cityPattern ? urls.filter((u) => cityPattern.test(u.toLowerCase())) : urls;
   if (candidates.length === 0) return null;
 
   const aliasKey = normalizeWords(restaurantName.replace(/\s*\([^)]*\)\s*$/g, ""))

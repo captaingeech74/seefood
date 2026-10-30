@@ -1,0 +1,46 @@
+{
+  "invalidWebsites": [{"name":"China Dragon Restaurant","host":"thechinapalace.biz","reason":"Wrong restaurant: website explicitly names China Palace at 101 South Main Street, Rochester, New Hampshire. Maple Grove's former China Dragon is not independently current; hold identity and all imported website evidence."}],
+  "reviewedMenus": [
+    {"name":"Riviera Maya Cantina & Restaurant","source":"spothopper","urls":["https://www.rivieramayamn.com/maple-grove-riviera-maya-cantina-and-restaurant-food-menu"],"reason":"Explicit current Maple Grove food menu on the restaurant's own SpotHopper site, matching 7904 Main Street."},
+    {"name":"Fazenda Brazilian Steakhouse","source":"spothopper","urls":["https://fazendabraziliansteakhouse.com/maple-grove-fazenda-brazilian-steakhouse-food-menu"],"withholdPhotoNames":["Bife com Bacon Bacon-Wrapped Steak","Costela de Proco Pork Ribs*","Costeletas De Cordeiro Lamb Chops*"],"reason":"Explicit Maple Grove food menu on current Fazenda website. Legacy Grill Hall identity renamed; visually uncertain or reused chicken/steak/rib/lamb labels withheld."},
+    {"name":"Buca di Beppo","source":"schema_org","urls":["https://dineatbuca.com/locations/maple-grove/menu/"],"withholdPhotoNames":["Spaghetti Marinara for One"],"reason":"Restaurant's explicit Maple Grove location menu; location-specific URL is retained instead of generic chain/catering pages. Food contact sheet reviewed; uncertain marinara image withheld."},
+    {"name":"Bonchon","source":"schema_org","urls":["https://restaurants.bonchon.com/locations/mn/maple-grove/11708-elm-creek-blvd-n"],"withholdPhotoNames":["Edamame","Potstickers"],"reason":"Exact branch name and 11708 Elm Creek Boulevard address in the official location URL and menu metadata. Food contact sheet reviewed; two ad-overlaid images withheld."},
+    {"name":"Frankie's Chicago Style Pizza","source":"schema_org","urls":["https://frankiespizza.com/"],"reason":"Official restaurant website for 13724 83rd Way North, Maple Grove; individually named menu cards."},
+    {"name":"The Original Pancake House","source":"schema_org","urls":["https://ophmg.com/our-menu/","https://ophmg.com/"],"exclude":["MOBILE APP","The Original Pancake House"],"reason":"Maple Grove's own restaurant site and menu, not a generic national menu or customer-review text. App advertisement and location map excluded."},
+    {"name":"Grackle","source":"schema_org","urls":["https://gracklegrove.com/","https://www.gracklegrove.com/","https://gracklegrove.com/menu/","https://www.gracklegrove.com/menu/"],"reason":"Current single-location Grackle site at 11852 Elm Creek Boulevard, the replacement for the obsolete Wahlburgers record."},
+    {"name":"El Rodeo","source":"spothopper","urls":["https://elrodeorestaurantmn.com/"],"reason":"Official page declares El Rodeo, 13572 80th Circle North, Maple Grove, and nine individually named, pictured dishes in its ordering carousel."},
+    {"name":"Pints and Paddle","source":"schema_org","urls":["https://pintsandpaddle.com/kitchen/","https://pintsandpaddle.com/kitchen/breakfast/","https://pintsandpaddle.com/kitchen/happy-hour/","https://pintsandpaddle.com/kitchen/lunch/"],"reason":"Single Maple Grove venue's own kitchen menus; no unrelated chain locations."},
+    {"name":"Dancing Ganesha","source":"popmenu","urls":["https://www.dancingganeshampls.com/maple-grove-menu"],"reason":"Explicit Maple Grove menu URL and 11628 Fountains Drive address; independently confirmed current municipal restaurant license."}
+  ],
+  "labelCorrections": [
+    {"oldName":"Grill Hall Brazilian Steakhouse","name":"Fazenda Brazilian Steakhouse","address":"9691 63rd Avenue N, Maple Grove, MN 55369","evidence":"https://fazendabraziliansteakhouse.com/"},
+    {"oldName":"Einstein Bros. Bagels","name":"Bruegger's Bagels","evidence":"https://locations.brueggers.com/us/mn/maple-grove/13384-bass-lake-rd"}
+  ],
+  "supplements": [
+    {"overtureId":"a26147c6-663a-466d-b878-bdeaeff6393a","evidence":"https://www.kingdomcoffeemn.com/","reason":"New operator at former Dunn Bros; distinct coffee brands must not merge on the word coffee."},
+    {"overtureId":"3b1bee7e-0229-43ff-81b7-52c5e1131a61","evidence":"https://www.nadiacakes.com/contact-us","reason":"Verified public bakery omitted by specific cupcake taxonomy."},
+    {"overtureId":"0f4295d2-adfa-47fc-a925-27e8929fb359","evidence":"https://www.daveandbusters.com/us/en/about/locations/maple-grove","reason":"Verified full restaurant inside entertainment venue; municipal restaurant license."},
+    {"overtureId":"65d09684-91cb-4e0d-911a-7bbfb9f5d4a1","evidence":"https://www.whirlyballtwincities.com/","reason":"Official site and municipal license explicitly establish dining as well as games."},
+    {"overtureId":"a733a147-ea9f-4f09-9fd3-282c3ce6506f","evidence":"https://locations.chuckecheese.com/us/mn/maplegrove/12945-elm-creek-blvd.","reason":"Verified pizza restaurant inside entertainment venue."},
+    {"overtureId":"a170339a-d21c-4978-ae90-8dbe6ff6edc7","evidence":"https://experiencemaplegrove.com/dine-location/firehouse-subs/","reason":"Named sandwich restaurant; Overture beverage-supplier category is erroneous."},
+    {"name":"Dancing Ganesha","coordinateFrom":"Hong Thai","address":"11628 Fountains Drive N, Maple Grove, MN 55369","website":"https://www.dancingganeshampls.com/maple-grove-menu","evidence":"https://www.dancingganeshampls.com/maple-grove-menu","reason":"Official location-specific menu and current municipal license; replaces old Hong Thai candidate."}
+  ],
+  "hold": [
+    {"names":["Maple Grove Police Station","Maple Grove, Minnesota","SUBWAY","P.F. Chang's China Bistro","Punch Pizza","Max's On Main","Leeann Chin"],"reason":"Clearly non-restaurant, generic/mislocated duplicate, or conflicting legacy location. Leeann Chin at 9428 Dunkirk is separately retained by the scoped exception."},
+    {"names":["Arrow ETabs Minnesota","Border Foods","Rosati Hospitality Llc","Wgs Investments Inc","Ysh, Llc","Schwans Home Food Svc","The Paint Pub"],"reason":"Equipment supplier, corporate/food-distribution office, or activity business; not an evidenced dining venue."},
+    {"names":["Cizadlos Deck & Grill Dining","Johnson Party Deck","Larry's Lounge - Bar & Pizza","Skywalker's Basement Bar","Wet Bar","Chris' Bistro","Christel's Bavarian Küche - Kitchen","JR’S Sweet Co.","Risa's Pastry and Decor","Cakes by Valeria"],"reason":"Private/home or ambiguous food business without verified public dining identity; retain for review, do not invent a restaurant."},
+    {"names":["Eco Parque Del Tanama","Domaine Serene Vineyard & Wnry","REVEAL Rooftop Bar and Lounge","Nella's Barbecue","Pizza Takeout & Delivery"],"reason":"Conflicting city/address or unrelated website; source coordinates do not establish a Maple Grove dining venue."},
+    {"names":["Old Country Buffet","Golden Corral","Red Lobster","Wahlburgers","Tandoor Indian Restaurant","Rock Elm Tavern","Hong Thai"],"reason":"Superseded/closed location. Current sources establish Northern Taphouse, Grackle, APA Sushi, Dancing Ganesha, or announced Hope Breakfast Bar at the respective sites. Golden Corral closure independently reported February 2026."},
+    {"names":["Bear Rock Cafe","Broadway Pizza","Chin Yung","Claddagh Irish Pub","Dickey's Barbecue Pit","Erbert & Gerbert's","Houlihan's","Krispy Kreme","Mt Fuji","Orient Buffet & Grill","Pieology Pizzeria Maple Grove, MN","Pizza Karma | Food Truck Catering - Maple Grove","Salad Creations","Thai Express","Which Wich Superior Sandwiches","Wonders Ice Cream"],"reason":"Potential former tenant/location conflict with a newer named restaurant; hold the conflicting legacy candidate rather than publish both as current."},
+    {"names":["Foodgod Truffle Fries","Larray's Loaded Mac","P.ZA Kitchen","Mr. Beast Burger"],"reason":"Virtual/uncertain brand without a verified public on-site identity; no need to pursue ghost-kitchen coverage. A delivery-only brand sharing Buca's kitchen must not create a false on-site GPS choice."}
+  ],
+  "duplicates": [
+    {"names":["3 Squares","3 Squares Restaurant"],"preferred":"3 Squares Restaurant"},
+    {"names":["Arby's"],"street":"7885"},
+    {"names":["Bonchon","Bonchon Maple Grove - Elm Creek Blvd"],"preferred":"Bonchon"},
+    {"names":["Cold Stone Creamery"],"street":"7765"},
+    {"names":["CRAVE American Kitchen and Sushi Bar","CRAVE Food & Drink"],"preferred":"CRAVE American Kitchen and Sushi Bar"},
+    {"names":["Sawatdee and Zushiya","Sawatdee and Zushiya of Maple Grove"],"preferred":"Sawatdee and Zushiya of Maple Grove"},
+    {"names":["Shake Shack"],"street":"12351"}
+  ]
+}

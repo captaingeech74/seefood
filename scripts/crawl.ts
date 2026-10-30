@@ -30,6 +30,8 @@
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { createHash } from "crypto";
+import pg from "pg";
+import { verifiedSupabaseSsl } from "./lib/verifiedSupabaseSsl.mjs";
 
 // Load .env.local into process.env BEFORE importing anything that reads env
 // vars at module-load time (google.ts, db.ts, storage.ts all do). Next.js does
@@ -73,6 +75,7 @@ function responseHash(value: string): string {
 
 const RATE_LIMIT_MS = 60_000; // ~1 restaurant/min, polite default
 const MARKET_PROFILES: Record<string, { city: string; stateCode: string; bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } }> = {
+  "maple-grove-mn": { city: "Maple Grove", stateCode: "mn", bounds: { minLat: 45.064700, maxLat: 45.152912, minLng: -93.528454, maxLng: -93.400694 } },
   "temecula-ca": { city: "Temecula", stateCode: "ca", bounds: { minLat: 33.43, maxLat: 33.59, minLng: -117.22, maxLng: -117.06 } },
   "carlsbad-ca": { city: "Carlsbad", stateCode: "ca", bounds: { minLat: 33.061, maxLat: 33.215, minLng: -117.408, maxLng: -117.205 } },
   "spokane-wa": { city: "Spokane", stateCode: "wa", bounds: { minLat: 47.586, maxLat: 47.759, minLng: -117.605, maxLng: -117.303 } },
@@ -142,13 +145,27 @@ async function loadTargets(args: ReturnType<typeof parseArgs>): Promise<CrawlTar
     // touched by either track.
     const { getSaturationBatch } = await import("../src/lib/db");
     const limit = args.limit ? parseInt(String(args.limit), 10) : 60;
-    const backlog = await getSaturationBatch(limit, profile.bounds).catch((e) => {
+    const sourceOnly = args.source === "doordash" || args.source === "grubhub";
+    // A newly activated restaurant is fresh as an identity, not as a menu.
+    // Source-specific passes must use that source's attempt history rather
+    // than the generic restaurant.updated_at freshness clock.
+    const sourceBacklog = async () => {
+      const db=new pg.Client({connectionString:process.env.DATABASE_URL?.replace("[YOUR-PASSWORD]",encodeURIComponent(process.env.SUPABASE_DB_PASSWORD??"")),ssl:verifiedSupabaseSsl()});
+      await db.connect();
+      try{return (await db.query(`select r.place_id "placeId",r.name,r.lat,r.lng,r.address
+        from restaurants r where r.status='active' and exists(select 1 from acquisition_market_entities m where m.entity_id=r.entity_id and m.market_key=$1 and m.active)
+        and ($4::boolean or not exists(select 1 from source_runs s where s.restaurant_id=r.place_id and s.source=$2 and s.ts>now()-interval '7 days'))
+        order by exists(select 1 from photos p where p.restaurant_id=r.place_id and p.active and p.is_orderable and p.dedupe_reason is null),
+        (r.name ~* '(bistro|steak|seafood|sushi|italian|mexican|restaurant|grill|tavern|dining)') desc,r.name limit $3`,[marketKey,String(args.source),limit,Boolean(args["refresh-stale"])] )).rows;}
+      finally{await db.end();}
+    };
+    const backlog = await (sourceOnly?sourceBacklog():getSaturationBatch(limit, profile.bounds)).catch((e) => {
       console.error("Failed to load corpus backlog, falling back to seed-only:", e);
       return [];
     });
 
     const seedIds = new Set(seed.map((s) => s.placeId));
-    const merged: CrawlTarget[] = marketKey === "temecula-ca" ? seed.map((item) => ({ ...item, city: profile.city, stateCode: profile.stateCode })) : [];
+    const merged: CrawlTarget[] = marketKey === "temecula-ca" && !sourceOnly ? seed.map((item) => ({ ...item, city: profile.city, stateCode: profile.stateCode })) : [];
     for (const b of backlog) {
       if (seedIds.has(b.placeId)) continue;
       merged.push({ name: b.name, placeId: b.placeId, lat: b.lat, lng: b.lng, address: b.address, city: profile.city, stateCode: profile.stateCode });

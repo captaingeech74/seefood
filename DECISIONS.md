@@ -2494,3 +2494,16 @@ report are in `docs/CABO_ROLLOUT.md`.
 - Eggplants Thai Cuisine demonstrated the lane: its stranded Overture identity
   was promoted without duplication, with 64 current menu items and 18 unique,
   explicitly dish-linked photos from its exact venue page.
+
+### October 29, 2026 — Maple Grove and current national data
+
+- Maple Grove uses the official Census polygon and the existing identity/menu/
+  photo graph. See `docs/MAPLE_GROVE_ROLLOUT.md` for live coverage and gaps.
+- Current Overture taxonomy must survive normalization; absent legacy
+  `categories` is not evidence that a place lacks food-service classification.
+- Identity activation and provider freshness are different clocks. Never skip
+  a never-collected menu because its restaurant was created today. Multi-word
+  cities must match provider URL slugs without weakening branch verification.
+- Structured evidence still needs a sensible dish/photo connection. Official
+  sites contain ads, duplicate assets and wrong labels too; withhold dubious
+  claims while retaining independently justified, useful restaurant food.

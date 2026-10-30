@@ -9,7 +9,7 @@ import { createInterface } from "node:readline";
 import { spawnSync } from "node:child_process";
 import pg from "pg";
 import { resolveIdentity, type IdentityCandidate } from "../src/lib/acquisitionIdentity";
-import { formatOvertureAddress, isOvertureFoodServicePlace, normalizeOverturePlaceName } from "../src/lib/overturePolicy";
+import { formatOvertureAddress, isOvertureFoodServicePlace, normalizeOverturePlaceName, overtureFoodServiceCategories } from "../src/lib/overturePolicy";
 
 type Args = Record<string, string | boolean>;
 type Bounds = { west: number; south: number; east: number; north: number };
@@ -117,7 +117,7 @@ function parseFeature(line: string, bounds: Bounds, countryCode: string, polygon
     providerId, version: properties.version == null ? null : String(properties.version), name, lat, lng,
     address, websites, phone: properties.phones?.[0] ?? null, socials: properties.socials ?? [],
     operatingStatus: properties.operating_status ?? null, confidence: Number(properties.confidence ?? 0.5),
-    categories: [properties.categories?.primary, ...(properties.categories?.alternate ?? [])].filter(Boolean),
+    categories: overtureFoodServiceCategories(properties),
     sources,
   };
   return {

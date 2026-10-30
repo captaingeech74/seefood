@@ -42,8 +42,22 @@ const FOOD_SERVICE_CATEGORIES = new Set([
 
 type OvertureClassification = {
   categories?: { primary?: string | null; alternate?: string[] | null } | null;
-  taxonomy?: { hierarchy?: string[] | null } | null;
+  taxonomy?: { primary?: string | null; hierarchy?: string[] | null; alternates?: string[] | null } | null;
+  basic_category?: string | null;
 };
+
+/** Preserve the current taxonomy through the existing source-neutral category
+ * column. Legacy primary classifications still outrank noisy alternates. */
+export function overtureFoodServiceCategories(properties: OvertureClassification): string[] {
+  const primary = properties.categories?.primary ?? properties.taxonomy?.primary ?? properties.basic_category;
+  const hierarchy = properties.taxonomy?.hierarchy ?? [];
+  const specific = primary && (primary.endsWith("_restaurant") || FOOD_SERVICE_CATEGORIES.has(primary));
+  const foodAncestor = !properties.categories?.primary && !specific && hierarchy.at(-1)===primary
+    ? [...hierarchy].reverse().find(c=>c.endsWith("_restaurant")||FOOD_SERVICE_CATEGORIES.has(c)) : null;
+  const normalizedPrimary = foodAncestor ?? primary;
+  return [...new Set([normalizedPrimary, primary,
+    ...(properties.categories?.alternate ?? properties.taxonomy?.alternates ?? [])].filter((v):v is string=>Boolean(v)))];
+}
 
 /**
  * Overture's restaurant taxonomy does not put every genuine meal-serving
@@ -52,7 +66,7 @@ type OvertureClassification = {
  * keeping generic retail and nightlife records out of the restaurant corpus.
  */
 export function isOvertureFoodServicePlace(properties: OvertureClassification): boolean {
-  const primary = properties.categories?.primary;
+  const primary = overtureFoodServiceCategories(properties)[0];
   const isFoodService = (category: string) =>
     category.endsWith("_restaurant") || FOOD_SERVICE_CATEGORIES.has(category);
 

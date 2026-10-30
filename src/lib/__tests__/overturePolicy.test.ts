@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { formatOvertureAddress, isOvertureFoodServicePlace, normalizeOverturePlaceName } from "../overturePolicy";
+import { formatOvertureAddress, isOvertureFoodServicePlace, normalizeOverturePlaceName, overtureFoodServiceCategories } from "../overturePolicy";
 
 describe("Overture food-service classification", () => {
+  it("retains September/October taxonomy-only classifications", () => {
+    const p={taxonomy:{primary:"american_restaurant",hierarchy:["food_and_drink","restaurant","american_restaurant"]}};
+    expect(overtureFoodServiceCategories(p)).toEqual(["american_restaurant"]);
+    expect(isOvertureFoodServicePlace(p)).toBe(true);
+    expect(isOvertureFoodServicePlace({taxonomy:{primary:"coffee_shop",hierarchy:["food_and_drink","cafe","coffee_shop"]}})).toBe(true);
+  });
+  it("normalizes new specialized restaurant categories without admitting unrelated alternates", () => {
+    expect(overtureFoodServiceCategories({taxonomy:{primary:"casual_eatery",hierarchy:["food_and_drink","restaurant","casual_eatery"]}})).toEqual(["restaurant","casual_eatery"]);
+    expect(isOvertureFoodServicePlace({taxonomy:{primary:"dentist",alternates:["cafe"]}})).toBe(false);
+    expect(isOvertureFoodServicePlace({basic_category:"bakery"})).toBe(true);
+    expect(overtureFoodServiceCategories({taxonomy:{primary:"cupcake_shop",hierarchy:["food_and_drink","casual_eatery","dessert_shop","cupcake_shop"]}})).toEqual(["dessert_shop","cupcake_shop"]);
+    expect(isOvertureFoodServicePlace({taxonomy:{primary:"dentist",hierarchy:["services","dentist","cafe"]}})).toBe(false);
+  });
   it("accepts the ordinary restaurant hierarchy", () => {
     expect(isOvertureFoodServicePlace({
       taxonomy: { hierarchy: ["food_and_drink", "restaurant", "american_restaurant"] },

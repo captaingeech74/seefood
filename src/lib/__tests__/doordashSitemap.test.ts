@@ -26,6 +26,12 @@ const SAMPLE_URLS = [
 ];
 
 describe("findDoorDashStoreUrlInSitemap", () => {
+  it("matches hyphenated multi-word cities without admitting a neighboring city", () => {
+    const correct="https://www.doordash.com/store/freddys-frozen-custard-steakburgers-maple-grove-961266/";
+    expect(findDoorDashStoreUrlInSitemap([correct,"https://www.doordash.com/store/freddys-frozen-custard-steakburgers-maplewood-111/"],"Freddy's Frozen Custard & Steakburgers","Maple Grove")).toBe(correct);
+    expect(findDoorDashStoreUrlInSitemap(["https://www.doordash.com/store/freddys-maple-groveland-111/"],"Freddys","Maple Grove")).toBeNull();
+    expect(findDoorDashStoreUrlInSitemap(["https://www.doordash.com/store/panera-bread-san-diego-111/"],"Panera Bread","San Diego")).toContain("san-diego");
+  });
   it("matches an exact-name restaurant in the given city", () => {
     expect(findDoorDashStoreUrlInSitemap(SAMPLE_URLS, "Panera Bread", "Temecula")).toBe(
       "https://www.doordash.com/store/panera-bread-temecula-873933/"

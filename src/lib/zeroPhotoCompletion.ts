@@ -26,6 +26,7 @@ const NAME_STOPWORDS = new Set([
   "and", "bar", "cafe", "coffee", "company", "eatery", "food", "grill",
   "house", "kitchen", "restaurant", "the", "tavern", "temecula", "carlsbad",
   "spokane", "diego", "cabo", "san", "los",
+  "china", "chinese", "indian", "italian", "mexican", "japanese", "thai", "sushi", "pizza",
 ]);
 
 export function normalizeEvidenceText(value: string): string {

@@ -136,7 +136,7 @@ export function ensurePythonEnv(): { ready: boolean; reason?: string } {
   // binary really is missing.
   console.log("[crawler] Downloading browser binaries for Camoufox/patchright...");
   spawnSync(VENV_PYTHON, ["-m", "camoufox", "fetch"], { stdio: "inherit" });
-  spawnSync(VENV_PYTHON, ["-m", "patchright", "install", "chromium"], { stdio: "inherit" });
+  spawnSync(VENV_PYTHON, ["-m", "patchright", "install", "chromium", "--no-shell"], { stdio: "inherit" });
 
   writeFileSync(INSTALL_MARKER, `${new Date().toISOString()} ${requirementsHash()}`);
   console.log("[crawler] Python environment ready.\n");

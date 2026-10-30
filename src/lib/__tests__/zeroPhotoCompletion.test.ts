@@ -11,6 +11,11 @@ describe("zero-photo completion safety policy", () => {
     expect(hasRestaurantIdentityInUrl("Baha Express", "https://www.bajafresh.com/menu/tacos")).toBe(false);
     expect(hasRestaurantIdentityInUrl("The Restaurant", "https://example.com/menu")).toBe(false);
   });
+  it("does not mistake a shared cuisine/country word for restaurant identity", () => {
+    expect(hasRestaurantIdentityInUrl("China Dragon Restaurant", "https://www.thechinapalace.biz/")).toBe(false);
+    expect(hasRestaurantIdentityInUrl("China Dragon Restaurant", "https://chinadragonmaplegrove.com/")).toBe(true);
+    expect(hasRestaurantIdentityInUrl("Ten Sushi", "https://tensushimn.com/")).toBe(true);
+  });
 
   it("accepts clear food and withholds ambiguous table settings", () => {
     expect(decideLocalFoodVision([{ name: "food", confidence: 0.81 }, { name: "pizza", confidence: 0.78 }])).toBe("food");

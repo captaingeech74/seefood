@@ -101,12 +101,13 @@ async function metrics(db: pg.Client) {
   `)).rows[0];
 }
 
-async function loadCandidates(db: pg.Client, limit: number): Promise<Candidate[]> {
+async function loadCandidates(db: pg.Client, limit: number, market?: string): Promise<Candidate[]> {
   const rows = (await db.query(`
     with empty_restaurants as (
       select distinct on (e.id) e.id entity_id,e.name,r.place_id
       from restaurant_entities e join restaurants r on r.entity_id=e.id
       where e.status='active' and r.status='active'
+        and ($2::text is null or exists(select 1 from acquisition_market_entities m where m.entity_id=e.id and m.market_key=$2 and m.active))
         and not exists (
           select 1 from photos p where p.restaurant_id=r.place_id and p.active
             and p.is_orderable and not p.is_storefront and p.dedupe_reason is null
@@ -141,7 +142,7 @@ async function loadCandidates(db: pg.Client, limit: number): Promise<Candidate[]
     )
     select * from candidates where candidate_rank<=8
     order by dish_linked desc,named_candidate desc,byte_count desc limit $1
-  `, [limit])).rows;
+  `, [limit,market??null])).rows;
 
   const restaurantIds = [...new Set(rows.map((row) => row.place_id))];
   const menuRows = restaurantIds.length ? (await db.query(
@@ -274,7 +275,7 @@ async function main() {
   try {
     if (rollbackRun) return await rollback(db, rollbackRun);
     const before = await metrics(db);
-    const raw = await loadCandidates(db, candidateLimit);
+    const raw = await loadCandidates(db, candidateLimit, option("market"));
     const withheldBeforeDownload: Evaluated[] = [];
     const prequalified: Candidate[] = [];
     for (const candidate of raw) {

@@ -137,7 +137,9 @@ def fetch_rendered(
                 page.wait_for_timeout(250)
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        # Use the installed full Chromium's supported headless mode. A second
+        # headless-shell binary adds no capability to this collector.
+        browser = playwright.chromium.launch(headless=True, channel="chromium")
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
             viewport={"width": 1440, "height": 1000},

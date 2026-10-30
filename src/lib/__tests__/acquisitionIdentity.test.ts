@@ -12,6 +12,11 @@ const incoming = {
 };
 
 describe("national acquisition identity gates", () => {
+  it("does not merge successive unrelated coffee brands at one address", () => {
+    expect(resolveIdentity({...incoming,name:"Kingdom Coffee",website:"https://kingdomcoffeemn.com",phone:null},[{
+      id:"former-tenant",name:"Dunn Bros Coffee",address:incoming.address,lat:incoming.lat,lng:incoming.lng,website:"https://dunnbrothers.com",phone:null,
+    }]).disposition).toBe("new");
+  });
   it("recovers a location when a strong domain and location agree", () => {
     const result = resolveIdentity(incoming, [{
       id: "existing", name: "Boulder Tap House", lat: 42.0001, lng: -93.6001,
